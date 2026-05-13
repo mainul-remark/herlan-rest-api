@@ -191,6 +191,7 @@
       <a href="#user">User</a>
       <a href="#account">Account</a>
       <a href="#loyalty">Loyalty</a>
+      <a href="#coupons">Coupons</a>
       <a href="#orders">Orders</a>
       <a href="#filters">Product Filters</a>
       <a href="#products">Products</a>
@@ -433,6 +434,99 @@
         </table>
 
         <p>Errors: <code>422 herlan_loyalty_no_phone</code> &nbsp; <code>502 herlan_loyalty_auth_failed</code> &nbsp; <code>503 herlan_loyalty_unavailable</code></p>
+      </section>
+
+      <section id="coupons">
+        <h2>Coupons</h2>
+        <h3><span class="method">GET</span> <code>/user/coupons</code></h3>
+        <p>Returns the authenticated user's coupons from the WooCommerce Smart Coupon plugin. Requires <code>wt-smart-coupon-pro</code> to be active.</p>
+
+        <table>
+          <thead>
+            <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>type</code></td><td>string</td><td>available</td><td><code>available</code>, <code>expired</code>, or <code>used</code></td></tr>
+            <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+            <tr><td><code>per_page</code></td><td>integer</td><td>10</td><td>Max 50</td></tr>
+            <tr><td><code>orderby</code></td><td>string</td><td>created_date:asc</td><td><code>created_date:asc</code>, <code>created_date:desc</code>, <code>amount:asc</code>, <code>amount:desc</code>. Ignored for <code>type=used</code></td></tr>
+          </tbody>
+        </table>
+
+        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/coupons" \
+  -H "Authorization: Bearer MQ.example_token_secret"
+
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/coupons?type=expired&amp;orderby=created_date:desc" \
+  -H "Authorization: Bearer MQ.example_token_secret"
+
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/coupons?type=used&amp;page=2" \
+  -H "Authorization: Bearer MQ.example_token_secret"</pre>
+
+        <pre>{
+  "success": true,
+  "message": "",
+  "data": {
+    "coupons": [
+      {
+        "id": 4210,
+        "code": "WELCOME10",
+        "discount_type": "percent",
+        "coupon_type": "Cart discount",
+        "amount": 10.0,
+        "coupon_amount": "10%",
+        "description": "Welcome discount for new customers.",
+        "free_shipping": false,
+        "starts_at": null,
+        "expires_at": "2026-12-31T23:59:59+00:00",
+        "is_expired": false,
+        "minimum_amount": "500",
+        "maximum_amount": "",
+        "usage_limit": 1,
+        "usage_count": 0,
+        "usage_limit_per_user": 1,
+        "used_by_current_user": 0,
+        "individual_use": true,
+        "email_restrictions": []
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "per_page": 10,
+      "has_more": false
+    }
+  }
+}</pre>
+
+        <p><strong>Pagination note:</strong> <code>type=available</code> and <code>type=expired</code> return <code>has_more</code> only — no <code>total</code> count, because the plugin applies live eligibility rules that make a total count query impractical. <code>type=used</code> additionally returns <code>total</code> and <code>total_pages</code>.</p>
+
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>id</code></td><td>integer</td><td>WooCommerce coupon post ID</td></tr>
+            <tr><td><code>code</code></td><td>string</td><td>Coupon code to apply at checkout</td></tr>
+            <tr><td><code>discount_type</code></td><td>string</td><td>Raw type: <code>fixed_cart</code>, <code>percent</code>, <code>store_credit</code>, <code>wbte_sc_bogo</code>, etc.</td></tr>
+            <tr><td><code>coupon_type</code></td><td>string</td><td>Human label: Cart discount, Product discount, Free shipping, Free products, Store credit, etc.</td></tr>
+            <tr><td><code>amount</code></td><td>float</td><td>Raw numeric discount amount</td></tr>
+            <tr><td><code>coupon_amount</code></td><td>string</td><td>Formatted amount, e.g. <code>৳690</code> or <code>10%</code>. Empty for free shipping / free product coupons</td></tr>
+            <tr><td><code>description</code></td><td>string</td><td>Admin-defined coupon description</td></tr>
+            <tr><td><code>free_shipping</code></td><td>boolean</td><td>Whether the coupon grants free shipping</td></tr>
+            <tr><td><code>starts_at</code></td><td>string|null</td><td>ISO 8601 start date, or <code>null</code> if no start restriction</td></tr>
+            <tr><td><code>expires_at</code></td><td>string|null</td><td>ISO 8601 expiry date, or <code>null</code> if the coupon never expires</td></tr>
+            <tr><td><code>is_expired</code></td><td>boolean</td><td><code>true</code> when <code>expires_at</code> is in the past</td></tr>
+            <tr><td><code>minimum_amount</code></td><td>string</td><td>Minimum order subtotal required, empty if none</td></tr>
+            <tr><td><code>maximum_amount</code></td><td>string</td><td>Maximum order subtotal allowed, empty if none</td></tr>
+            <tr><td><code>usage_limit</code></td><td>integer</td><td>Global usage limit, <code>0</code> = unlimited</td></tr>
+            <tr><td><code>usage_count</code></td><td>integer</td><td>Total times the coupon has been used globally</td></tr>
+            <tr><td><code>usage_limit_per_user</code></td><td>integer</td><td>Per-user usage limit, <code>0</code> = unlimited</td></tr>
+            <tr><td><code>used_by_current_user</code></td><td>integer</td><td>Times the authenticated user has used this coupon</td></tr>
+            <tr><td><code>individual_use</code></td><td>boolean</td><td>Cannot be combined with other coupons if <code>true</code></td></tr>
+            <tr><td><code>email_restrictions</code></td><td>array</td><td>Restricted email addresses, empty array if open to all</td></tr>
+          </tbody>
+        </table>
+
+        <p>Errors: <code>503 herlan_coupons_unavailable</code></p>
       </section>
 
       <section id="orders">
@@ -709,6 +803,7 @@ Retro Rust    | active=false | in_stock=false | color=#803134 | product.id=10138
             <tr><td><code>GET</code></td><td><code>/user/me</code></td><td>Yes</td><td>Current user profile</td></tr>
             <tr><td><code>PUT / PATCH</code></td><td><code>/user/account</code></td><td>Yes</td><td>Update profile, email, or password</td></tr>
             <tr><td><code>GET</code></td><td><code>/user/loyalty</code></td><td>Yes</td><td>Loyalty points, cash, level, and transactions</td></tr>
+            <tr><td><code>GET</code></td><td><code>/user/coupons</code></td><td>Yes</td><td>Available, expired, or used coupons</td></tr>
             <tr><td><code>GET</code></td><td><code>/orders</code></td><td>Yes</td><td>Paginated order history</td></tr>
             <tr><td><code>GET</code></td><td><code>/orders/{id}</code></td><td>Yes</td><td>Single order detail</td></tr>
             <tr><td><code>GET</code></td><td><code>/products/filters</code></td><td>No</td><td>Shop and taxonomy filter metadata</td></tr>

@@ -64,6 +64,7 @@ Protected endpoints:
 - `GET /user/me`
 - `PUT/PATCH /user/account`
 - `GET /user/loyalty`
+- `GET /user/coupons`
 - `GET /orders`
 - `GET /orders/{id}`
 - `GET /payments/methods`
@@ -345,6 +346,106 @@ Errors:
 - `422 herlan_loyalty_no_phone` — no billing phone on the account
 - `502 herlan_loyalty_auth_failed` — loyalty API is unreachable or rejected the request
 - `503 herlan_loyalty_unavailable` — Herlan Loyalty plugin is not active
+
+## Coupons
+
+### `GET /user/coupons`
+
+Returns the authenticated user's coupons from the WooCommerce Smart Coupon plugin. Requires the `wt-smart-coupon-pro` plugin to be active.
+
+Query parameters:
+
+| Parameter | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `type` | string | `available` | `available`, `expired`, or `used` |
+| `page` | integer | `1` | Page number |
+| `per_page` | integer | `10` | Coupons per page, max `50` |
+| `orderby` | string | `created_date:asc` | `created_date:asc`, `created_date:desc`, `amount:asc`, `amount:desc`. Ignored for `type=used` |
+
+Examples:
+
+```bash
+# Available coupons
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/coupons" \
+  -H "Authorization: Bearer MQ.example_token_secret"
+
+# Expired coupons, newest first
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/coupons?type=expired&orderby=created_date:desc" \
+  -H "Authorization: Bearer MQ.example_token_secret"
+
+# Used coupons, page 2
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/coupons?type=used&page=2" \
+  -H "Authorization: Bearer MQ.example_token_secret"
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "coupons": [
+      {
+        "id": 4210,
+        "code": "WELCOME10",
+        "discount_type": "percent",
+        "coupon_type": "Cart discount",
+        "amount": 10.0,
+        "coupon_amount": "10%",
+        "description": "Welcome discount for new customers.",
+        "free_shipping": false,
+        "starts_at": null,
+        "expires_at": "2026-12-31T23:59:59+00:00",
+        "is_expired": false,
+        "minimum_amount": "500",
+        "maximum_amount": "",
+        "usage_limit": 1,
+        "usage_count": 0,
+        "usage_limit_per_user": 1,
+        "used_by_current_user": 0,
+        "individual_use": true,
+        "email_restrictions": []
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "per_page": 10,
+      "has_more": false
+    }
+  }
+}
+```
+
+> **Note:** `type=available` and `type=expired` use `has_more` pagination (no `total` count) because the plugin's coupon eligibility rules are applied live and a total count query is not available. `type=used` includes `total` and `total_pages` because all used coupon codes are fetched from order history upfront.
+
+### Coupon Fields
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | WooCommerce coupon post ID |
+| `code` | string | Coupon code to apply at checkout |
+| `discount_type` | string | Raw type: `fixed_cart`, `fixed_product`, `percent`, `percent_product`, `store_credit`, `wbte_sc_bogo`, etc. |
+| `coupon_type` | string | Human-readable label: `Cart discount`, `Product discount`, `Free shipping`, `Free products`, `Store credit`, etc. |
+| `amount` | float | Raw numeric discount amount |
+| `coupon_amount` | string | Formatted amount, e.g. `৳690` or `10%`. Empty for free shipping / free product coupons |
+| `description` | string | Admin-defined coupon description |
+| `free_shipping` | boolean | Whether the coupon grants free shipping |
+| `starts_at` | string\|null | ISO 8601 start date, or `null` if no start restriction |
+| `expires_at` | string\|null | ISO 8601 expiry date, or `null` if the coupon never expires |
+| `is_expired` | boolean | `true` when `expires_at` is in the past |
+| `minimum_amount` | string | Minimum order subtotal required, empty string if none |
+| `maximum_amount` | string | Maximum order subtotal allowed, empty string if none |
+| `usage_limit` | integer | Global usage limit, `0` means unlimited |
+| `usage_count` | integer | Total number of times the coupon has been used |
+| `usage_limit_per_user` | integer | Per-user usage limit, `0` means unlimited |
+| `used_by_current_user` | integer | Number of times the authenticated user has used this coupon |
+| `individual_use` | boolean | Cannot be combined with other coupons if `true` |
+| `email_restrictions` | array | Email addresses the coupon is restricted to, empty array if open |
+
+Errors:
+
+- `503 herlan_coupons_unavailable` — `wt-smart-coupon-pro` plugin is not active
 
 ## Orders
 
@@ -931,6 +1032,7 @@ Protected endpoints can return:
 | `GET` | `/user/me` | Yes | Current user profile |
 | `PUT/PATCH` | `/user/account` | Yes | Update profile, email, or password |
 | `GET` | `/user/loyalty` | Yes | Loyalty points, cash, level, and transactions |
+| `GET` | `/user/coupons` | Yes | Available, expired, or used coupons |
 | `GET` | `/orders` | Yes | Paginated order history |
 | `GET` | `/orders/{id}` | Yes | Single order detail |
 | `GET` | `/products/filters` | No | Shop and taxonomy filter metadata |
