@@ -4,6 +4,7 @@ namespace HerlanRestApi;
 
 use HerlanRestApi\Controllers\AccountController;
 use HerlanRestApi\Controllers\AppController;
+use HerlanRestApi\Controllers\CouponController;
 use HerlanRestApi\Controllers\AuthController;
 use HerlanRestApi\Controllers\LoyaltyController;
 use HerlanRestApi\Controllers\OrderController;
@@ -65,6 +66,7 @@ final class Plugin
         (new AccountController($auth))->register_routes();
         (new OrderController($auth))->register_routes();
         (new LoyaltyController($auth))->register_routes();
+        (new CouponController($auth))->register_routes();
         (new ProductController())->register_routes();
         (new PaymentController($auth))->register_routes();
     }
