@@ -67,6 +67,9 @@ Protected endpoints:
 - `GET /user/coupons`
 - `GET /orders`
 - `GET /orders/{id}`
+- `GET /wishlist`
+- `POST /wishlist`
+- `DELETE /wishlist/{product_id}`
 - `GET /payments/methods`
 - `POST /payments/create`
 
@@ -977,6 +980,171 @@ Errors:
 - `404 herlan_product_not_found`
 - `500 herlan_woocommerce_unavailable`
 
+## Wishlist
+
+Requires the **TI WooCommerce Wishlist** plugin (`ti-woocommerce-wishlist`) to be active.
+
+### `GET /wishlist`
+
+Returns the authenticated user's wishlist items with pagination.
+
+Query parameters:
+
+| Parameter | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `page` | integer | `1` | Page number |
+| `per_page` | integer | `10` | Items per page, max `50` |
+| `order` | string | `desc` | Sort direction: `asc` or `desc` |
+| `order_by` | string | `date` | Sort field: `date`, `price`, `product_id`, `quantity`, `ID` |
+
+Examples:
+
+```bash
+# Default — newest first
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist" \
+  -H "Authorization: Bearer MQ.example_token_secret"
+
+# Page 2, 20 per page, sorted by price ascending
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist?page=2&per_page=20&order_by=price&order=asc" \
+  -H "Authorization: Bearer MQ.example_token_secret"
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "items": [
+      {
+        "wishlist_item_id": 14,
+        "product_id": 10119,
+        "variation_id": null,
+        "date_added": "2026-05-14 10:23:45",
+        "quantity": 1,
+        "product": {
+          "id": 10119,
+          "name": "Herlan Cushion Matte Lipstick Vintage Vibes",
+          "slug": "herlan-cushion-matte-lipstick-vintage-vibes",
+          "type": "simple",
+          "permalink": "http://localhost/herlanlive3/product/herlan-cushion-matte-lipstick-vintage-vibes/",
+          "sku": "HL-LIP-VV",
+          "price": "690",
+          "regular_price": "690",
+          "sale_price": "",
+          "price_html": "<span class=\"woocommerce-Price-amount amount\">৳690</span>",
+          "on_sale": false,
+          "stock_status": "instock",
+          "in_stock": true,
+          "image": {
+            "id": 301,
+            "src": "http://localhost/herlanlive3/wp-content/uploads/product.jpg",
+            "alt": "Herlan Cushion Matte Lipstick"
+          }
+        }
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "per_page": 10,
+      "total": 24,
+      "total_pages": 3
+    }
+  }
+}
+```
+
+Errors:
+
+- `500 herlan_wishlist_unavailable` — TI WooCommerce Wishlist plugin is not active
+
+### `POST /wishlist`
+
+Adds a product to the authenticated user's wishlist. If the product is already in the wishlist it is updated in place.
+
+Request body:
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `product_id` | integer | Yes | WooCommerce product ID |
+| `variation_id` | integer | No | Variation ID for variable products, defaults to `0` |
+
+Example — simple product:
+
+```bash
+curl -X POST "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist" \
+  -H "Authorization: Bearer MQ.example_token_secret" \
+  -H "Content-Type: application/json" \
+  -d "{\"product_id\": 10119}"
+```
+
+Example — variable product:
+
+```bash
+curl -X POST "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist" \
+  -H "Authorization: Bearer MQ.example_token_secret" \
+  -H "Content-Type: application/json" \
+  -d "{\"product_id\": 10200, \"variation_id\": 10205}"
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Product added to wishlist.",
+  "data": {}
+}
+```
+
+Errors:
+
+- `404 herlan_product_not_found`
+- `500 herlan_wishlist_unavailable`
+- `500 herlan_wishlist_error` — could not retrieve or create wishlist
+- `500 herlan_wishlist_add_failed` — plugin rejected the add operation
+
+### `DELETE /wishlist/{product_id}`
+
+Removes a product from the authenticated user's wishlist.
+
+Query parameters:
+
+| Parameter | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `variation_id` | integer | No | Required when the wishlisted item is a variation |
+
+Example — simple product:
+
+```bash
+curl -X DELETE "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist/10119" \
+  -H "Authorization: Bearer MQ.example_token_secret"
+```
+
+Example — variation:
+
+```bash
+curl -X DELETE "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist/10200?variation_id=10205" \
+  -H "Authorization: Bearer MQ.example_token_secret"
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Product removed from wishlist.",
+  "data": {}
+}
+```
+
+Errors:
+
+- `404 herlan_wishlist_not_found` — user has no wishlist yet
+- `500 herlan_wishlist_unavailable`
+- `500 herlan_wishlist_remove_failed` — plugin rejected the remove operation
+
 ## Payments
 
 Payment endpoints are placeholders and require gateway integration before production use.
@@ -1037,5 +1205,8 @@ Protected endpoints can return:
 | `GET` | `/orders/{id}` | Yes | Single order detail |
 | `GET` | `/products/filters` | No | Shop and taxonomy filter metadata |
 | `GET` | `/products/{id}` | No | Single product details |
+| `GET` | `/wishlist` | Yes | Get user's wishlist items |
+| `POST` | `/wishlist` | Yes | Add product to wishlist |
+| `DELETE` | `/wishlist/{product_id}` | Yes | Remove product from wishlist |
 | `GET` | `/payments/methods` | Yes | Payment method list placeholder |
 | `POST` | `/payments/create` | Yes | Payment creation placeholder |
