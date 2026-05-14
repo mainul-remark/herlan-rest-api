@@ -53,10 +53,13 @@ Tokens are issued by login/register and expire after 30 days.
 Public endpoints:
 
 - `GET /status`
+- `GET /promo-bar`
+- `GET /header-config`
 - `POST /auth/login`
 - `POST /auth/register`
 - `GET /products/{id}`
 - `GET /products/filters`
+- `GET /drawer-brands-categories`
 
 Protected endpoints:
 
@@ -100,6 +103,112 @@ Response:
   }
 }
 ```
+
+## Promo Bar
+
+### `GET /promo-bar`
+
+Returns the site-wide promotional top bar configuration saved under **Herlan Settings → Top Bar Promo**. Mobile apps use this to decide whether to show the banner and with what content.
+
+This endpoint is public.
+
+Example:
+
+```bash
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/promo-bar"
+```
+
+Response — promo bar enabled:
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "enabled": true,
+    "bg_color": "#D50032",
+    "text": "<p>Free shipping on orders over <strong>৳999</strong>!</p>"
+  }
+}
+```
+
+Response — promo bar disabled:
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "enabled": false,
+    "bg_color": "#333333",
+    "text": ""
+  }
+}
+```
+
+### Fields
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `enabled` | boolean | Whether the promo bar is turned on in admin settings |
+| `bg_color` | string | Hex background color for the bar, e.g. `#D50032` |
+| `text` | string | Sanitized HTML content to display inside the bar |
+
+> When `enabled` is `false`, hide the bar entirely regardless of `text` or `bg_color` values.
+
+## Header Config
+
+### `GET /header-config`
+
+Returns the header appearance settings saved under **Herlan Settings → Header**. Mobile apps use this to theme the app header colors and optionally display decorative ornament images.
+
+This endpoint is public.
+
+Example:
+
+```bash
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/header-config"
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "top_bar": {
+      "bg_color": "#ffffff",
+      "text_color": "#000000"
+    },
+    "nav": {
+      "bg_color": "#ffffff",
+      "text_color": "#000000"
+    },
+    "mini_cart_badge_color": "#D50032",
+    "ornaments": {
+      "enabled": true,
+      "left": "https://herlan.com/wp-content/uploads/ornament-left.png",
+      "right": "https://herlan.com/wp-content/uploads/ornament-right.png"
+    }
+  }
+}
+```
+
+### Fields
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `top_bar.bg_color` | string | Hex background color for the top bar |
+| `top_bar.text_color` | string | Hex text color for the top bar |
+| `nav.bg_color` | string | Hex background color for the navigation bar |
+| `nav.text_color` | string | Hex text color for the navigation bar |
+| `mini_cart_badge_color` | string | Hex background color for the cart item count badge |
+| `ornaments.enabled` | boolean | Whether header ornament images are active |
+| `ornaments.left` | string | URL of the left ornament image, empty string if not set |
+| `ornaments.right` | string | URL of the right ornament image, empty string if not set |
+
+> When `ornaments.enabled` is `false`, ignore the `left` and `right` image URLs.
 
 ## Auth
 
@@ -980,6 +1089,186 @@ Errors:
 - `404 herlan_product_not_found`
 - `500 herlan_woocommerce_unavailable`
 
+## Navigation
+
+Returns all product categories (as a nested tree) and brands in a single request. Designed for mobile app navigation menus and category drawers.
+
+This endpoint is public.
+
+### `GET /drawer-brands-categories`
+
+Query parameters:
+
+| Parameter | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `hide_empty` | boolean | `true` | Exclude categories and brands that have no products |
+| `categories_flat` | boolean | `false` | Return categories as a flat list instead of a nested tree |
+| `order` | string | `asc` | Sort direction: `asc` or `desc` |
+| `order_by` | string | `name` | Sort field: `name`, `count`, `id`, `slug` |
+
+Examples:
+
+```bash
+# Default — nested categories + brands
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/navigation"
+
+# Flat category list, sorted by product count descending
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/navigation?categories_flat=true&order_by=count&order=desc"
+
+# Include empty categories and brands
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/navigation?hide_empty=false"
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "categories": [
+      {
+        "id": 5,
+        "name": "Makeup",
+        "slug": "makeup",
+        "description": "",
+        "count": 50,
+        "parent": 0,
+        "link": "https://herlan.com/product-category/makeup/",
+        "image": {
+          "id": 301,
+          "src": "https://herlan.com/wp-content/uploads/makeup.jpg",
+          "alt": "Makeup"
+        },
+        "children": [
+          {
+            "id": 8,
+            "name": "Lips",
+            "slug": "lips",
+            "description": "",
+            "count": 20,
+            "parent": 5,
+            "link": "https://herlan.com/product-category/makeup/lips/",
+            "image": null,
+            "children": []
+          },
+          {
+            "id": 9,
+            "name": "Eyes",
+            "slug": "eyes",
+            "description": "",
+            "count": 15,
+            "parent": 5,
+            "link": "https://herlan.com/product-category/makeup/eyes/",
+            "image": null,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "name": "Skin Care",
+        "slug": "skin-care",
+        "description": "",
+        "count": 30,
+        "parent": 0,
+        "link": "https://herlan.com/product-category/skin-care/",
+        "image": {
+          "id": 302,
+          "src": "https://herlan.com/wp-content/uploads/skin-care.jpg",
+          "alt": "Skin Care"
+        },
+        "children": []
+      }
+    ],
+    "total_categories": 12,
+    "brands": [
+      {
+        "id": 12,
+        "name": "Herlan",
+        "slug": "herlan",
+        "description": "",
+        "count": 124,
+        "link": "https://herlan.com/brand/herlan/",
+        "image": {
+          "id": 502,
+          "src": "https://herlan.com/wp-content/uploads/herlan-logo.jpg",
+          "alt": "Herlan"
+        }
+      },
+      {
+        "id": 13,
+        "name": "Herlan Pro",
+        "slug": "herlan-pro",
+        "description": "",
+        "count": 45,
+        "link": "https://herlan.com/brand/herlan-pro/",
+        "image": {
+          "id": 503,
+          "src": "https://herlan.com/wp-content/uploads/herlan-pro-logo.jpg",
+          "alt": "Herlan Pro"
+        }
+      }
+    ],
+    "total_brands": 5
+  }
+}
+```
+
+### Category Fields
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | Term ID |
+| `name` | string | Category name |
+| `slug` | string | Category slug |
+| `description` | string | Category description |
+| `count` | integer | Number of products in this category |
+| `parent` | integer | Parent term ID, `0` for top-level categories |
+| `link` | string\|null | Category archive URL |
+| `image` | object\|null | Category thumbnail (`thumbnail_id` meta) |
+| `children` | array | Nested child categories, empty array if none |
+
+### Brand Fields
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | Term ID |
+| `name` | string | Brand name |
+| `slug` | string | Brand slug |
+| `description` | string | Brand description |
+| `count` | integer | Number of products under this brand |
+| `link` | string\|null | Brand archive URL |
+| `image` | object\|null | Brand logo (`logo` meta) |
+
+### Image Object
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | WordPress attachment ID |
+| `src` | string | Full image URL |
+| `alt` | string | Image alt text |
+
+### Flat Category Response
+
+When `categories_flat=true`, categories are returned as a plain array ordered by the `order_by` parameter. The `parent` field identifies the hierarchy and `children` is always an empty array.
+
+```json
+{
+  "data": {
+    "categories": [
+      { "id": 9,  "name": "Eyes",      "parent": 5, "children": [] },
+      { "id": 8,  "name": "Lips",      "parent": 5, "children": [] },
+      { "id": 5,  "name": "Makeup",    "parent": 0, "children": [] },
+      { "id": 6,  "name": "Skin Care", "parent": 0, "children": [] }
+    ],
+    "total_categories": 4,
+    "brands": [],
+    "total_brands": 0
+  }
+}
+```
+
 ## Wishlist
 
 Requires the **TI WooCommerce Wishlist** plugin (`ti-woocommerce-wishlist`) to be active.
@@ -1194,6 +1483,8 @@ Protected endpoints can return:
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
 | `GET` | `/status` | No | API status |
+| `GET` | `/promo-bar` | No | Promotional top bar settings |
+| `GET` | `/header-config` | No | Header colors and ornament settings |
 | `POST` | `/auth/login` | No | Login and issue token |
 | `POST` | `/auth/register` | No | Register and issue token |
 | `POST` | `/auth/logout` | Yes | Revoke current token |
@@ -1205,6 +1496,7 @@ Protected endpoints can return:
 | `GET` | `/orders/{id}` | Yes | Single order detail |
 | `GET` | `/products/filters` | No | Shop and taxonomy filter metadata |
 | `GET` | `/products/{id}` | No | Single product details |
+| `GET` | `/navigation` | No | Nested categories and brands in one request |
 | `GET` | `/wishlist` | Yes | Get user's wishlist items |
 | `POST` | `/wishlist` | Yes | Add product to wishlist |
 | `DELETE` | `/wishlist/{product_id}` | Yes | Remove product from wishlist |
