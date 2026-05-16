@@ -55,6 +55,7 @@ Public endpoints:
 - `GET /status`
 - `GET /promo-bar`
 - `GET /header-config`
+- `GET /image-popup`
 - `POST /auth/login`
 - `POST /auth/register`
 - `GET /products/{id}`
@@ -209,6 +210,62 @@ Response:
 | `ornaments.right` | string | URL of the right ornament image, empty string if not set |
 
 > When `ornaments.enabled` is `false`, ignore the `left` and `right` image URLs.
+
+## Image Popup
+
+### `GET /image-popup`
+
+Returns the image popup configuration saved under **Herlan Settings → Image Popup**. Mobile apps use this to decide whether to display a promotional popup, when to show it again, and which image to use.
+
+This endpoint is public.
+
+Example:
+
+```bash
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/image-popup"
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "enabled": true,
+    "display_location": "all",
+    "show_again_after": {
+      "hours": 24,
+      "minutes": 0,
+      "seconds": 0
+    },
+    "image": "https://herlan.com/wp-content/uploads/popup-desktop.jpg",
+    "mobile": {
+      "enabled": true,
+      "image": "https://herlan.com/wp-content/uploads/popup-mobile.jpg"
+    },
+    "cta_url": "https://herlan.com/shop/"
+  }
+}
+```
+
+### Fields
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `enabled` | boolean | Whether the popup is active |
+| `display_location` | string | `all` — all pages, `checkout` — checkout page only |
+| `show_again_after.hours` | integer | Hours before the popup is shown again |
+| `show_again_after.minutes` | integer | Additional minutes |
+| `show_again_after.seconds` | integer | Additional seconds. All three at `0` means show on every page load |
+| `image` | string\|null | Desktop popup image URL, `null` if not set |
+| `mobile.enabled` | boolean | Whether a separate mobile image is configured |
+| `mobile.image` | string\|null | Mobile popup image URL, `null` if not set |
+| `cta_url` | string\|null | URL to open when the popup image is tapped, `null` if not set |
+
+> **Mobile image logic:** if `mobile.enabled` is `true` and `mobile.image` is not `null`, use `mobile.image` on mobile devices. Otherwise fall back to `image`.
+
+> **Show again timer:** store the timestamp when the popup was last shown locally on the device and compare it against the total interval (`hours × 3600 + minutes × 60 + seconds`) to decide whether to show the popup again.
 
 ## Auth
 
@@ -1485,6 +1542,7 @@ Protected endpoints can return:
 | `GET` | `/status` | No | API status |
 | `GET` | `/promo-bar` | No | Promotional top bar settings |
 | `GET` | `/header-config` | No | Header colors and ornament settings |
+| `GET` | `/image-popup` | No | Image popup configuration |
 | `POST` | `/auth/login` | No | Login and issue token |
 | `POST` | `/auth/register` | No | Register and issue token |
 | `POST` | `/auth/logout` | Yes | Revoke current token |

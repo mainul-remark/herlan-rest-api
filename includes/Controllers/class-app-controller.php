@@ -31,6 +31,12 @@ final class AppController extends Controller
             'callback'            => [$this, 'header_config'],
             'permission_callback' => '__return_true',
         ]);
+
+        register_rest_route($this->namespace, '/image-popup', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [$this, 'image_popup'],
+            'permission_callback' => '__return_true',
+        ]);
     }
 
     public function status()
@@ -60,20 +66,39 @@ final class AppController extends Controller
         $options = is_array($options) ? $options : [];
 
         return Response::success([
-            'top_bar'              => [
+            'top_bar'               => [
                 'bg_color'   => $options['herlan_header_top_bar_bg'] ?? '#ffffff',
                 'text_color' => $options['herlan_header_top_bar_text_color'] ?? '#000000',
             ],
-            'nav'                  => [
+            'nav'                   => [
                 'bg_color'   => $options['herlan_header_nav_bg'] ?? '#ffffff',
                 'text_color' => $options['herlan_header_nav_text_color'] ?? '#000000',
             ],
             'mini_cart_badge_color' => $options['herlan_mini_count_bg_color'] ?? '#D50032',
-            'ornaments'            => [
+            'ornaments'             => [
                 'enabled' => ($options['enable_header_ornaments'] ?? 'off') === 'on',
                 'left'    => $options['header_ornament_left'] ?? '',
                 'right'   => $options['header_ornament_right'] ?? '',
             ],
+        ]);
+    }
+
+    public function image_popup()
+    {
+        return Response::success([
+            'enabled'          => get_option('herlan_popup_enabled', '0') === '1',
+            'display_location' => get_option('herlan_popup_display_location', 'all'),
+            'show_again_after' => [
+                'hours'   => (int) get_option('herlan_popup_interval_hours', 24),
+                'minutes' => (int) get_option('herlan_popup_interval_minutes', 0),
+                'seconds' => (int) get_option('herlan_popup_interval_seconds', 0),
+            ],
+            'image'            => get_option('herlan_popup_image', '') ?: null,
+            'mobile'           => [
+                'enabled' => get_option('herlan_popup_mobile_enabled', '0') === '1',
+                'image'   => get_option('herlan_popup_mobile_image', '') ?: null,
+            ],
+            'cta_url'          => get_option('herlan_popup_cta_url', '') ?: null,
         ]);
     }
 }
