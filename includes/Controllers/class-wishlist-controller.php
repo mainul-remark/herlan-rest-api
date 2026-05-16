@@ -15,7 +15,7 @@ if (! defined('ABSPATH')) {
 
 final class WishlistController extends Controller
 {
-    private const ALLOWED_ORDER_BY = ['date', 'price', 'product_id', 'quantity', 'ID'];
+    private const ALLOWED_ORDER_BY = ['date', 'price', 'product_id', 'quantity', 'id'];
 
     public function register_routes(): void
     {
@@ -32,7 +32,7 @@ final class WishlistController extends Controller
                         'type'              => 'string',
                         'default'           => 'desc',
                         'enum'              => ['asc', 'desc'],
-                        'sanitize_callback' => 'strtolower',
+                        'sanitize_callback' => static fn ($v) => strtolower((string) $v),
                     ],
                     'order_by' => [
                         'required'          => false,
@@ -192,14 +192,15 @@ final class WishlistController extends Controller
 
     private function get_user_wishlist(int $user_id): ?array
     {
-        $wl       = new \TInvWL_Wishlist();
-        $results  = $wl->get_by_user_default($user_id);
+        $wl      = new \TInvWL_Wishlist();
+        $results = $wl->get_by_user_default($user_id);
 
-        if (! is_array($results)) {
+        // get_by_user_default returns an array-of-wishlists; TInvWL_Product needs a single wishlist.
+        if (empty($results) || ! is_array($results)) {
             return null;
         }
 
-        return $results;
+        return array_shift($results);
     }
 
     private function get_or_create_user_wishlist(int $user_id): ?array

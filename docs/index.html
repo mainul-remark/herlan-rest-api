@@ -187,6 +187,9 @@
       <a href="#response-format">Response Format</a>
       <a href="#authentication">Authentication</a>
       <a href="#status">Status</a>
+      <a href="#promo-bar">Promo Bar</a>
+      <a href="#header-config">Header Config</a>
+      <a href="#image-popup">Image Popup</a>
       <a href="#auth">Auth</a>
       <a href="#user">User</a>
       <a href="#account">Account</a>
@@ -197,7 +200,10 @@
       <a href="#products">Products</a>
       <a href="#recommendations">Recommendations</a>
       <a href="#linked-products">Linked Products</a>
+      <a href="#navigation">Navigation</a>
+      <a href="#wishlist">Wishlist</a>
       <a href="#payments">Payments</a>
+      <a href="#auth-error-codes">Auth Error Codes</a>
       <a href="#routes">Route Inventory</a>
     </nav>
 
@@ -233,6 +239,8 @@
         <p>Protected endpoints require this header:</p>
         <pre>Authorization: Bearer USER_ID_BASE64.SECRET</pre>
         <p>Tokens are issued by login/register and expire after 30 days.</p>
+        <p>Public endpoints: <code>GET /status</code>, <code>GET /promo-bar</code>, <code>GET /header-config</code>, <code>GET /image-popup</code>, <code>POST /auth/login</code>, <code>POST /auth/register</code>, <code>GET /products/{id}</code>, <code>GET /products/filters</code>, <code>GET /drawer-brands-categories</code>.</p>
+        <p>Protected endpoints: <code>POST /auth/logout</code>, <code>GET /user/me</code>, <code>PUT/PATCH /user/account</code>, <code>GET /user/loyalty</code>, <code>GET /user/coupons</code>, <code>GET /orders</code>, <code>GET /orders/{id}</code>, <code>GET /wishlist</code>, <code>POST /wishlist</code>, <code>DELETE /wishlist/{product_id}</code>, <code>GET /payments/methods</code>, <code>POST /payments/create</code>.</p>
         <p>Protected endpoint auth errors: <code>herlan_missing_token</code>, <code>herlan_invalid_token</code>, <code>herlan_expired_token</code>.</p>
       </section>
 
@@ -250,6 +258,132 @@
     "timezone": "Asia/Dhaka"
   }
 }</pre>
+      </section>
+
+      <section id="promo-bar">
+        <h2>Promo Bar</h2>
+        <h3><span class="method">GET</span> <code>/promo-bar</code></h3>
+        <p>Returns the site-wide promotional top bar configuration saved under <strong>Herlan Settings -> Top Bar Promo</strong>. Mobile apps use this to decide whether to show the banner and what content to display.</p>
+        <p>This endpoint is public.</p>
+        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/promo-bar"</pre>
+        <pre>{
+  "success": true,
+  "message": "",
+  "data": {
+    "enabled": true,
+    "bg_color": "#D50032",
+    "text": "<p>Free shipping on orders over <strong>৳999</strong>!</p>"
+  }
+}</pre>
+        <pre>{
+  "success": true,
+  "message": "",
+  "data": {
+    "enabled": false,
+    "bg_color": "#333333",
+    "text": ""
+  }
+}</pre>
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>enabled</code></td><td>boolean</td><td>Whether the promo bar is turned on in admin settings</td></tr>
+            <tr><td><code>bg_color</code></td><td>string</td><td>Hex background color for the bar, e.g. <code>#D50032</code></td></tr>
+            <tr><td><code>text</code></td><td>string</td><td>Sanitized HTML content to display inside the bar</td></tr>
+          </tbody>
+        </table>
+        <p class="muted">When <code>enabled</code> is <code>false</code>, hide the bar entirely regardless of <code>text</code> or <code>bg_color</code> values.</p>
+      </section>
+
+      <section id="header-config">
+        <h2>Header Config</h2>
+        <h3><span class="method">GET</span> <code>/header-config</code></h3>
+        <p>Returns the header appearance settings saved under <strong>Herlan Settings -> Header</strong>. Mobile apps use this to theme the app header colors and optionally display decorative ornament images.</p>
+        <p>This endpoint is public.</p>
+        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/header-config"</pre>
+        <pre>{
+  "success": true,
+  "message": "",
+  "data": {
+    "top_bar": {
+      "bg_color": "#ffffff",
+      "text_color": "#000000"
+    },
+    "nav": {
+      "bg_color": "#ffffff",
+      "text_color": "#000000"
+    },
+    "mini_cart_badge_color": "#D50032",
+    "ornaments": {
+      "enabled": true,
+      "left": "https://herlan.com/wp-content/uploads/ornament-left.png",
+      "right": "https://herlan.com/wp-content/uploads/ornament-right.png"
+    }
+  }
+}</pre>
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>top_bar.bg_color</code></td><td>string</td><td>Hex background color for the top bar</td></tr>
+            <tr><td><code>top_bar.text_color</code></td><td>string</td><td>Hex text color for the top bar</td></tr>
+            <tr><td><code>nav.bg_color</code></td><td>string</td><td>Hex background color for the navigation bar</td></tr>
+            <tr><td><code>nav.text_color</code></td><td>string</td><td>Hex text color for the navigation bar</td></tr>
+            <tr><td><code>mini_cart_badge_color</code></td><td>string</td><td>Hex background color for the cart item count badge</td></tr>
+            <tr><td><code>ornaments.enabled</code></td><td>boolean</td><td>Whether header ornament images are active</td></tr>
+            <tr><td><code>ornaments.left</code></td><td>string</td><td>URL of the left ornament image, empty string if not set</td></tr>
+            <tr><td><code>ornaments.right</code></td><td>string</td><td>URL of the right ornament image, empty string if not set</td></tr>
+          </tbody>
+        </table>
+        <p class="muted">When <code>ornaments.enabled</code> is <code>false</code>, ignore the <code>left</code> and <code>right</code> image URLs.</p>
+      </section>
+
+      <section id="image-popup">
+        <h2>Image Popup</h2>
+        <h3><span class="method">GET</span> <code>/image-popup</code></h3>
+        <p>Returns the image popup configuration saved under <strong>Herlan Settings -> Image Popup</strong>. Mobile apps use this to decide whether to display a promotional popup, when to show it again, and which image to use.</p>
+        <p>This endpoint is public.</p>
+        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/image-popup"</pre>
+        <pre>{
+  "success": true,
+  "message": "",
+  "data": {
+    "enabled": true,
+    "display_location": "all",
+    "show_again_after": {
+      "hours": 24,
+      "minutes": 0,
+      "seconds": 0
+    },
+    "image": "https://herlan.com/wp-content/uploads/popup-desktop.jpg",
+    "mobile": {
+      "enabled": true,
+      "image": "https://herlan.com/wp-content/uploads/popup-mobile.jpg"
+    },
+    "cta_url": "https://herlan.com/shop/"
+  }
+}</pre>
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>enabled</code></td><td>boolean</td><td>Whether the popup is active</td></tr>
+            <tr><td><code>display_location</code></td><td>string</td><td><code>all</code> for all pages, <code>checkout</code> for checkout only</td></tr>
+            <tr><td><code>show_again_after.hours</code></td><td>integer</td><td>Hours before the popup is shown again</td></tr>
+            <tr><td><code>show_again_after.minutes</code></td><td>integer</td><td>Additional minutes</td></tr>
+            <tr><td><code>show_again_after.seconds</code></td><td>integer</td><td>Additional seconds. All three at <code>0</code> means show on every page load</td></tr>
+            <tr><td><code>image</code></td><td>string|null</td><td>Desktop popup image URL, <code>null</code> if not set</td></tr>
+            <tr><td><code>mobile.enabled</code></td><td>boolean</td><td>Whether a separate mobile image is configured</td></tr>
+            <tr><td><code>mobile.image</code></td><td>string|null</td><td>Mobile popup image URL, <code>null</code> if not set</td></tr>
+            <tr><td><code>cta_url</code></td><td>string|null</td><td>URL to open when the popup image is tapped, <code>null</code> if not set</td></tr>
+          </tbody>
+        </table>
+        <p class="muted"><strong>Mobile image logic:</strong> if <code>mobile.enabled</code> is <code>true</code> and <code>mobile.image</code> is not <code>null</code>, use <code>mobile.image</code> on mobile devices. Otherwise fall back to <code>image</code>.</p>
+        <p class="muted"><strong>Show again timer:</strong> store the timestamp when the popup was last shown locally on the device and compare it against the total interval (<code>hours × 3600 + minutes × 60 + seconds</code>) to decide whether to show the popup again.</p>
       </section>
 
       <section id="auth">
@@ -773,15 +907,329 @@ Disco Diva    | active=false | in_stock=true  | color=#3e7155 | product.id=10150
 Retro Rust    | active=false | in_stock=false | color=#803134 | product.id=10138</pre>
       </section>
 
+      <section id="navigation">
+        <h2>Navigation</h2>
+        <p>Returns all product categories as a nested tree and brands in a single request. Designed for mobile app navigation menus and category drawers.</p>
+        <p>This endpoint is public.</p>
+        <h3><span class="method">GET</span> <code>/drawer-brands-categories</code></h3>
+        <table>
+          <thead>
+            <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>hide_empty</code></td><td>boolean</td><td>true</td><td>Exclude categories and brands that have no products</td></tr>
+            <tr><td><code>categories_flat</code></td><td>boolean</td><td>false</td><td>Return categories as a flat list instead of a nested tree</td></tr>
+            <tr><td><code>order</code></td><td>string</td><td>asc</td><td>Sort direction: <code>asc</code> or <code>desc</code></td></tr>
+            <tr><td><code>order_by</code></td><td>string</td><td>name</td><td>Sort field: <code>name</code>, <code>count</code>, <code>id</code>, <code>slug</code></td></tr>
+          </tbody>
+        </table>
+        <pre># Default - nested categories + brands
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/navigation"
+
+# Flat category list, sorted by product count descending
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/navigation?categories_flat=true&order_by=count&order=desc"
+
+# Include empty categories and brands
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/navigation?hide_empty=false"</pre>
+        <pre>{
+  "success": true,
+  "message": "",
+  "data": {
+    "categories": [
+      {
+        "id": 5,
+        "name": "Makeup",
+        "slug": "makeup",
+        "description": "",
+        "count": 50,
+        "parent": 0,
+        "link": "https://herlan.com/product-category/makeup/",
+        "image": {
+          "id": 301,
+          "src": "https://herlan.com/wp-content/uploads/makeup.jpg",
+          "alt": "Makeup"
+        },
+        "children": [
+          {
+            "id": 8,
+            "name": "Lips",
+            "slug": "lips",
+            "description": "",
+            "count": 20,
+            "parent": 5,
+            "link": "https://herlan.com/product-category/makeup/lips/",
+            "image": null,
+            "children": []
+          },
+          {
+            "id": 9,
+            "name": "Eyes",
+            "slug": "eyes",
+            "description": "",
+            "count": 15,
+            "parent": 5,
+            "link": "https://herlan.com/product-category/makeup/eyes/",
+            "image": null,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "name": "Skin Care",
+        "slug": "skin-care",
+        "description": "",
+        "count": 30,
+        "parent": 0,
+        "link": "https://herlan.com/product-category/skin-care/",
+        "image": {
+          "id": 302,
+          "src": "https://herlan.com/wp-content/uploads/skin-care.jpg",
+          "alt": "Skin Care"
+        },
+        "children": []
+      }
+    ],
+    "total_categories": 12,
+    "brands": [
+      {
+        "id": 12,
+        "name": "Herlan",
+        "slug": "herlan",
+        "description": "",
+        "count": 124,
+        "link": "https://herlan.com/brand/herlan/",
+        "image": {
+          "id": 502,
+          "src": "https://herlan.com/wp-content/uploads/herlan-logo.jpg",
+          "alt": "Herlan"
+        }
+      },
+      {
+        "id": 13,
+        "name": "Herlan Pro",
+        "slug": "herlan-pro",
+        "description": "",
+        "count": 45,
+        "link": "https://herlan.com/brand/herlan-pro/",
+        "image": {
+          "id": 503,
+          "src": "https://herlan.com/wp-content/uploads/herlan-pro-logo.jpg",
+          "alt": "Herlan Pro"
+        }
+      }
+    ],
+    "total_brands": 5
+  }
+}</pre>
+        <h3>Category Fields</h3>
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>id</code></td><td>integer</td><td>Term ID</td></tr>
+            <tr><td><code>name</code></td><td>string</td><td>Category name</td></tr>
+            <tr><td><code>slug</code></td><td>string</td><td>Category slug</td></tr>
+            <tr><td><code>description</code></td><td>string</td><td>Category description</td></tr>
+            <tr><td><code>count</code></td><td>integer</td><td>Number of products in this category</td></tr>
+            <tr><td><code>parent</code></td><td>integer</td><td>Parent term ID, <code>0</code> for top-level categories</td></tr>
+            <tr><td><code>link</code></td><td>string|null</td><td>Category archive URL</td></tr>
+            <tr><td><code>image</code></td><td>object|null</td><td>Category thumbnail (<code>thumbnail_id</code> meta)</td></tr>
+            <tr><td><code>children</code></td><td>array</td><td>Nested child categories, empty array if none</td></tr>
+          </tbody>
+        </table>
+        <h3>Brand Fields</h3>
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>id</code></td><td>integer</td><td>Term ID</td></tr>
+            <tr><td><code>name</code></td><td>string</td><td>Brand name</td></tr>
+            <tr><td><code>slug</code></td><td>string</td><td>Brand slug</td></tr>
+            <tr><td><code>description</code></td><td>string</td><td>Brand description</td></tr>
+            <tr><td><code>count</code></td><td>integer</td><td>Number of products under this brand</td></tr>
+            <tr><td><code>link</code></td><td>string|null</td><td>Brand archive URL</td></tr>
+            <tr><td><code>image</code></td><td>object|null</td><td>Brand logo (<code>logo</code> meta)</td></tr>
+          </tbody>
+        </table>
+        <h3>Image Object</h3>
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>id</code></td><td>integer</td><td>WordPress attachment ID</td></tr>
+            <tr><td><code>src</code></td><td>string</td><td>Full image URL</td></tr>
+            <tr><td><code>alt</code></td><td>string</td><td>Image alt text</td></tr>
+          </tbody>
+        </table>
+        <h3>Flat Category Response</h3>
+        <p>When <code>categories_flat=true</code>, categories are returned as a plain array ordered by the <code>order_by</code> parameter. The <code>parent</code> field identifies the hierarchy and <code>children</code> is always an empty array.</p>
+        <pre>{
+  "data": {
+    "categories": [
+      { "id": 9,  "name": "Eyes",      "parent": 5, "children": [] },
+      { "id": 8,  "name": "Lips",      "parent": 5, "children": [] },
+      { "id": 5,  "name": "Makeup",    "parent": 0, "children": [] },
+      { "id": 6,  "name": "Skin Care", "parent": 0, "children": [] }
+    ],
+    "total_categories": 4,
+    "brands": [],
+    "total_brands": 0
+  }
+}</pre>
+      </section>
+
+      <section id="wishlist">
+        <h2>Wishlist</h2>
+        <p>Requires the <strong>TI WooCommerce Wishlist</strong> plugin (<code>ti-woocommerce-wishlist</code>) to be active.</p>
+        <h3><span class="method">GET</span> <code>/wishlist</code></h3>
+        <p>Returns the authenticated user's wishlist items with pagination.</p>
+        <table>
+          <thead>
+            <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+            <tr><td><code>per_page</code></td><td>integer</td><td>10</td><td>Items per page, max 50</td></tr>
+            <tr><td><code>order</code></td><td>string</td><td>desc</td><td>Sort direction: <code>asc</code> or <code>desc</code></td></tr>
+            <tr><td><code>order_by</code></td><td>string</td><td>date</td><td>Sort field: <code>date</code>, <code>price</code>, <code>product_id</code>, <code>quantity</code>, <code>ID</code></td></tr>
+          </tbody>
+        </table>
+        <pre># Default - newest first
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist" \
+  -H "Authorization: Bearer MQ.example_token_secret"
+
+# Page 2, 20 per page, sorted by price ascending
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist?page=2&per_page=20&order_by=price&order=asc" \
+  -H "Authorization: Bearer MQ.example_token_secret"</pre>
+        <pre>{
+  "success": true,
+  "message": "",
+  "data": {
+    "items": [
+      {
+        "wishlist_item_id": 14,
+        "product_id": 10119,
+        "variation_id": null,
+        "date_added": "2026-05-14 10:23:45",
+        "quantity": 1,
+        "product": {
+          "id": 10119,
+          "name": "Herlan Cushion Matte Lipstick Vintage Vibes",
+          "slug": "herlan-cushion-matte-lipstick-vintage-vibes",
+          "type": "simple",
+          "permalink": "http://localhost/herlanlive3/product/herlan-cushion-matte-lipstick-vintage-vibes/",
+          "sku": "HL-LIP-VV",
+          "price": "690",
+          "regular_price": "690",
+          "sale_price": "",
+          "price_html": "<span class=\"woocommerce-Price-amount amount\">৳690</span>",
+          "on_sale": false,
+          "stock_status": "instock",
+          "in_stock": true,
+          "image": {
+            "id": 301,
+            "src": "http://localhost/herlanlive3/wp-content/uploads/product.jpg",
+            "alt": "Herlan Cushion Matte Lipstick"
+          }
+        }
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "per_page": 10,
+      "total": 24,
+      "total_pages": 3
+    }
+  }
+}</pre>
+        <p>Errors: <code>500 herlan_wishlist_unavailable</code> - TI WooCommerce Wishlist plugin is not active</p>
+
+        <h3><span class="method">POST</span> <code>/wishlist</code></h3>
+        <p>Adds a product to the authenticated user's wishlist. If the product is already in the wishlist it is updated in place.</p>
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>product_id</code></td><td>integer</td><td>Yes</td><td>WooCommerce product ID</td></tr>
+            <tr><td><code>variation_id</code></td><td>integer</td><td>No</td><td>Variation ID for variable products, defaults to <code>0</code></td></tr>
+          </tbody>
+        </table>
+        <pre>curl -X POST "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist" \
+  -H "Authorization: Bearer MQ.example_token_secret" \
+  -H "Content-Type: application/json" \
+  -d "{\"product_id\": 10119}"</pre>
+        <pre>curl -X POST "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist" \
+  -H "Authorization: Bearer MQ.example_token_secret" \
+  -H "Content-Type: application/json" \
+  -d "{\"product_id\": 10200, \"variation_id\": 10205}"</pre>
+        <pre>{
+  "success": true,
+  "message": "Product added to wishlist.",
+  "data": {}
+}</pre>
+        <p>Errors: <code>404 herlan_product_not_found</code> <code>500 herlan_wishlist_unavailable</code> <code>500 herlan_wishlist_error</code> <code>500 herlan_wishlist_add_failed</code></p>
+
+        <h3><span class="method">DELETE</span> <code>/wishlist/{product_id}</code></h3>
+        <p>Removes a product from the authenticated user's wishlist.</p>
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>variation_id</code></td><td>integer</td><td>No</td><td>Required when the wishlisted item is a variation</td></tr>
+          </tbody>
+        </table>
+        <pre>curl -X DELETE "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist/10119" \
+  -H "Authorization: Bearer MQ.example_token_secret"
+
+curl -X DELETE "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist/10200?variation_id=10205" \
+  -H "Authorization: Bearer MQ.example_token_secret"</pre>
+        <pre>{
+  "success": true,
+  "message": "Product removed from wishlist.",
+  "data": {}
+}</pre>
+        <p>Errors: <code>404 herlan_wishlist_not_found</code> <code>500 herlan_wishlist_unavailable</code> <code>500 herlan_wishlist_remove_failed</code></p>
+      </section>
+
       <section id="payments">
         <h2>Payments</h2>
         <p class="muted">Payment endpoints are placeholders and require gateway integration before production use.</p>
 
         <h3><span class="method">GET</span> <code>/payments/methods</code></h3>
         <p>Protected endpoint. Returns configured mobile payment methods.</p>
+        <pre>{
+  "success": true,
+  "message": "No mobile payment methods have been configured yet.",
+  "data": {
+    "methods": []
+  }
+}</pre>
 
         <h3><span class="method">POST</span> <code>/payments/create</code></h3>
         <p>Protected endpoint. Placeholder for creating a payment intent, session, or order payment request.</p>
+        <pre>{
+  "success": true,
+  "message": "Payment gateway integration is pending.",
+  "data": {
+    "payment": null
+  }
+}</pre>
+      </section>
+
+      <section id="auth-error-codes">
+        <h2>Auth Error Codes</h2>
+        <p>Protected endpoints can return:</p>
+        <ul>
+          <li><code>401 herlan_missing_token</code></li>
+          <li><code>401 herlan_invalid_token</code></li>
+          <li><code>401 herlan_expired_token</code></li>
+        </ul>
       </section>
 
       <section id="routes">
@@ -797,6 +1245,9 @@ Retro Rust    | active=false | in_stock=false | color=#803134 | product.id=10138
           </thead>
           <tbody>
             <tr><td><code>GET</code></td><td><code>/status</code></td><td>No</td><td>API status</td></tr>
+            <tr><td><code>GET</code></td><td><code>/promo-bar</code></td><td>No</td><td>Promotional top bar settings</td></tr>
+            <tr><td><code>GET</code></td><td><code>/header-config</code></td><td>No</td><td>Header colors and ornament settings</td></tr>
+            <tr><td><code>GET</code></td><td><code>/image-popup</code></td><td>No</td><td>Image popup configuration</td></tr>
             <tr><td><code>POST</code></td><td><code>/auth/login</code></td><td>No</td><td>Login and issue token</td></tr>
             <tr><td><code>POST</code></td><td><code>/auth/register</code></td><td>No</td><td>Register and issue token</td></tr>
             <tr><td><code>POST</code></td><td><code>/auth/logout</code></td><td>Yes</td><td>Revoke current token</td></tr>
@@ -808,6 +1259,10 @@ Retro Rust    | active=false | in_stock=false | color=#803134 | product.id=10138
             <tr><td><code>GET</code></td><td><code>/orders/{id}</code></td><td>Yes</td><td>Single order detail</td></tr>
             <tr><td><code>GET</code></td><td><code>/products/filters</code></td><td>No</td><td>Shop and taxonomy filter metadata</td></tr>
             <tr><td><code>GET</code></td><td><code>/products/{id}</code></td><td>No</td><td>Single product details</td></tr>
+            <tr><td><code>GET</code></td><td><code>/navigation</code></td><td>No</td><td>Nested categories and brands in one request</td></tr>
+            <tr><td><code>GET</code></td><td><code>/wishlist</code></td><td>Yes</td><td>Get user's wishlist items</td></tr>
+            <tr><td><code>POST</code></td><td><code>/wishlist</code></td><td>Yes</td><td>Add product to wishlist</td></tr>
+            <tr><td><code>DELETE</code></td><td><code>/wishlist/{product_id}</code></td><td>Yes</td><td>Remove product from wishlist</td></tr>
             <tr><td><code>GET</code></td><td><code>/payments/methods</code></td><td>Yes</td><td>Payment methods placeholder</td></tr>
             <tr><td><code>POST</code></td><td><code>/payments/create</code></td><td>Yes</td><td>Payment creation placeholder</td></tr>
           </tbody>

@@ -30,6 +30,7 @@ final class Response
             'email'        => $user->user_email,
             'username'     => $user->user_login,
             'roles'        => array_values($user->roles),
+            'avatar'       => get_avatar_url($user->ID, ['size' => 96]) ?: null,
         ];
     }
 }

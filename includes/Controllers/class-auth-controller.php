@@ -142,32 +142,44 @@ final class AuthController extends Controller
             return new WP_Error('herlan_missing_token', __('Bearer token is required.', 'herlan-rest-api'), ['status' => 401]);
         }
 
-        $parts = explode('.', trim($matches[1]), 2);
+        $raw_token = trim($matches[1]);
+        $parts = explode('.', $raw_token, 2);
 
-        if (count($parts) !== 2) {
-            return new WP_Error('herlan_invalid_token', __('Invalid bearer token.', 'herlan-rest-api'), ['status' => 401]);
+        // Try native herlan token format: base64(user_id).secret
+        if (count($parts) === 2) {
+            $user_id = absint(base64_decode($parts[0], true));
+            $secret  = $parts[1];
+            $user    = $user_id ? get_user_by('id', $user_id) : false;
+
+            if ($user instanceof WP_User && $secret) {
+                $hash = hash('sha256', $secret);
+                $now  = time();
+
+                foreach ($this->tokens_for($user->ID) as $token) {
+                    if (($token['hash'] ?? '') === $hash && (int) ($token['expires_at'] ?? 0) > $now) {
+                        $request->set_param('herlan_token_hash', $hash);
+
+                        return $user;
+                    }
+                }
+            }
         }
 
-        $user_id = absint(base64_decode($parts[0], true));
-        $secret = $parts[1];
-        $user = $user_id ? get_user_by('id', $user_id) : false;
-
-        if (! $user instanceof WP_User || ! $secret) {
-            return new WP_Error('herlan_invalid_token', __('Invalid bearer token.', 'herlan-rest-api'), ['status' => 401]);
-        }
-
-        $hash = hash('sha256', $secret);
-        $now = time();
-
-        foreach ($this->tokens_for($user->ID) as $token) {
-            if (($token['hash'] ?? '') === $hash && (int) ($token['expires_at'] ?? 0) > $now) {
-                $request->set_param('herlan_token_hash', $hash);
-
+        // Fallback: validate auth-popup tokens.
+        // Auth-popup stores access tokens as transients keyed by 'ap_api_{sha256(token)}'.
+        // We cannot rely on wp_get_current_user() here because determine_current_user fires
+        // during WordPress init before REST_REQUEST is defined, so auth-popup's filter skips
+        // and the user is cached as 0 by the time this code runs.
+        $ap_user_id = (int) get_transient('ap_api_' . hash('sha256', $raw_token));
+        if ($ap_user_id > 0) {
+            $user = get_user_by('id', $ap_user_id);
+            if ($user instanceof WP_User) {
+                wp_set_current_user($user->ID);
                 return $user;
             }
         }
 
-        return new WP_Error('herlan_expired_token', __('Token is invalid or expired.', 'herlan-rest-api'), ['status' => 401]);
+        return new WP_Error('herlan_invalid_token', __('Invalid or expired token.', 'herlan-rest-api'), ['status' => 401]);
     }
 
     private function issue_token_response(WP_User $user, string $device_name)
