@@ -12,6 +12,7 @@ use HerlanRestApi\Controllers\PaymentController;
 use HerlanRestApi\Controllers\ProductController;
 use HerlanRestApi\Controllers\UserController;
 use HerlanRestApi\Controllers\TaxonomyController;
+use HerlanRestApi\Controllers\HomeController;
 use HerlanRestApi\Controllers\WishlistController;
 
 if (! defined('ABSPATH')) {
@@ -63,6 +64,7 @@ final class Plugin
         $auth = new AuthController();
 
         (new AppController())->register_routes();
+        (new HomeController())->register_routes();
         $auth->register_routes();
         (new UserController($auth))->register_routes();
         (new AccountController($auth))->register_routes();

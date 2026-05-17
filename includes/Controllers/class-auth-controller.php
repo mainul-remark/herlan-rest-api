@@ -97,6 +97,8 @@ final class AuthController extends Controller
             'nickname' => $name,
         ]);
 
+        update_user_meta($user_id, '_herlan_has_password', '1');
+
         $user = get_user_by('id', $user_id);
 
         return $this->issue_token_response($user, 'mobile');

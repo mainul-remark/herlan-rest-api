@@ -87,6 +87,10 @@ final class AccountController extends Controller
             $data['display_name'] = sanitize_text_field((string) $request->get_param('display_name'));
         }
 
+        if (isset($data['user_pass'])) {
+            update_user_meta($user->ID, '_herlan_has_password', '1');
+        }
+
         $result = wp_update_user($data);
 
         if (is_wp_error($result)) {

@@ -31,6 +31,19 @@ final class Response
             'username'     => $user->user_login,
             'roles'        => array_values($user->roles),
             'avatar'       => get_avatar_url($user->ID, ['size' => 96]) ?: null,
+            'phone'        => self::resolve_user_phone($user->ID),
+            'has_password' => get_user_meta($user->ID, '_herlan_has_password', true) === '1',
         ];
+    }
+
+    private static function resolve_user_phone(int $user_id): ?string
+    {
+        if (class_exists('\Auth_Popup_User_Auth')) {
+            $phone = \Auth_Popup_User_Auth::get_user_phone($user_id);
+            return $phone !== '' ? $phone : null;
+        }
+
+        $phone = (string) get_user_meta($user_id, 'billing_phone', true);
+        return $phone !== '' ? $phone : null;
     }
 }
