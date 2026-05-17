@@ -28,6 +28,7 @@ require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-order-controller
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-loyalty-controller.php';
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-coupon-controller.php';
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-wishlist-controller.php';
+require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-cart-controller.php';
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-taxonomy-controller.php';
 require_once HERLAN_REST_API_PATH . 'includes/class-plugin.php';
 

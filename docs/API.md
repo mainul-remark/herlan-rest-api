@@ -1,24 +1,22 @@
-# Herlan REST API Documentation
+# Herlan REST API
 
-Mobile application API for Herlan Live.
+Mobile application API exposed by the `herlan-rest-api` WordPress plugin.
 
 ## Base URL
-
-Local development:
-
-```text
-http://localhost/herlanlive3/wp-json/herlan/v1
-```
-
-Production:
 
 ```text
 https://YOUR_DOMAIN/wp-json/herlan/v1
 ```
 
-## Response Format
+Local example:
 
-Successful responses use this wrapper:
+```text
+http://localhost/herlanlive3/wp-json/herlan/v1
+```
+
+## Response format
+
+Successful responses use:
 
 ```json
 {
@@ -28,7 +26,7 @@ Successful responses use this wrapper:
 }
 ```
 
-WordPress REST errors use this format:
+WordPress REST errors use:
 
 ```json
 {
@@ -42,48 +40,43 @@ WordPress REST errors use this format:
 
 ## Authentication
 
-Protected endpoints require a bearer token:
+Protected endpoints require:
 
 ```http
 Authorization: Bearer USER_ID_BASE64.SECRET
 ```
 
-Tokens are issued by login/register and expire after 30 days.
+Tokens are issued by `POST /auth/login` and `POST /auth/register`.
 
-Public endpoints:
+Notes:
 
-- `GET /status`
-- `GET /promo-bar`
-- `GET /header-config`
-- `GET /image-popup`
-- `POST /auth/login`
-- `POST /auth/register`
-- `GET /products/{id}`
-- `GET /products/filters`
-- `GET /drawer-brands-categories`
+- Herlan mobile tokens currently live for 30 days.
+- The plugin also accepts compatible auth-popup bearer tokens when present.
 
-Protected endpoints:
+## User object
 
-- `POST /auth/logout`
-- `GET /user/me`
-- `PUT/PATCH /user/account`
-- `GET /user/loyalty`
-- `GET /user/coupons`
-- `GET /orders`
-- `GET /orders/{id}`
-- `GET /wishlist`
-- `POST /wishlist`
-- `DELETE /wishlist/{product_id}`
-- `GET /payments/methods`
-- `POST /payments/create`
+Several endpoints return the same user shape:
 
-## Endpoints
+```json
+{
+  "id": 1,
+  "name": "Customer Name",
+  "first_name": "Customer",
+  "last_name": "Name",
+  "email": "customer@example.com",
+  "username": "customer@example.com",
+  "roles": ["customer"],
+  "avatar": "https://example.com/avatar.jpg",
+  "phone": "01712345678",
+  "has_password": true
+}
+```
 
-## Status
+## Public endpoints
 
 ### `GET /status`
 
-Returns API status and site metadata.
+Returns API and site metadata.
 
 Example:
 
@@ -105,175 +98,89 @@ Response:
 }
 ```
 
-## Promo Bar
-
 ### `GET /promo-bar`
 
-Returns the site-wide promotional top bar configuration saved under **Herlan Settings → Top Bar Promo**. Mobile apps use this to decide whether to show the banner and with what content.
+Returns top promo bar settings.
 
-This endpoint is public.
-
-Example:
-
-```bash
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/promo-bar"
-```
-
-Response — promo bar enabled:
-
-```json
-{
-  "success": true,
-  "message": "",
-  "data": {
-    "enabled": true,
-    "bg_color": "#D50032",
-    "text": "<p>Free shipping on orders over <strong>৳999</strong>!</p>"
-  }
-}
-```
-
-Response — promo bar disabled:
-
-```json
-{
-  "success": true,
-  "message": "",
-  "data": {
-    "enabled": false,
-    "bg_color": "#333333",
-    "text": ""
-  }
-}
-```
-
-### Fields
+Response fields:
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `enabled` | boolean | Whether the promo bar is turned on in admin settings |
-| `bg_color` | string | Hex background color for the bar, e.g. `#D50032` |
-| `text` | string | Sanitized HTML content to display inside the bar |
-
-> When `enabled` is `false`, hide the bar entirely regardless of `text` or `bg_color` values.
-
-## Header Config
+| `enabled` | boolean | Whether the bar should be shown |
+| `bg_color` | string | Hex color |
+| `text` | string | Sanitized HTML |
 
 ### `GET /header-config`
 
-Returns the header appearance settings saved under **Herlan Settings → Header**. Mobile apps use this to theme the app header colors and optionally display decorative ornament images.
+Returns header color and ornament settings.
 
-This endpoint is public.
-
-Example:
-
-```bash
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/header-config"
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "",
-  "data": {
-    "top_bar": {
-      "bg_color": "#ffffff",
-      "text_color": "#000000"
-    },
-    "nav": {
-      "bg_color": "#ffffff",
-      "text_color": "#000000"
-    },
-    "mini_cart_badge_color": "#D50032",
-    "ornaments": {
-      "enabled": true,
-      "left": "https://herlan.com/wp-content/uploads/ornament-left.png",
-      "right": "https://herlan.com/wp-content/uploads/ornament-right.png"
-    }
-  }
-}
-```
-
-### Fields
+Response fields:
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `top_bar.bg_color` | string | Hex background color for the top bar |
-| `top_bar.text_color` | string | Hex text color for the top bar |
-| `nav.bg_color` | string | Hex background color for the navigation bar |
-| `nav.text_color` | string | Hex text color for the navigation bar |
-| `mini_cart_badge_color` | string | Hex background color for the cart item count badge |
-| `ornaments.enabled` | boolean | Whether header ornament images are active |
-| `ornaments.left` | string | URL of the left ornament image, empty string if not set |
-| `ornaments.right` | string | URL of the right ornament image, empty string if not set |
-
-> When `ornaments.enabled` is `false`, ignore the `left` and `right` image URLs.
-
-## Image Popup
+| `top_bar.bg_color` | string | Top bar background |
+| `top_bar.text_color` | string | Top bar text color |
+| `nav.bg_color` | string | Nav background |
+| `nav.text_color` | string | Nav text color |
+| `mini_cart_badge_color` | string | Badge background |
+| `ornaments.enabled` | boolean | Ornament toggle |
+| `ornaments.left` | string | Left ornament URL or empty string |
+| `ornaments.right` | string | Right ornament URL or empty string |
 
 ### `GET /image-popup`
 
-Returns the image popup configuration saved under **Herlan Settings → Image Popup**. Mobile apps use this to decide whether to display a promotional popup, when to show it again, and which image to use.
+Returns popup configuration.
 
-This endpoint is public.
-
-Example:
-
-```bash
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/image-popup"
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "",
-  "data": {
-    "enabled": true,
-    "display_location": "all",
-    "show_again_after": {
-      "hours": 24,
-      "minutes": 0,
-      "seconds": 0
-    },
-    "image": "https://herlan.com/wp-content/uploads/popup-desktop.jpg",
-    "mobile": {
-      "enabled": true,
-      "image": "https://herlan.com/wp-content/uploads/popup-mobile.jpg"
-    },
-    "cta_url": "https://herlan.com/shop/"
-  }
-}
-```
-
-### Fields
+Response fields:
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `enabled` | boolean | Whether the popup is active |
-| `display_location` | string | `all` — all pages, `checkout` — checkout page only |
-| `show_again_after.hours` | integer | Hours before the popup is shown again |
-| `show_again_after.minutes` | integer | Additional minutes |
-| `show_again_after.seconds` | integer | Additional seconds. All three at `0` means show on every page load |
-| `image` | string\|null | Desktop popup image URL, `null` if not set |
-| `mobile.enabled` | boolean | Whether a separate mobile image is configured |
-| `mobile.image` | string\|null | Mobile popup image URL, `null` if not set |
-| `cta_url` | string\|null | URL to open when the popup image is tapped, `null` if not set |
+| `enabled` | boolean | Popup active flag |
+| `display_location` | string | Stored option, usually `all` |
+| `show_again_after.hours` | integer | Interval hours |
+| `show_again_after.minutes` | integer | Interval minutes |
+| `show_again_after.seconds` | integer | Interval seconds |
+| `image` | string\|null | Desktop image URL |
+| `mobile.enabled` | boolean | Separate mobile image enabled |
+| `mobile.image` | string\|null | Mobile image URL |
+| `cta_url` | string\|null | Optional click target |
 
-> **Mobile image logic:** if `mobile.enabled` is `true` and `mobile.image` is not `null`, use `mobile.image` on mobile devices. Otherwise fall back to `image`.
+### `GET /home`
 
-> **Show again timer:** store the timestamp when the popup was last shown locally on the device and compare it against the total interval (`hours × 3600 + minutes × 60 + seconds`) to decide whether to show the popup again.
+Returns mobile home page configuration assembled from ACF option fields and related content.
 
-## Auth
+Top-level response fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `hero_slider` | object | Slider items and autoplay duration |
+| `promotional_block` | object | Promotional post cards |
+| `campaign_shortcuts` | object | Shortcut tags/buttons |
+| `product_groups` | object | Product group tabs/tags |
+| `campaigns` | array | Active campaign sections |
+| `categories_block` | object | Category block enabled flag |
+| `custom_tags` | object | Custom tag cards |
+| `product_sliders` | array | Configured product slider definitions |
+| `home_video` | object\|null | Home video block |
+
+Key nested shapes:
+
+- `hero_slider.items[]`
+  - image slide: `type`, `url`, `image`, `mobile_image`
+  - video slide: `type`, `url`, `video_url`
+- `promotional_block.posts[]`: `id`, `title`, `subtitle`, `image`, `url`
+- `campaign_shortcuts.items[]`: `name`, `url`
+- `product_groups.groups[]`: `title`, `product_tag`, `featured_tag`
+- `campaigns[]`: `title`, `product_tag`, `tag_url`, `see_all_text`, `background_image`
+- `custom_tags.items[]`: `name`, `url`, `image`
+- `product_sliders[]`: `title`, `product_type`, `taxonomy_type`, `term_slug`, `url`, `background_image`
+- `home_video`: `video_desktop`, `video_mobile`, `poster`, `link_url`
 
 ### `POST /auth/login`
 
-Login with WordPress username/email and password.
+Logs a user in with WordPress username/email and password.
 
-Request:
+Request body:
 
 ```json
 {
@@ -281,14 +188,6 @@ Request:
   "password": "password123",
   "device_name": "iPhone 15"
 }
-```
-
-Example:
-
-```bash
-curl -X POST "http://localhost/herlanlive3/wp-json/herlan/v1/auth/login" \
-  -H "Content-Type: application/json" \
-  -d "{\"username\":\"customer@example.com\",\"password\":\"password123\",\"device_name\":\"iPhone 15\"}"
 ```
 
 Response:
@@ -299,8 +198,8 @@ Response:
   "message": "",
   "data": {
     "token_type": "Bearer",
-    "access_token": "MQ.example_token_secret",
-    "expires_at": "2026-05-30T06:00:00+00:00",
+    "access_token": "MQ.example_secret",
+    "expires_at": "2026-06-16T12:00:00+00:00",
     "user": {
       "id": 1,
       "name": "Customer Name",
@@ -308,7 +207,10 @@ Response:
       "last_name": "Name",
       "email": "customer@example.com",
       "username": "customer@example.com",
-      "roles": ["customer"]
+      "roles": ["customer"],
+      "avatar": "https://example.com/avatar.jpg",
+      "phone": "01712345678",
+      "has_password": true
     }
   }
 }
@@ -320,11 +222,9 @@ Errors:
 
 ### `POST /auth/register`
 
-Create a WordPress user and return a mobile token.
+Creates a WordPress user and immediately issues a bearer token.
 
-WordPress registration must be enabled.
-
-Request:
+Request body:
 
 ```json
 {
@@ -334,7 +234,7 @@ Request:
 }
 ```
 
-Response data is the same shape as login.
+Response data matches `POST /auth/login`.
 
 Errors:
 
@@ -343,16 +243,188 @@ Errors:
 - `422 herlan_invalid_email`
 - `422 herlan_weak_password`
 
-### `POST /auth/logout`
+### `GET /products/filters`
 
-Revokes the current bearer token.
+Returns mobile product listing filters.
+
+Query parameters:
+
+| Parameter | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `taxonomy` | string | none | Optional context taxonomy slug |
+| `term` | string | none | Optional context term slug |
+| `include_counts` | boolean | `true` | Recalculate counts for current context |
+
+Response shape:
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "context": {
+      "taxonomy": "product_cat",
+      "term": "lips"
+    },
+    "sort_options": [
+      { "key": "popularity", "label": "Best Selling", "orderby": "sales" },
+      { "key": "date", "label": "New Arrivals", "orderby": "date" },
+      { "key": "price_asc", "label": "Price: Low to High", "orderby": "price", "order": "ASC" },
+      { "key": "price_desc", "label": "Price: High to Low", "orderby": "price", "order": "DESC" },
+      { "key": "rating", "label": "Top Rated", "orderby": "rating" }
+    ],
+    "price_range": {
+      "min": 690,
+      "max": 1990
+    },
+    "filters": [
+      {
+        "taxonomy": "brand",
+        "label": "Brands",
+        "type": "taxonomy",
+        "hierarchical": false,
+        "terms": []
+      }
+    ]
+  }
+}
+```
+
+Term fields inside each filter:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | Term ID |
+| `name` | string | Term name |
+| `slug` | string | Term slug |
+| `taxonomy` | string | Taxonomy name |
+| `count` | integer | Product count |
+| `parent` | integer | Parent term ID |
+| `link` | string\|null | Term archive URL |
+| `color` | string | Swatch color if configured |
+| `image` | string\|null | Swatch image URL if configured |
+
+Errors:
+
+- `500 herlan_woocommerce_unavailable`
+
+### `GET /products/{id}`
+
+Returns a published WooCommerce product.
+
+Main fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | Product ID |
+| `name` | string | Product name |
+| `slug` | string | Product slug |
+| `type` | string | WooCommerce type |
+| `permalink` | string | Product URL |
+| `status` | string | Product status |
+| `sku` | string | SKU |
+| `description` | string | Sanitized HTML |
+| `short_description` | string | Sanitized HTML |
+| `price` | string | Current price |
+| `regular_price` | string | Regular price |
+| `sale_price` | string | Sale price |
+| `price_html` | string | WooCommerce formatted HTML |
+| `on_sale` | boolean | Sale flag |
+| `purchasable` | boolean | Purchasable flag |
+| `stock_status` | string | Stock status |
+| `stock_quantity` | integer\|null | Stock quantity |
+| `average_rating` | string | Average rating |
+| `rating_count` | integer | Rating count |
+| `categories` | array | Assigned `product_cat` terms |
+| `tags` | array | Assigned `product_tag` terms |
+| `brand` | object\|null | First brand term |
+| `taxonomies` | object | Assigned public taxonomies and attributes |
+| `attributes` | array | Product attributes |
+| `images` | array | Main image plus gallery |
+| `custom_fields` | object | ACF fields normalized for API use |
+| `linked_products` | object | WPC Linked Variation data |
+| `recommendations` | object | Recommendation sections |
+| `variations` | array | Present for variable products only |
+
+`recommendations` always contains:
+
+- `you_may_like`
+- `more_from_this_brand`
+- `best_selling`
+- `new_arrivals`
+
+Errors:
+
+- `404 herlan_product_not_found`
+- `500 herlan_woocommerce_unavailable`
+
+### `GET /drawer-brands-categories`
+
+Returns product categories and brands for app navigation.
+
+Query parameters:
+
+| Parameter | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `hide_empty` | boolean | `true` | Exclude empty terms |
+| `categories_flat` | boolean | `false` | Return categories as a flat list |
+| `order` | string | `asc` | `asc` or `desc` |
+| `order_by` | string | `name` | `name`, `count`, `id`, or `slug` |
 
 Example:
 
 ```bash
-curl -X POST "http://localhost/herlanlive3/wp-json/herlan/v1/auth/logout" \
-  -H "Authorization: Bearer MQ.example_token_secret"
+curl "http://localhost/herlanlive3/wp-json/herlan/v1/drawer-brands-categories"
 ```
+
+Response fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `categories` | array | Nested tree by default |
+| `total_categories` | integer | Number of category terms before nesting |
+| `brands` | array | Brand term list |
+| `total_brands` | integer | Number of brand terms |
+
+Category fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | Term ID |
+| `name` | string | Category name |
+| `slug` | string | Category slug |
+| `description` | string | Category description |
+| `count` | integer | Product count |
+| `parent` | integer | Parent term ID |
+| `link` | string\|null | Category archive URL |
+| `image` | object\|null | Thumbnail image |
+| `children` | array | Child categories |
+
+Brand fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | Term ID |
+| `name` | string | Brand name |
+| `slug` | string | Brand slug |
+| `description` | string | Brand description |
+| `count` | integer | Product count |
+| `link` | string\|null | Brand archive URL |
+| `image` | object\|null | Brand logo image |
+
+Image object:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | Attachment ID |
+| `src` | string | Image URL |
+| `alt` | string | Alt text |
+
+## Protected endpoints
+
+### `POST /auth/logout`
+
+Revokes the current token.
 
 Response:
 
@@ -364,19 +436,10 @@ Response:
 }
 ```
 
-## User
-
 ### `GET /user/me`
 
 Returns the authenticated user.
 
-Example:
-
-```bash
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/me" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-```
-
 Response:
 
 ```json
@@ -391,86 +454,61 @@ Response:
       "last_name": "Name",
       "email": "customer@example.com",
       "username": "customer@example.com",
-      "roles": ["customer"]
+      "roles": ["customer"],
+      "avatar": "https://example.com/avatar.jpg",
+      "phone": "01712345678",
+      "has_password": true
     }
   }
 }
 ```
 
-### `PUT /user/account` · `PATCH /user/account`
+### `PUT /user/account` and `PATCH /user/account`
 
-Updates the authenticated user's profile. All fields are optional — only send what needs to change.
+Updates the authenticated user's account.
 
-Changing `email` or `new_password` requires `current_password`.
+Request fields:
 
-Request body fields:
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `first_name` | string | No | Optional |
+| `last_name` | string | No | Optional |
+| `display_name` | string | No | Optional |
+| `email` | string | No | Requires `current_password` |
+| `current_password` | string | Conditional | Required when changing email or password |
+| `new_password` | string | No | Minimum 8 chars, requires `current_password` |
 
-| Field | Type | Notes |
-| --- | --- | --- |
-| `first_name` | string | No password required |
-| `last_name` | string | No password required |
-| `display_name` | string | No password required |
-| `email` | string | Requires `current_password` |
-| `current_password` | string | Required when changing email or password |
-| `new_password` | string | Min 8 characters. Requires `current_password` |
-
-Example — update name only:
-
-```bash
-curl -X PATCH "http://localhost/herlanlive3/wp-json/herlan/v1/user/account" \
-  -H "Authorization: Bearer MQ.example_token_secret" \
-  -H "Content-Type: application/json" \
-  -d "{\"first_name\":\"Jane\",\"last_name\":\"Doe\"}"
-```
-
-Example — change password:
-
-```bash
-curl -X PATCH "http://localhost/herlanlive3/wp-json/herlan/v1/user/account" \
-  -H "Authorization: Bearer MQ.example_token_secret" \
-  -H "Content-Type: application/json" \
-  -d "{\"current_password\":\"oldpass123\",\"new_password\":\"newpass456\"}"
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "Account updated successfully.",
-  "data": {
-    "user": {
-      "id": 1,
-      "name": "Jane Doe",
-      "first_name": "Jane",
-      "last_name": "Doe",
-      "email": "customer@example.com",
-      "username": "customer@example.com",
-      "roles": ["customer"]
-    }
-  }
-}
-```
+Response contains the updated `user` object.
 
 Errors:
 
-- `401 herlan_invalid_password` — current password is wrong
-- `409 herlan_email_exists` — email already in use by another account
-- `422 herlan_password_required` — tried to change email/password without providing `current_password`
+- `401 herlan_user_missing`
+- `409 herlan_email_exists`
+- `422 herlan_password_required`
+- `422 herlan_invalid_password`
 - `422 herlan_invalid_email`
 - `422 herlan_weak_password`
 
-### `GET /user/loyalty`
+### `POST /user/avatar`
 
-Returns the authenticated user's loyalty program summary. Requires the Herlan Loyalty plugin to be active and the user's billing phone number to be set.
+Uploads or replaces the authenticated user's profile photo.
 
-Results are cached per user for 5 minutes.
+**Content-Type:** `multipart/form-data`
 
-Example:
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `avatar` | file | Yes | JPEG, PNG, GIF, or WebP — maximum 3 MB |
+
+The uploaded file is stored in the WordPress uploads directory. The `profile_image_url` user meta is updated with the public URL and is reflected in the `avatar` field of all subsequent user responses.
+
+Response contains the updated `user` object.
+
+Example (curl):
 
 ```bash
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/loyalty" \
-  -H "Authorization: Bearer MQ.example_token_secret"
+curl -X POST "https://your-domain.com/wp-json/herlan/v1/user/avatar" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "avatar=@/path/to/photo.jpg"
 ```
 
 Response:
@@ -478,33 +516,13 @@ Response:
 ```json
 {
   "success": true,
-  "message": "",
+  "message": "Profile photo updated.",
   "data": {
-    "customer": {
+    "user": {
+      "id": 1,
       "name": "Customer Name",
-      "phone": "01712345678",
-      "status": "Active",
-      "level": "Gold"
-    },
-    "points": 1250,
-    "available_cash": 125.50,
-    "total_spent": 15000.00,
-    "level": {
-      "name": "Gold",
-      "color": "#DDAE56",
-      "progress_percent": 62.5,
-      "next": "Platinum",
-      "next_at": 20000,
-      "retention": {
-        "message": "Spend BDT 5,000 more to keep Gold level.",
-        "target": 12000
-      }
-    },
-    "next_expiring_cash": null,
-    "transactions": {
-      "purchase_orders": [],
-      "redeem_orders": [],
-      "cashes": []
+      "avatar": "https://your-domain.com/wp-content/uploads/2026/05/photo.jpg",
+      "...": "..."
     }
   }
 }
@@ -512,992 +530,380 @@ Response:
 
 Errors:
 
-- `422 herlan_loyalty_no_phone` — no billing phone on the account
-- `502 herlan_loyalty_auth_failed` — loyalty API is unreachable or rejected the request
-- `503 herlan_loyalty_unavailable` — Herlan Loyalty plugin is not active
+- `400 herlan_missing_file` — no file attached in the `avatar` field
+- `400 herlan_file_too_large` — file exceeds 3 MB
+- `400 herlan_invalid_file_type` — file is not a supported image format
+- `401 herlan_user_missing`
+- `500 herlan_upload_failed` — server-side upload error
 
-## Coupons
+---
+
+### `GET /user/loyalty`
+
+Returns loyalty summary for the authenticated user.
+
+The controller is implemented in `class-loyalty-controller.php`; the response includes customer profile data, points, available cash, level/progress information, next expiring cash, and transaction groups.
+
+Typical errors:
+
+- `422 herlan_loyalty_no_phone`
+- `502 herlan_loyalty_auth_failed`
+- `503 herlan_loyalty_unavailable`
 
 ### `GET /user/coupons`
 
-Returns the authenticated user's coupons from the WooCommerce Smart Coupon plugin. Requires the `wt-smart-coupon-pro` plugin to be active.
+Returns Smart Coupon data for the authenticated user.
 
 Query parameters:
 
 | Parameter | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `type` | string | `available` | `available`, `expired`, or `used` |
+| `type` | string | `available` | `available`, `expired`, `used` |
 | `page` | integer | `1` | Page number |
-| `per_page` | integer | `10` | Coupons per page, max `50` |
-| `orderby` | string | `created_date:asc` | `created_date:asc`, `created_date:desc`, `amount:asc`, `amount:desc`. Ignored for `type=used` |
+| `per_page` | integer | `10` | Max `50` |
+| `orderby` | string | `created_date:asc` | `created_date:asc`, `created_date:desc`, `amount:asc`, `amount:desc` |
 
-Examples:
-
-```bash
-# Available coupons
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/coupons" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-
-# Expired coupons, newest first
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/coupons?type=expired&orderby=created_date:desc" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-
-# Used coupons, page 2
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/coupons?type=used&page=2" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "",
-  "data": {
-    "coupons": [
-      {
-        "id": 4210,
-        "code": "WELCOME10",
-        "discount_type": "percent",
-        "coupon_type": "Cart discount",
-        "amount": 10.0,
-        "coupon_amount": "10%",
-        "description": "Welcome discount for new customers.",
-        "free_shipping": false,
-        "starts_at": null,
-        "expires_at": "2026-12-31T23:59:59+00:00",
-        "is_expired": false,
-        "minimum_amount": "500",
-        "maximum_amount": "",
-        "usage_limit": 1,
-        "usage_count": 0,
-        "usage_limit_per_user": 1,
-        "used_by_current_user": 0,
-        "individual_use": true,
-        "email_restrictions": []
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "per_page": 10,
-      "has_more": false
-    }
-  }
-}
-```
-
-> **Note:** `type=available` and `type=expired` use `has_more` pagination (no `total` count) because the plugin's coupon eligibility rules are applied live and a total count query is not available. `type=used` includes `total` and `total_pages` because all used coupon codes are fetched from order history upfront.
-
-### Coupon Fields
+Coupon fields:
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `id` | integer | WooCommerce coupon post ID |
-| `code` | string | Coupon code to apply at checkout |
-| `discount_type` | string | Raw type: `fixed_cart`, `fixed_product`, `percent`, `percent_product`, `store_credit`, `wbte_sc_bogo`, etc. |
-| `coupon_type` | string | Human-readable label: `Cart discount`, `Product discount`, `Free shipping`, `Free products`, `Store credit`, etc. |
-| `amount` | float | Raw numeric discount amount |
-| `coupon_amount` | string | Formatted amount, e.g. `৳690` or `10%`. Empty for free shipping / free product coupons |
-| `description` | string | Admin-defined coupon description |
-| `free_shipping` | boolean | Whether the coupon grants free shipping |
-| `starts_at` | string\|null | ISO 8601 start date, or `null` if no start restriction |
-| `expires_at` | string\|null | ISO 8601 expiry date, or `null` if the coupon never expires |
-| `is_expired` | boolean | `true` when `expires_at` is in the past |
-| `minimum_amount` | string | Minimum order subtotal required, empty string if none |
-| `maximum_amount` | string | Maximum order subtotal allowed, empty string if none |
-| `usage_limit` | integer | Global usage limit, `0` means unlimited |
-| `usage_count` | integer | Total number of times the coupon has been used |
-| `usage_limit_per_user` | integer | Per-user usage limit, `0` means unlimited |
-| `used_by_current_user` | integer | Number of times the authenticated user has used this coupon |
-| `individual_use` | boolean | Cannot be combined with other coupons if `true` |
-| `email_restrictions` | array | Email addresses the coupon is restricted to, empty array if open |
+| `id` | integer | Coupon post ID |
+| `code` | string | Coupon code |
+| `discount_type` | string | WooCommerce discount type |
+| `coupon_type` | string | Human readable type from Smart Coupon |
+| `amount` | float | Raw numeric amount |
+| `coupon_amount` | string | Formatted amount label |
+| `description` | string | Coupon description |
+| `free_shipping` | boolean | Free shipping flag |
+| `starts_at` | string\|null | ISO 8601 |
+| `expires_at` | string\|null | ISO 8601 |
+| `is_expired` | boolean | Derived from expiry |
+| `minimum_amount` | string | Minimum order amount |
+| `maximum_amount` | string | Maximum order amount |
+| `usage_limit` | integer | Total usage limit, `0` means unlimited |
+| `usage_count` | integer | Current usage count |
+| `usage_limit_per_user` | integer | Per-user limit, `0` means unlimited |
+| `used_by_current_user` | integer | Times used by this user |
+| `individual_use` | boolean | Cannot combine with other coupons |
+| `email_restrictions` | array | Allowed email list |
+
+Pagination notes:
+
+- `available` and `expired` return `page`, `per_page`, and `has_more`.
+- `used` returns `page`, `per_page`, `total`, `total_pages`, and `has_more`.
 
 Errors:
 
-- `503 herlan_coupons_unavailable` — `wt-smart-coupon-pro` plugin is not active
-
-## Orders
+- `503 herlan_coupons_unavailable`
 
 ### `GET /orders`
 
-Returns the authenticated user's WooCommerce order history, newest first.
+Returns the authenticated user's orders.
 
 Query parameters:
 
 | Parameter | Type | Default | Notes |
 | --- | --- | --- | --- |
 | `page` | integer | `1` | Page number |
-| `per_page` | integer | `10` | Orders per page, max `50` |
-| `status` | string | `any` | WooCommerce order status, for example `processing`, `completed`, `cancelled` |
+| `per_page` | integer | `10` | Max `50` |
+| `status` | string | `any` | WooCommerce order status slug |
 
-Example:
+Order summary fields:
 
-```bash
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/orders" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-```
-
-Filtered example:
-
-```bash
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/orders?status=completed&per_page=5" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "",
-  "data": {
-    "orders": [
-      {
-        "id": 5021,
-        "number": "5021",
-        "status": "processing",
-        "date_created": "2026-05-10T14:32:00+06:00",
-        "currency": "BDT",
-        "total": "1380",
-        "item_count": 2,
-        "payment_method_title": "bKash"
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "per_page": 10,
-      "total": 24,
-      "total_pages": 3
-    }
-  }
-}
-```
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | Order ID |
+| `number` | string | Order number |
+| `status` | string | Order status |
+| `date_created` | string\|null | ISO 8601 |
+| `currency` | string | Currency code |
+| `total` | string | Grand total |
+| `item_count` | integer | Total item count |
+| `payment_method_title` | string | Payment method label |
 
 ### `GET /orders/{id}`
 
-Returns full detail of a single order. Users can only access their own orders.
+Returns one order belonging to the authenticated user.
 
-Example:
-
-```bash
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/orders/5021" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "",
-  "data": {
-    "id": 5021,
-    "number": "5021",
-    "status": "processing",
-    "date_created": "2026-05-10T14:32:00+06:00",
-    "date_modified": "2026-05-10T14:35:00+06:00",
-    "currency": "BDT",
-    "total": "1380",
-    "subtotal": "1380",
-    "total_tax": "0",
-    "shipping_total": "0",
-    "discount_total": "0",
-    "payment_method": "bkash",
-    "payment_method_title": "bKash",
-    "transaction_id": "TXN123456",
-    "customer_note": "",
-    "billing": {
-      "first_name": "Customer",
-      "last_name": "Name",
-      "company": "",
-      "address_1": "123 Gulshan Avenue",
-      "address_2": "",
-      "city": "Dhaka",
-      "state": "DH",
-      "postcode": "1212",
-      "country": "BD",
-      "email": "customer@example.com",
-      "phone": "01712345678"
-    },
-    "shipping": {
-      "first_name": "Customer",
-      "last_name": "Name",
-      "company": "",
-      "address_1": "123 Gulshan Avenue",
-      "address_2": "",
-      "city": "Dhaka",
-      "state": "DH",
-      "postcode": "1212",
-      "country": "BD",
-      "email": "",
-      "phone": ""
-    },
-    "line_items": [
-      {
-        "id": 88,
-        "product_id": 10119,
-        "variation_id": null,
-        "name": "Herlan Cushion Matte Lipstick Vintage Vibes",
-        "sku": "HL-LIP-VV",
-        "quantity": 2,
-        "subtotal": "1380",
-        "total": "1380",
-        "image": "http://localhost/herlanlive3/wp-content/uploads/product.jpg"
-      }
-    ],
-    "coupon_lines": []
-  }
-}
-```
-
-### Order Fields
+Additional detail fields:
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `id` | integer | WooCommerce order ID |
-| `number` | string | Order number displayed to customer |
-| `status` | string | Order status without `wc-` prefix |
-| `date_created` | string | ISO 8601 date |
-| `date_modified` | string | ISO 8601 date |
-| `currency` | string | Currency code, for example `BDT` |
-| `total` | string | Order grand total |
-| `subtotal` | string | Sum of line item subtotals |
-| `total_tax` | string | Total tax amount |
-| `shipping_total` | string | Shipping cost |
-| `discount_total` | string | Total discount applied |
-| `payment_method` | string | Payment method slug |
-| `payment_method_title` | string | Payment method display name |
+| `date_modified` | string\|null | ISO 8601 |
+| `subtotal` | string | Line-item subtotal |
+| `total_tax` | string | Tax total |
+| `shipping_total` | string | Shipping total |
+| `discount_total` | string | Discount total |
+| `payment_method` | string | Gateway ID |
 | `transaction_id` | string | Gateway transaction ID |
-| `customer_note` | string | Note left by the customer |
-| `billing` | object | Billing address |
-| `shipping` | object | Shipping address |
-| `line_items` | array | Ordered products |
+| `customer_note` | string | Customer note |
+| `billing` | object | WooCommerce billing address |
+| `shipping` | object | WooCommerce shipping address |
+| `line_items` | array | Ordered items |
 | `coupon_lines` | array | Applied coupons |
 
-### Line Item Fields
+`line_items[]` fields:
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `id` | integer | Order item ID |
-| `product_id` | integer | Parent product ID |
-| `variation_id` | integer\|null | Variation ID, null for simple products |
-| `name` | string | Product name at time of order |
-| `sku` | string\|null | Product SKU |
-| `quantity` | integer | Quantity ordered |
-| `subtotal` | string | Line subtotal before coupons |
-| `total` | string | Line total after coupons |
+| `id` | integer | Line item ID |
+| `product_id` | integer | Product ID |
+| `variation_id` | integer\|null | Variation ID |
+| `name` | string | Item name |
+| `sku` | string\|null | SKU |
+| `quantity` | integer | Quantity |
+| `subtotal` | string | Line subtotal |
+| `total` | string | Line total |
 | `image` | string\|null | Product image URL |
 
 Errors:
 
-- `404 herlan_order_not_found` — order does not exist or belongs to another user
+- `404 herlan_order_not_found`
 - `500 herlan_woocommerce_unavailable`
 
-## Products
+### `GET /wishlist`
 
-### `GET /products/filters`
+Returns the authenticated user's wishlist items.
 
-Returns mobile filter metadata for shop and taxonomy pages.
+Query parameters:
 
-This endpoint is public.
+| Parameter | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `page` | integer | `1` | Page number |
+| `per_page` | integer | `10` | Max `50` |
+| `order` | string | `desc` | `asc` or `desc` |
+| `order_by` | string | `date` | `date`, `price`, `product_id`, `quantity`, `id` |
+
+Response fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `items` | array | Wishlist items |
+| `pagination.page` | integer | Current page |
+| `pagination.per_page` | integer | Page size |
+| `pagination.total` | integer | Total items |
+| `pagination.total_pages` | integer | Page count |
+
+Wishlist item fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `wishlist_item_id` | integer | Wishlist row ID |
+| `product_id` | integer | Product ID |
+| `variation_id` | integer\|null | Variation ID |
+| `date_added` | string\|null | Raw plugin date string |
+| `quantity` | integer | Quantity |
+| `product` | object | Product summary |
+
+### `POST /wishlist`
+
+Adds a product to the wishlist.
+
+Request body:
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `product_id` | integer | Yes | Product ID |
+| `variation_id` | integer | No | Defaults to `0` |
+
+Errors:
+
+- `404 herlan_product_not_found`
+- `500 herlan_wishlist_unavailable`
+- `500 herlan_wishlist_error`
+- `500 herlan_wishlist_add_failed`
+
+### `DELETE /wishlist/{product_id}`
+
+Removes a product from the wishlist.
 
 Query parameters:
 
 | Parameter | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `taxonomy` | string | No | Current archive taxonomy, for example `product_cat`, `brand`, `keywords`, `pa_colors` |
-| `term` | string | No | Current archive term slug |
-| `include_counts` | boolean | No | Defaults to `true`; when true, each term count is calculated in the current context |
+| `variation_id` | integer | No | Use for variation wishlist items |
 
-Shop page example:
+Errors:
 
-```bash
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/products/filters"
-```
+- `404 herlan_wishlist_not_found`
+- `500 herlan_wishlist_unavailable`
+- `500 herlan_wishlist_remove_failed`
 
-Category page example:
+---
 
-```bash
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/products/filters?taxonomy=product_cat&term=makeup"
-```
+## Cart endpoints
 
-Brand page example:
+All cart endpoints require a Bearer token. The cart is tied to the authenticated user and persists between sessions (backed by WooCommerce's persistent cart in user meta).
 
-```bash
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/products/filters?taxonomy=brand&term=herlan"
-```
-
-Response:
+Every cart response includes the full `cart` object in `data`:
 
 ```json
 {
   "success": true,
-  "message": "",
+  "message": "...",
   "data": {
-    "context": {
-      "taxonomy": "product_cat",
-      "term": "makeup"
-    },
-    "sort_options": [
-      {"key": "popularity", "label": "Best Selling", "orderby": "sales"},
-      {"key": "date", "label": "New Arrivals", "orderby": "date"},
-      {"key": "price_asc", "label": "Price: Low to High", "orderby": "price", "order": "ASC"},
-      {"key": "price_desc", "label": "Price: High to Low", "orderby": "price", "order": "DESC"},
-      {"key": "rating", "label": "Top Rated", "orderby": "rating"}
-    ],
-    "price_range": {
-      "min": 120,
-      "max": 3200
-    },
-    "filters": [
-      {
-        "taxonomy": "brand",
-        "label": "Brands",
-        "type": "taxonomy",
-        "hierarchical": false,
-        "terms": [
-          {
-            "id": 12,
-            "name": "Herlan",
-            "slug": "herlan",
-            "taxonomy": "brand",
-            "count": 24,
-            "parent": 0,
-            "link": "http://localhost/herlanlive3/brand/herlan/",
-            "color": "",
-            "image": null
-          }
-        ]
-      },
-      {
-        "taxonomy": "pa_colors",
-        "label": "Product Colors",
-        "type": "attribute",
-        "hierarchical": false,
-        "terms": []
-      }
-    ]
+    "cart": {
+      "items": [
+        {
+          "key": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+          "product_id": 49045,
+          "variation_id": 0,
+          "name": "BOS Mystique Island Body Mist 150 ml",
+          "sku": "1400001233",
+          "quantity": 1,
+          "price": "450.00",
+          "subtotal": "450.00",
+          "image": "https://your-domain.com/wp-content/uploads/.../thumbnail.jpg"
+        }
+      ],
+      "item_count": 1,
+      "subtotal": "450.00",
+      "total": "450.00",
+      "currency": "BDT"
+    }
   }
 }
 ```
 
-Filter taxonomies currently include public product taxonomies and product attributes:
+`cart.items[]` fields:
 
-- `product_cat`
-- `brand`
-- `product_tag`
-- `keywords`
-- `pa_*` product attributes, such as `pa_colors`, `pa_size`, `pa_variant`
+| Field | Type | Notes |
+| --- | --- | --- |
+| `key` | string | MD5 cart item key — use this for update/remove |
+| `product_id` | integer | Product ID |
+| `variation_id` | integer | Variation ID, `0` for simple products |
+| `name` | string | Product name |
+| `sku` | string | Product SKU |
+| `quantity` | integer | Quantity in cart |
+| `price` | string | Unit price (decimal string) |
+| `subtotal` | string | `price × quantity` |
+| `image` | string\|null | Thumbnail image URL |
 
-Internal WooCommerce taxonomies like `product_type`, `product_visibility`, shipping class, and POS visibility are excluded.
+---
 
-### `GET /products/{id}`
+### `GET /cart`
 
-Returns one published WooCommerce product for mobile product details.
-
-This endpoint is public.
+Returns the current user's cart.
 
 Example:
 
 ```bash
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/products/10119"
+curl "https://your-domain.com/wp-json/herlan/v1/cart" \
+  -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-Response:
+---
 
-```json
-{
-  "success": true,
-  "message": "",
-  "data": {
-    "id": 10119,
-    "name": "Herlan Cushion Matte Lipstick Vintage Vibes",
-    "slug": "herlan-cushion-matte-lipstick-vintage-vibes",
-    "type": "simple",
-    "permalink": "http://localhost/herlanlive3/product/herlan-cushion-matte-lipstick-vintage-vibes/",
-    "status": "publish",
-    "sku": "",
-    "description": "<p>...</p>",
-    "short_description": "<p>...</p>",
-    "price": "690",
-    "regular_price": "690",
-    "sale_price": "",
-    "price_html": "<span class=\"woocommerce-Price-amount amount\">...</span>",
-    "on_sale": false,
-    "purchasable": true,
-    "stock_status": "instock",
-    "stock_quantity": null,
-    "average_rating": "0",
-    "rating_count": 0,
-    "categories": [],
-    "tags": [],
-    "brand": null,
-    "attributes": [],
-    "images": [],
-    "custom_fields": {},
-    "linked_products": {
-      "enabled": true,
-      "link_id": 123,
-      "source": "products",
-      "attributes": []
-    }
-  }
-}
-```
+### `POST /cart/add-to-cart`
 
-### Product Fields
-
-| Field | Type | Notes |
-| --- | --- | --- |
-| `id` | integer | WooCommerce product ID |
-| `name` | string | Product name |
-| `slug` | string | Product slug |
-| `type` | string | WooCommerce product type |
-| `permalink` | string | Product page URL |
-| `status` | string | Only published products are returned |
-| `sku` | string | Product SKU |
-| `description` | string | Sanitized product description HTML |
-| `short_description` | string | Sanitized short description HTML |
-| `price` | string | Current product price |
-| `regular_price` | string | Regular price |
-| `sale_price` | string | Sale price, empty if not on sale |
-| `price_html` | string | WooCommerce formatted price HTML |
-| `on_sale` | boolean | Whether the product is on sale |
-| `purchasable` | boolean | WooCommerce purchasable flag |
-| `stock_status` | string | `instock`, `outofstock`, or `onbackorder` |
-| `stock_quantity` | integer\|null | Stock quantity if managed |
-| `average_rating` | string | WooCommerce average rating |
-| `rating_count` | integer | Review rating count |
-| `categories` | array | Product categories |
-| `tags` | array | Product tags |
-| `brand` | object\|null | First `brand` taxonomy term |
-| `taxonomies` | object | Assigned public product taxonomies and product attributes, keyed by taxonomy slug |
-| `attributes` | array | WooCommerce product attributes |
-| `images` | array | Main image and gallery |
-| `custom_fields` | object | ACF fields from `get_fields($product_id)` |
-| `linked_products` | object | WPC Linked Variation data |
-| `recommendations` | object | Product recommendation sections from the theme/custom integration |
-| `variations` | array | Present only for variable products |
-
-### Taxonomies Shape
-
-`taxonomies` includes assigned product taxonomies such as `brand`, `product_cat`, `product_tag`, `keywords`, and product attributes like `pa_colors`. Internal WooCommerce taxonomies like `product_type`, `product_visibility`, and shipping class are excluded.
-
-```json
-{
-  "taxonomies": {
-    "keywords": {
-      "name": "keywords",
-      "label": "Keywords",
-      "hierarchical": false,
-      "terms": [
-        {
-          "id": 123,
-          "name": "Paraben Free",
-          "slug": "paraben-free",
-          "taxonomy": "keywords",
-          "description": "",
-          "parent": 0,
-          "count": 10,
-          "link": "http://localhost/herlanlive3/keywords/paraben-free/",
-          "color": "",
-          "image": null
-        }
-      ]
-    },
-    "pa_colors": {
-      "name": "pa_colors",
-      "label": "Product Colors",
-      "hierarchical": false,
-      "terms": []
-    }
-  }
-}
-```
-
-### Recommendations Shape
-
-The single product response includes the same four product sections used on the product detail page:
-
-- `you_may_like`
-- `more_from_this_brand`
-- `best_selling`
-- `new_arrivals`
-
-Each section has a title, archive URL, and product-card array:
-
-```json
-{
-  "recommendations": {
-    "you_may_like": {
-      "title": "You May Like",
-      "url": "http://localhost/herlanlive3/product-category/makeup/",
-      "products": []
-    },
-    "more_from_this_brand": {
-      "title": "More from this brand",
-      "url": "http://localhost/herlanlive3/brand/herlan/",
-      "products": []
-    },
-    "best_selling": {
-      "title": "Best Selling",
-      "url": "http://localhost/herlanlive3/shop/?orderby=sales",
-      "products": []
-    },
-    "new_arrivals": {
-      "title": "New Arrivals",
-      "url": "http://localhost/herlanlive3/shop/?orderby=date",
-      "products": []
-    }
-  }
-}
-```
-
-Recommendation product card fields:
-
-| Field | Type | Notes |
-| --- | --- | --- |
-| `id` | integer | Product ID |
-| `name` | string | Product name |
-| `slug` | string | Product slug |
-| `type` | string | WooCommerce product type |
-| `permalink` | string | Product URL |
-| `sku` | string | SKU |
-| `price` | string | Current price |
-| `regular_price` | string | Regular price |
-| `sale_price` | string | Sale price |
-| `price_html` | string | WooCommerce formatted price HTML |
-| `on_sale` | boolean | Sale flag |
-| `stock_status` | string | Stock status |
-| `average_rating` | string | Average rating |
-| `rating_count` | integer | Rating count |
-| `brand` | object\|null | First brand term |
-| `image` | object\|null | Main image |
-
-### Linked Products Shape
-
-`linked_products` is generated from the `wpc-linked-variation` plugin. It is structured for mobile swatch/linked-product UI and replaces the frontend HTML like `.wpclv-attributes`.
-
-```json
-{
-  "enabled": true,
-  "link_id": 456,
-  "source": "products",
-  "attributes": [
-    {
-      "id": 1,
-      "name": "pa_colors",
-      "slug": "pa_colors",
-      "label": "Colors",
-      "display": "swatches",
-      "current_terms": ["vintage-vibes"],
-      "terms": [
-        {
-          "term_id": 999,
-          "name": "Vintage Vibes",
-          "slug": "vintage-vibes",
-          "color": "#a8483d",
-          "image": null,
-          "active": true,
-          "in_stock": true,
-          "product": {
-            "id": 10119,
-            "name": "Herlan Cushion Matte Lipstick Vintage Vibes",
-            "slug": "herlan-cushion-matte-lipstick-vintage-vibes",
-            "permalink": "http://localhost/herlanlive3/product/herlan-cushion-matte-lipstick-vintage-vibes/",
-            "sku": "",
-            "price": "690",
-            "regular_price": "690",
-            "sale_price": "",
-            "on_sale": false,
-            "stock_status": "instock",
-            "image": null
-          }
-        }
-      ]
-    }
-  ]
-}
-```
-
-Linked term fields:
-
-| Field | Type | Notes |
-| --- | --- | --- |
-| `term_id` | integer | Attribute term ID |
-| `name` | string | Term label shown to users |
-| `slug` | string | Term slug |
-| `color` | string | Color value from WPC Variation Swatches meta, for example `#a8483d` |
-| `image` | string\|null | Term swatch image URL, if configured |
-| `active` | boolean | `true` for the current product term |
-| `in_stock` | boolean | Stock state of the linked product |
-| `product` | object\|null | Linked product summary, or `null` if no product is linked |
-
-For product `10119`, the API returns the `pa_colors` linked attribute with terms such as:
-
-```text
-Vintage Vibes | active=true  | in_stock=true  | color=#a8483d | product.id=10119
-Disco Diva    | active=false | in_stock=true  | color=#3e7155 | product.id=10150
-Retro Rust    | active=false | in_stock=false | color=#803134 | product.id=10138
-```
-
-Errors:
-
-- `404 herlan_product_not_found`
-- `500 herlan_woocommerce_unavailable`
-
-## Navigation
-
-Returns all product categories (as a nested tree) and brands in a single request. Designed for mobile app navigation menus and category drawers.
-
-This endpoint is public.
-
-### `GET /drawer-brands-categories`
-
-Query parameters:
-
-| Parameter | Type | Default | Notes |
-| --- | --- | --- | --- |
-| `hide_empty` | boolean | `true` | Exclude categories and brands that have no products |
-| `categories_flat` | boolean | `false` | Return categories as a flat list instead of a nested tree |
-| `order` | string | `asc` | Sort direction: `asc` or `desc` |
-| `order_by` | string | `name` | Sort field: `name`, `count`, `id`, `slug` |
-
-Examples:
-
-```bash
-# Default — nested categories + brands
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/navigation"
-
-# Flat category list, sorted by product count descending
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/navigation?categories_flat=true&order_by=count&order=desc"
-
-# Include empty categories and brands
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/navigation?hide_empty=false"
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "",
-  "data": {
-    "categories": [
-      {
-        "id": 5,
-        "name": "Makeup",
-        "slug": "makeup",
-        "description": "",
-        "count": 50,
-        "parent": 0,
-        "link": "https://herlan.com/product-category/makeup/",
-        "image": {
-          "id": 301,
-          "src": "https://herlan.com/wp-content/uploads/makeup.jpg",
-          "alt": "Makeup"
-        },
-        "children": [
-          {
-            "id": 8,
-            "name": "Lips",
-            "slug": "lips",
-            "description": "",
-            "count": 20,
-            "parent": 5,
-            "link": "https://herlan.com/product-category/makeup/lips/",
-            "image": null,
-            "children": []
-          },
-          {
-            "id": 9,
-            "name": "Eyes",
-            "slug": "eyes",
-            "description": "",
-            "count": 15,
-            "parent": 5,
-            "link": "https://herlan.com/product-category/makeup/eyes/",
-            "image": null,
-            "children": []
-          }
-        ]
-      },
-      {
-        "id": 6,
-        "name": "Skin Care",
-        "slug": "skin-care",
-        "description": "",
-        "count": 30,
-        "parent": 0,
-        "link": "https://herlan.com/product-category/skin-care/",
-        "image": {
-          "id": 302,
-          "src": "https://herlan.com/wp-content/uploads/skin-care.jpg",
-          "alt": "Skin Care"
-        },
-        "children": []
-      }
-    ],
-    "total_categories": 12,
-    "brands": [
-      {
-        "id": 12,
-        "name": "Herlan",
-        "slug": "herlan",
-        "description": "",
-        "count": 124,
-        "link": "https://herlan.com/brand/herlan/",
-        "image": {
-          "id": 502,
-          "src": "https://herlan.com/wp-content/uploads/herlan-logo.jpg",
-          "alt": "Herlan"
-        }
-      },
-      {
-        "id": 13,
-        "name": "Herlan Pro",
-        "slug": "herlan-pro",
-        "description": "",
-        "count": 45,
-        "link": "https://herlan.com/brand/herlan-pro/",
-        "image": {
-          "id": 503,
-          "src": "https://herlan.com/wp-content/uploads/herlan-pro-logo.jpg",
-          "alt": "Herlan Pro"
-        }
-      }
-    ],
-    "total_brands": 5
-  }
-}
-```
-
-### Category Fields
-
-| Field | Type | Notes |
-| --- | --- | --- |
-| `id` | integer | Term ID |
-| `name` | string | Category name |
-| `slug` | string | Category slug |
-| `description` | string | Category description |
-| `count` | integer | Number of products in this category |
-| `parent` | integer | Parent term ID, `0` for top-level categories |
-| `link` | string\|null | Category archive URL |
-| `image` | object\|null | Category thumbnail (`thumbnail_id` meta) |
-| `children` | array | Nested child categories, empty array if none |
-
-### Brand Fields
-
-| Field | Type | Notes |
-| --- | --- | --- |
-| `id` | integer | Term ID |
-| `name` | string | Brand name |
-| `slug` | string | Brand slug |
-| `description` | string | Brand description |
-| `count` | integer | Number of products under this brand |
-| `link` | string\|null | Brand archive URL |
-| `image` | object\|null | Brand logo (`logo` meta) |
-
-### Image Object
-
-| Field | Type | Notes |
-| --- | --- | --- |
-| `id` | integer | WordPress attachment ID |
-| `src` | string | Full image URL |
-| `alt` | string | Image alt text |
-
-### Flat Category Response
-
-When `categories_flat=true`, categories are returned as a plain array ordered by the `order_by` parameter. The `parent` field identifies the hierarchy and `children` is always an empty array.
-
-```json
-{
-  "data": {
-    "categories": [
-      { "id": 9,  "name": "Eyes",      "parent": 5, "children": [] },
-      { "id": 8,  "name": "Lips",      "parent": 5, "children": [] },
-      { "id": 5,  "name": "Makeup",    "parent": 0, "children": [] },
-      { "id": 6,  "name": "Skin Care", "parent": 0, "children": [] }
-    ],
-    "total_categories": 4,
-    "brands": [],
-    "total_brands": 0
-  }
-}
-```
-
-## Wishlist
-
-Requires the **TI WooCommerce Wishlist** plugin (`ti-woocommerce-wishlist`) to be active.
-
-### `GET /wishlist`
-
-Returns the authenticated user's wishlist items with pagination.
-
-Query parameters:
-
-| Parameter | Type | Default | Notes |
-| --- | --- | --- | --- |
-| `page` | integer | `1` | Page number |
-| `per_page` | integer | `10` | Items per page, max `50` |
-| `order` | string | `desc` | Sort direction: `asc` or `desc` |
-| `order_by` | string | `date` | Sort field: `date`, `price`, `product_id`, `quantity`, `ID` |
-
-Examples:
-
-```bash
-# Default — newest first
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-
-# Page 2, 20 per page, sorted by price ascending
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist?page=2&per_page=20&order_by=price&order=asc" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "",
-  "data": {
-    "items": [
-      {
-        "wishlist_item_id": 14,
-        "product_id": 10119,
-        "variation_id": null,
-        "date_added": "2026-05-14 10:23:45",
-        "quantity": 1,
-        "product": {
-          "id": 10119,
-          "name": "Herlan Cushion Matte Lipstick Vintage Vibes",
-          "slug": "herlan-cushion-matte-lipstick-vintage-vibes",
-          "type": "simple",
-          "permalink": "http://localhost/herlanlive3/product/herlan-cushion-matte-lipstick-vintage-vibes/",
-          "sku": "HL-LIP-VV",
-          "price": "690",
-          "regular_price": "690",
-          "sale_price": "",
-          "price_html": "<span class=\"woocommerce-Price-amount amount\">৳690</span>",
-          "on_sale": false,
-          "stock_status": "instock",
-          "in_stock": true,
-          "image": {
-            "id": 301,
-            "src": "http://localhost/herlanlive3/wp-content/uploads/product.jpg",
-            "alt": "Herlan Cushion Matte Lipstick"
-          }
-        }
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "per_page": 10,
-      "total": 24,
-      "total_pages": 3
-    }
-  }
-}
-```
-
-Errors:
-
-- `500 herlan_wishlist_unavailable` — TI WooCommerce Wishlist plugin is not active
-
-### `POST /wishlist`
-
-Adds a product to the authenticated user's wishlist. If the product is already in the wishlist it is updated in place.
+Adds a product to the cart.
 
 Request body:
 
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `product_id` | integer | Yes | WooCommerce product ID |
-| `variation_id` | integer | No | Variation ID for variable products, defaults to `0` |
+| `quantity` | integer | No | Defaults to `1`, minimum `1` |
+| `variation_id` | integer | No | Required for variable products |
+| `variation` | object | No | Variation attributes, e.g. `{"attribute_pa_color": "red"}` |
 
-Example — simple product:
-
-```bash
-curl -X POST "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist" \
-  -H "Authorization: Bearer MQ.example_token_secret" \
-  -H "Content-Type: application/json" \
-  -d "{\"product_id\": 10119}"
-```
-
-Example — variable product:
+Example (simple product):
 
 ```bash
-curl -X POST "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist" \
-  -H "Authorization: Bearer MQ.example_token_secret" \
+curl -X POST "https://your-domain.com/wp-json/herlan/v1/cart/add-to-cart" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"product_id\": 10200, \"variation_id\": 10205}"
+  -d '{"product_id": 49045, "quantity": 1}'
 ```
 
-Response:
+Example (variable product):
+
+```bash
+curl -X POST "https://your-domain.com/wp-json/herlan/v1/cart/add-to-cart" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"product_id": 49045, "variation_id": 49060, "quantity": 2, "variation": {"attribute_pa_size": "150ml"}}'
+```
+
+Success response (`200`):
 
 ```json
 {
   "success": true,
-  "message": "Product added to wishlist.",
-  "data": {}
+  "message": "\"BOS Mystique Island Body Mist 150 ml\" has been added to your cart.",
+  "data": { "cart": { "...": "..." } }
 }
 ```
 
 Errors:
 
-- `404 herlan_product_not_found`
-- `500 herlan_wishlist_unavailable`
-- `500 herlan_wishlist_error` — could not retrieve or create wishlist
-- `500 herlan_wishlist_add_failed` — plugin rejected the add operation
+- `404 herlan_product_not_found` — product does not exist or is not purchasable
+- `422 herlan_out_of_stock` — product is out of stock
+- `422 herlan_cart_add_failed` — WooCommerce rejected the add (includes WC's own error message)
 
-### `DELETE /wishlist/{product_id}`
+---
 
-Removes a product from the authenticated user's wishlist.
+### `POST /cart/update-item`
 
-Query parameters:
+Updates the quantity of a cart item. Send `quantity: 0` to remove the item.
 
-| Parameter | Type | Required | Notes |
+Request body:
+
+| Field | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `variation_id` | integer | No | Required when the wishlisted item is a variation |
+| `cart_item_key` | string | Yes | The `key` field from `cart.items[]` |
+| `quantity` | integer | Yes | New quantity; `0` removes the item |
 
-Example — simple product:
-
-```bash
-curl -X DELETE "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist/10119" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-```
-
-Example — variation:
+Example:
 
 ```bash
-curl -X DELETE "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist/10200?variation_id=10205" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "Product removed from wishlist.",
-  "data": {}
-}
+curl -X POST "https://your-domain.com/wp-json/herlan/v1/cart/update-item" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"cart_item_key": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4", "quantity": 3}'
 ```
 
 Errors:
 
-- `404 herlan_wishlist_not_found` — user has no wishlist yet
-- `500 herlan_wishlist_unavailable`
-- `500 herlan_wishlist_remove_failed` — plugin rejected the remove operation
+- `404 herlan_cart_item_not_found`
 
-## Payments
+---
 
-Payment endpoints are placeholders and require gateway integration before production use.
+### `DELETE /cart/remove-item/{cart_item_key}`
+
+Removes a single item from the cart.
+
+`cart_item_key` is the 32-character hex key from `cart.items[].key`.
+
+Example:
+
+```bash
+curl -X DELETE "https://your-domain.com/wp-json/herlan/v1/cart/remove-item/a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+Errors:
+
+- `404 herlan_cart_item_not_found`
+
+---
+
+### `DELETE /cart/clear`
+
+Empties the entire cart.
+
+Example:
+
+```bash
+curl -X DELETE "https://your-domain.com/wp-json/herlan/v1/cart/clear" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+---
 
 ### `GET /payments/methods`
 
-Protected endpoint. Returns configured mobile payment methods.
+Placeholder endpoint.
 
 Current response:
 
@@ -1513,7 +919,7 @@ Current response:
 
 ### `POST /payments/create`
 
-Protected endpoint. Placeholder for creating a payment intent/session/order payment request.
+Placeholder endpoint.
 
 Current response:
 
@@ -1527,36 +933,42 @@ Current response:
 }
 ```
 
-## Auth Error Codes
+## Common auth errors
 
-Protected endpoints can return:
+Protected endpoints may return:
 
 - `401 herlan_missing_token`
 - `401 herlan_invalid_token`
-- `401 herlan_expired_token`
 
-## Route Inventory
+## Route inventory
 
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
 | `GET` | `/status` | No | API status |
-| `GET` | `/promo-bar` | No | Promotional top bar settings |
-| `GET` | `/header-config` | No | Header colors and ornament settings |
-| `GET` | `/image-popup` | No | Image popup configuration |
+| `GET` | `/promo-bar` | No | Promo bar settings |
+| `GET` | `/header-config` | No | Header settings |
+| `GET` | `/image-popup` | No | Popup settings |
+| `GET` | `/home` | No | Mobile home payload |
 | `POST` | `/auth/login` | No | Login and issue token |
 | `POST` | `/auth/register` | No | Register and issue token |
 | `POST` | `/auth/logout` | Yes | Revoke current token |
-| `GET` | `/user/me` | Yes | Current user profile |
-| `PUT/PATCH` | `/user/account` | Yes | Update profile, email, or password |
-| `GET` | `/user/loyalty` | Yes | Loyalty points, cash, level, and transactions |
-| `GET` | `/user/coupons` | Yes | Available, expired, or used coupons |
-| `GET` | `/orders` | Yes | Paginated order history |
-| `GET` | `/orders/{id}` | Yes | Single order detail |
-| `GET` | `/products/filters` | No | Shop and taxonomy filter metadata |
-| `GET` | `/products/{id}` | No | Single product details |
-| `GET` | `/navigation` | No | Nested categories and brands in one request |
-| `GET` | `/wishlist` | Yes | Get user's wishlist items |
-| `POST` | `/wishlist` | Yes | Add product to wishlist |
-| `DELETE` | `/wishlist/{product_id}` | Yes | Remove product from wishlist |
-| `GET` | `/payments/methods` | Yes | Payment method list placeholder |
+| `GET` | `/user/me` | Yes | Current user |
+| `PUT/PATCH` | `/user/account` | Yes | Update account |
+| `POST` | `/user/avatar` | Yes | Upload profile photo |
+| `GET` | `/user/loyalty` | Yes | Loyalty summary |
+| `GET` | `/user/coupons` | Yes | Coupon list |
+| `GET` | `/orders` | Yes | Order history |
+| `GET` | `/orders/{id}` | Yes | Order detail |
+| `GET` | `/products/filters` | No | Filter metadata |
+| `GET` | `/products/{id}` | No | Product detail |
+| `GET` | `/drawer-brands-categories` | No | Navigation categories and brands |
+| `GET` | `/wishlist` | Yes | Wishlist items |
+| `POST` | `/wishlist` | Yes | Add wishlist item |
+| `DELETE` | `/wishlist/{product_id}` | Yes | Remove wishlist item |
+| `GET` | `/cart` | Yes | Cart contents |
+| `POST` | `/cart/add-to-cart` | Yes | Add item to cart |
+| `POST` | `/cart/update-item` | Yes | Update item quantity |
+| `DELETE` | `/cart/remove-item/{key}` | Yes | Remove one item |
+| `DELETE` | `/cart/clear` | Yes | Empty the cart |
+| `GET` | `/payments/methods` | Yes | Payment method placeholder |
 | `POST` | `/payments/create` | Yes | Payment creation placeholder |

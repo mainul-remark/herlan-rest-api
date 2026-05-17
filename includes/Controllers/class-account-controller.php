@@ -29,6 +29,12 @@ final class AccountController extends Controller
                 'new_password'     => ['required' => false, 'type' => 'string'],
             ],
         ]);
+
+        register_rest_route($this->namespace, '/user/avatar', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'upload_avatar'],
+            'permission_callback' => [$this, 'can_access'],
+        ]);
     }
 
     public function update(WP_REST_Request $request)
@@ -101,6 +107,63 @@ final class AccountController extends Controller
             ['user' => Response::user(get_user_by('id', $user->ID))],
             200,
             __('Account updated successfully.', 'herlan-rest-api')
+        );
+    }
+
+    public function upload_avatar(WP_REST_Request $request)
+    {
+        $user = $this->current_user($request);
+
+        if (! $user) {
+            return new WP_Error('herlan_user_missing', __('Authenticated user could not be loaded.', 'herlan-rest-api'), ['status' => 401]);
+        }
+
+        $files = $request->get_file_params();
+
+        if (empty($files['avatar'])) {
+            return new WP_Error('herlan_missing_file', __('Please upload an image file in the "avatar" field.', 'herlan-rest-api'), ['status' => 400]);
+        }
+
+        $file = $files['avatar'];
+
+        if (! empty($file['size']) && (int) $file['size'] > 3 * MB_IN_BYTES) {
+            return new WP_Error('herlan_file_too_large', __('Image must be 3 MB or smaller.', 'herlan-rest-api'), ['status' => 400]);
+        }
+
+        $type_check = wp_check_filetype_and_ext($file['tmp_name'], $file['name']);
+
+        if (empty($type_check['type']) || strpos($type_check['type'], 'image/') !== 0) {
+            return new WP_Error('herlan_invalid_file_type', __('Only image files are allowed (JPEG, PNG, GIF, WebP).', 'herlan-rest-api'), ['status' => 400]);
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+
+        $upload = wp_handle_upload($file, [
+            'test_form' => false,
+            'mimes'     => [
+                'jpg|jpeg|jpe' => 'image/jpeg',
+                'png'          => 'image/png',
+                'gif'          => 'image/gif',
+                'webp'         => 'image/webp',
+            ],
+        ]);
+
+        if (isset($upload['error'])) {
+            return new WP_Error('herlan_upload_failed', $upload['error'], ['status' => 500]);
+        }
+
+        $url = esc_url_raw($upload['url'] ?? '');
+
+        if (! $url) {
+            return new WP_Error('herlan_upload_failed', __('Upload failed. Please try again.', 'herlan-rest-api'), ['status' => 500]);
+        }
+
+        update_user_meta($user->ID, 'profile_image_url', $url);
+
+        return Response::success(
+            ['user' => Response::user(get_user_by('id', $user->ID))],
+            200,
+            __('Profile photo updated.', 'herlan-rest-api')
         );
     }
 }

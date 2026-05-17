@@ -13,6 +13,7 @@ use HerlanRestApi\Controllers\ProductController;
 use HerlanRestApi\Controllers\UserController;
 use HerlanRestApi\Controllers\TaxonomyController;
 use HerlanRestApi\Controllers\HomeController;
+use HerlanRestApi\Controllers\CartController;
 use HerlanRestApi\Controllers\WishlistController;
 
 if (! defined('ABSPATH')) {
@@ -74,6 +75,7 @@ final class Plugin
         (new ProductController())->register_routes();
         (new TaxonomyController())->register_routes();
         (new WishlistController($auth))->register_routes();
+        (new CartController($auth))->register_routes();
         (new PaymentController($auth))->register_routes();
     }
 

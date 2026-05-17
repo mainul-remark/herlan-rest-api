@@ -30,10 +30,21 @@ final class Response
             'email'        => $user->user_email,
             'username'     => $user->user_login,
             'roles'        => array_values($user->roles),
-            'avatar'       => get_avatar_url($user->ID, ['size' => 96]) ?: null,
+            'avatar'       => self::resolve_user_avatar($user->ID),
             'phone'        => self::resolve_user_phone($user->ID),
             'has_password' => get_user_meta($user->ID, '_herlan_has_password', true) === '1',
         ];
+    }
+
+    private static function resolve_user_avatar(int $user_id): ?string
+    {
+        $url = (string) get_user_meta($user_id, 'profile_image_url', true);
+
+        if ($url && filter_var($url, FILTER_VALIDATE_URL)) {
+            return $url;
+        }
+
+        return get_avatar_url($user_id, ['size' => 96]) ?: null;
     }
 
     private static function resolve_user_phone(int $user_id): ?string
