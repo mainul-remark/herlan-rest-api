@@ -10,6 +10,7 @@ use HerlanRestApi\Controllers\LoyaltyController;
 use HerlanRestApi\Controllers\OrderController;
 use HerlanRestApi\Controllers\PaymentController;
 use HerlanRestApi\Controllers\ProductController;
+use HerlanRestApi\Controllers\ProductListingController;
 use HerlanRestApi\Controllers\UserController;
 use HerlanRestApi\Controllers\TaxonomyController;
 use HerlanRestApi\Controllers\HomeController;
@@ -72,6 +73,7 @@ final class Plugin
         (new OrderController($auth))->register_routes();
         (new LoyaltyController($auth))->register_routes();
         (new CouponController($auth))->register_routes();
+        (new ProductListingController())->register_routes();
         (new ProductController())->register_routes();
         (new TaxonomyController())->register_routes();
         (new WishlistController($auth))->register_routes();

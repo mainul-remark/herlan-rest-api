@@ -72,7 +72,697 @@ Several endpoints return the same user shape:
 }
 ```
 
-## Public endpoints
+---
+
+## Product Listing API
+
+This section covers the unified product listing endpoint and its companion filter endpoints. They power every product archive page, filter drawer, and search screen in the mobile app.
+
+### How it works
+
+Every product listing screen — whether it is a brand page, a category page, a filtered result page, or a search — is served by a single endpoint:
+
+```text
+GET /wp-json/herlan/v1/group/products
+```
+
+The caller tells the endpoint two things:
+
+1. **Archive context** — where the user is (e.g., on the Nior brand page, or the Lipstick category page)
+2. **Active filters** — what the user has selected (e.g., skin type = Combination Skin, category = Eyes)
+
+The endpoint returns the matching products, filter options with live counts, price range, pagination, and the current sort state — all in one response.
+
+---
+
+### Website URL → API call mapping
+
+This is the most important concept for the mobile developer. Every URL on the website maps directly to an API call. The table below shows common examples.
+
+| Website URL | Equivalent API call |
+| --- | --- |
+| `/shop/` | `GET /group/products` |
+| `/brand/d32/` | `GET /group/products?context_taxonomy=brand&context_term=d32` |
+| `/brand/nior/` | `GET /group/products?context_taxonomy=brand&context_term=nior` |
+| `/brand/d32/?product-cat=electric-toothbrush` | `GET /group/products?context_taxonomy=brand&context_term=d32&filter_product_cat=electric-toothbrush` |
+| `/brand/nior/?_skin-type=combination-skin` | `GET /group/products?context_taxonomy=brand&context_term=nior&filter_skin-type=combination-skin` |
+| `/product-category/makeup/` | `GET /group/products?context_taxonomy=product_cat&context_term=makeup` |
+| `/product-category/makeup/lip/lipstick/` | `GET /group/products?context_taxonomy=product_cat&context_term=lipstick` |
+| `/product-category/skin-care/?_brand=herlan` | `GET /group/products?context_taxonomy=product_cat&context_term=skin-care&filter_brand=herlan` |
+| `/search/?s=lipstick` | `GET /group/products?search=lipstick` |
+
+**Important notes:**
+
+- For hierarchical category URLs like `/makeup/lip/lipstick/`, only the final term slug (`lipstick`) is needed in `context_term`. WordPress stores each term with a unique slug.
+- The endpoint always includes child categories automatically (`include_children=true`), so pointing to a parent category like `makeup` will include all products in `lip`, `lipstick`, `lip-gloss`, and every other child.
+- Legacy frontend query string parameters from the website (like `?product-cat=...` or `?_brand=...`) are accepted and normalized automatically — the mobile app does not need to translate them.
+
+---
+
+### Legacy alias normalization
+
+The website frontend uses some non-standard query parameter names for filters. The API accepts both the old and new names and normalizes them internally.
+
+| Legacy (website URL style) | Canonical (use this in new code) |
+| --- | --- |
+| `_brand` | `filter_brand` |
+| `product-cat` | `filter_product_cat` |
+| `_skin-type` | `filter_skin-type` |
+| `_age-range` | `filter_age-range` |
+| `_keywords` | `filter_keywords` |
+| `sort-by` | `orderby` |
+
+Example — this legacy frontend URL:
+
+```text
+/brand/nior/?product-cat=eyebrow,eyes&_skin-type=combination-skin
+```
+
+Can be sent to the API as-is and is normalized to:
+
+```text
+GET /group/products?context_taxonomy=brand&context_term=nior&filter_product_cat=eyebrow,eyes&filter_skin-type=combination-skin
+```
+
+---
+
+### `GET /group/products`
+
+Returns a paginated product list with live filter counts, price range, active filters, and pagination. This is the core endpoint for all product listing screens.
+
+#### Request parameters
+
+**Archive context** — where the user is:
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `context_taxonomy` | string | No | Base archive taxonomy slug. One of: `product_cat`, `product_tag`, `brand`, `keywords`, `skin-type`, `age-range` |
+| `context_term` | string | Conditional | Base archive term slug. Required when `context_taxonomy` is provided. |
+
+Rules:
+- If both are omitted, the endpoint behaves as a general shop/search listing.
+- If `context_taxonomy` is set, `context_term` is required.
+- For `product_cat`, child categories are always included.
+
+**Taxonomy filters** — what the user has selected:
+
+Filters follow this format: `filter_{taxonomy}=slug-a,slug-b`
+
+| Parameter | Example | Description |
+| --- | --- | --- |
+| `filter_brand` | `filter_brand=nior,herlan` | Filter by one or more brand slugs |
+| `filter_product_cat` | `filter_product_cat=eyes,eyebrow` | Filter by one or more category slugs |
+| `filter_skin-type` | `filter_skin-type=combination-skin` | Filter by skin type |
+| `filter_age-range` | `filter_age-range=25-35` | Filter by age range |
+| `filter_keywords` | `filter_keywords=paraben-free` | Filter by keyword |
+| `filter_pa_colors` | `filter_pa_colors=vintage-vibes` | Filter by color attribute |
+| `filter_pa_size` | `filter_pa_size=100ml` | Filter by size attribute |
+| `filter_pa_variant` | `filter_pa_variant=aloe` | Filter by variant attribute |
+
+Any `pa_*` attribute registered in WooCommerce is supported without code changes.
+
+**Filter operators** — how multi-value filters are combined:
+
+| Parameter | Default | Values | Description |
+| --- | --- | --- | --- |
+| `filter_operator_{taxonomy}` | `in` | `in`, `and`, `not_in` | `in` = any selected term, `and` = must match all selected terms, `not_in` = exclude |
+
+Example: `filter_operator_brand=and` — product must belong to ALL selected brands.
+
+**Price, stock, and sale:**
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `min_price` | number | Minimum price |
+| `max_price` | number | Maximum price |
+| `stock_status` | string | `instock`, `outofstock`, or `onbackorder` |
+| `on_sale` | boolean | `1` or `true` to show only on-sale products |
+
+**Search and sort:**
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `search` | string | — | Product text search |
+| `orderby` | string | `menu_order` | `menu_order`, `popularity`, `rating`, `date`, `price`, `price-desc`, `title` |
+
+Sort reference:
+
+| `orderby` value | Sorts by |
+| --- | --- |
+| `menu_order` | Default catalog order set in admin |
+| `popularity` | Best selling (WooCommerce total sales) |
+| `rating` | Highest average customer rating |
+| `date` | Newest first |
+| `price` | Lowest price first |
+| `price-desc` | Highest price first |
+| `title` | Alphabetical A–Z |
+
+**Pagination:**
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `page` | integer | `1` | Page number |
+| `per_page` | integer | `12` | Products per page (max `50`) |
+
+**Include flags** — control what the response contains:
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `include_products` | boolean | `1` | Include product list in response |
+| `include_filters` | boolean | `0` | Include filter groups and counts. Must be explicitly set to `1` to return filter data. Defaults to `0` to keep responses lightweight |
+| `include_pagination` | boolean | `1` | Include pagination block |
+
+**Tip:** Keep `include_filters=0` (the default) for normal product listing and pagination requests. Only pass `include_filters=1` when the user opens the filter drawer — this triggers the full filter computation including live term counts across all taxonomies.
+
+#### Response shape
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "context": {},
+    "request": {},
+    "products": [],
+    "filters": {},
+    "pagination": {}
+  }
+}
+```
+
+#### `data.context`
+
+Describes the archive the user is browsing. Null fields mean no archive context (general listing or search).
+
+```json
+{
+  "taxonomy": "brand",
+  "label": "Brands",
+  "term": {
+    "id": 12,
+    "name": "Nior",
+    "slug": "nior",
+    "taxonomy": "brand",
+    "description": "",
+    "parent": 0,
+    "count": 24,
+    "link": "https://herlan.com/brand/nior/",
+    "image": {
+      "id": 501,
+      "src": "https://herlan.com/wp-content/uploads/nior-logo.jpg",
+      "alt": "Nior"
+    }
+  }
+}
+```
+
+If no context:
+
+```json
+{
+  "taxonomy": null,
+  "label": null,
+  "term": null
+}
+```
+
+#### `data.request`
+
+The normalized parameters actually used for this request after alias resolution and sanitization. Useful for debugging and for the mobile app to reflect the current filter state back to the user.
+
+```json
+{
+  "page": 1,
+  "per_page": 12,
+  "orderby": "popularity",
+  "order": "ASC",
+  "search": null,
+  "filters": {
+    "filter_product_cat": ["eyes", "eyebrow"],
+    "filter_skin-type": ["combination-skin"],
+    "min_price": "300",
+    "max_price": "1200",
+    "stock_status": "instock",
+    "on_sale": true
+  }
+}
+```
+
+#### `data.products[]`
+
+Each product in the listing. This is a lightweight card object — use `GET /products/{id}` for full detail.
+
+```json
+{
+  "id": 10119,
+  "name": "Herlan Cushion Matte Lipstick Vintage Vibes",
+  "slug": "herlan-cushion-matte-lipstick-vintage-vibes",
+  "type": "simple",
+  "permalink": "https://herlan.com/product/herlan-cushion-matte-lipstick-vintage-vibes/",
+  "sku": "HL-LIP-VV",
+  "price": "690",
+  "regular_price": "690",
+  "sale_price": "",
+  "price_html": "<span class=\"woocommerce-Price-amount amount\">690</span>",
+  "on_sale": false,
+  "stock_status": "instock",
+  "in_stock": true,
+  "average_rating": "0",
+  "rating_count": 0,
+  "brand": {
+    "id": 12,
+    "name": "Herlan",
+    "slug": "herlan"
+  },
+  "image": {
+    "id": 301,
+    "src": "https://herlan.com/wp-content/uploads/product.jpg",
+    "alt": "Herlan Cushion Matte Lipstick"
+  },
+  "categories": [
+    { "id": 88, "name": "Lipstick", "slug": "lipstick" }
+  ],
+  "tags": [
+    { "id": 45, "name": "Herlan Cushion Matte Lipstick", "slug": "herlan-cushion-matte-lipstick" }
+  ]
+}
+```
+
+Product card fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | WooCommerce product ID |
+| `name` | string | Product name |
+| `slug` | string | URL slug |
+| `type` | string | `simple`, `variable`, etc. |
+| `permalink` | string | Full product URL |
+| `sku` | string | SKU |
+| `price` | string | Current active price |
+| `regular_price` | string | Regular (non-sale) price |
+| `sale_price` | string | Sale price if set, otherwise empty string |
+| `price_html` | string | WooCommerce formatted price HTML |
+| `on_sale` | boolean | `true` if currently on sale |
+| `stock_status` | string | `instock`, `outofstock`, `onbackorder` |
+| `in_stock` | boolean | `true` if purchasable stock exists |
+| `average_rating` | string | Decimal string e.g. `"4.5"` |
+| `rating_count` | integer | Number of ratings |
+| `brand` | object\|null | First brand term |
+| `image` | object\|null | Main product image |
+| `categories` | array | Assigned `product_cat` terms |
+| `tags` | array | Assigned `product_tag` terms |
+
+#### `data.filters`
+
+```json
+{
+  "active": [],
+  "available": {},
+  "price_range": {},
+  "availability": {},
+  "sorting": {},
+  "per_page": {}
+}
+```
+
+**`filters.active`** — filters the user has currently applied, suitable for rendering "remove filter" chips:
+
+```json
+[
+  {
+    "key": "filter_product_cat",
+    "value": "eyebrow",
+    "label": "Product categories: Eyebrow"
+  },
+  {
+    "key": "filter_skin-type",
+    "value": "combination-skin",
+    "label": "Skin Types: Combination Skin"
+  },
+  {
+    "key": "stock_status",
+    "value": "instock",
+    "label": "In stock"
+  }
+]
+```
+
+**`filters.available`** — one object per filterable taxonomy, with live product counts:
+
+```json
+{
+  "brand": {
+    "label": "Brands",
+    "taxonomy": "brand",
+    "hierarchical": false,
+    "terms": [
+      {
+        "id": 12,
+        "name": "Nior",
+        "slug": "nior",
+        "count": 7,
+        "parent": 0,
+        "link": "https://herlan.com/brand/nior/",
+        "image": null
+      }
+    ]
+  },
+  "pa_colors": {
+    "label": "Product Colors",
+    "taxonomy": "pa_colors",
+    "hierarchical": false,
+    "terms": [
+      {
+        "id": 999,
+        "name": "Vintage Vibes",
+        "slug": "vintage-vibes",
+        "count": 3,
+        "parent": 0,
+        "link": "...",
+        "color": "#a8483d",
+        "image": null
+      }
+    ]
+  }
+}
+```
+
+**How counts work (faceted filtering):** The count for each term reflects how many products would match if the user tapped that term — using all current context and active filters, but excluding the currently-being-counted taxonomy. This matches the behaviour of the website's filter plugin. A term with `count: 0` is not returned.
+
+**`filters.price_range`** — min and max price of the currently matched product set:
+
+```json
+{
+  "min": 300,
+  "max": 1200
+}
+```
+
+**`filters.availability`** — stock and sale counts for the current result set:
+
+```json
+{
+  "in_stock_count": 18,
+  "on_sale_count": 4
+}
+```
+
+**`filters.sorting`** — current sort and all available sort options:
+
+```json
+{
+  "current": "popularity",
+  "options": [
+    { "key": "menu_order", "label": "Default sorting" },
+    { "key": "popularity", "label": "Sort by popularity" },
+    { "key": "rating",     "label": "Sort by average rating" },
+    { "key": "date",       "label": "Sort by latest" },
+    { "key": "price",      "label": "Sort by price: low to high" },
+    { "key": "price-desc", "label": "Sort by price: high to low" }
+  ]
+}
+```
+
+**`filters.per_page`** — current page size and options:
+
+```json
+{
+  "current": 12,
+  "options": [12, 24, 36, 48]
+}
+```
+
+#### `data.pagination`
+
+```json
+{
+  "page": 1,
+  "per_page": 12,
+  "total": 48,
+  "total_pages": 4,
+  "has_more": true
+}
+```
+
+#### Error codes
+
+| Code | HTTP | Description |
+| --- | --- | --- |
+| `herlan_woocommerce_unavailable` | 500 | WooCommerce is not active |
+| `herlan_invalid_context_taxonomy` | 400 | `context_taxonomy` is not a supported taxonomy |
+| `herlan_missing_context_term` | 400 | `context_taxonomy` was set but `context_term` was not |
+| `herlan_invalid_orderby` | 400 | `orderby` value is not recognized |
+| `herlan_invalid_stock_status` | 400 | `stock_status` is not one of `instock`, `outofstock`, `onbackorder` |
+
+#### Example requests
+
+**Brand archive — Nior:**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/products?context_taxonomy=brand&context_term=nior"
+```
+
+**Brand archive with category and skin-type filter:**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/products?context_taxonomy=brand&context_term=nior&filter_product_cat=eyes,eyebrow&filter_skin-type=combination-skin"
+```
+
+**Category archive — Lipstick (nested URL `/makeup/lip/lipstick/`):**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/products?context_taxonomy=product_cat&context_term=lipstick"
+```
+
+**Category archive — D32 brand filtered to electric toothbrush:**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/products?context_taxonomy=brand&context_term=d32&filter_product_cat=electric-toothbrush"
+```
+
+**Search with price range, stock, and sort:**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/products?search=lipstick&min_price=300&max_price=900&stock_status=instock&orderby=popularity&page=1&per_page=12"
+```
+
+**Fetch page 2 of products (filters already off by default):**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand&context_term=nior&page=2"
+```
+
+**Fetch products with filter data (e.g. when opening the filter drawer):**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand&context_term=nior&include_filters=1"
+```
+
+**Using legacy frontend alias parameters (also accepted):**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/products?context_taxonomy=brand&context_term=nior&product-cat=eyebrow,eyes&_skin-type=combination-skin&sort-by=popularity"
+```
+
+---
+
+### `GET /filter-config`
+
+Returns the list of available filter types that the mobile app should render in the filter drawer. Also includes sorting options and per-page controls.
+
+This endpoint is designed to be fetched once when the filter drawer opens, then cached locally by the app.
+
+#### Request parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `context_taxonomy` | string | No | Archive taxonomy slug for context-aware config |
+| `context_term` | string | No | Archive term slug |
+| `page` | integer | No | Page number. Default `1` |
+| `per_page` | integer | No | Filter definitions per page. Default `50`, max `100` |
+
+#### Response shape
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "context": {
+      "taxonomy": "brand",
+      "term": { "slug": "nior" }
+    },
+    "filters": [
+      {
+        "type": "taxonomy",
+        "taxonomy": "product_cat",
+        "filter_key": "product-cat",
+        "canonical_key": "filter_product_cat",
+        "label": "Product categories",
+        "multiple": true,
+        "options_endpoint": "https://herlan.com/wp-json/herlan/v1/filter-terms?taxonomy=product_cat"
+      },
+      {
+        "type": "taxonomy",
+        "taxonomy": "brand",
+        "filter_key": "_brand",
+        "canonical_key": "filter_brand",
+        "label": "Brands",
+        "multiple": true,
+        "options_endpoint": "https://herlan.com/wp-json/herlan/v1/filter-terms?taxonomy=brand"
+      },
+      {
+        "type": "price",
+        "filter_key": "price",
+        "canonical_key": "min_price,max_price",
+        "label": "Price"
+      },
+      {
+        "type": "sort-by",
+        "filter_key": "sort-by",
+        "canonical_key": "orderby",
+        "label": "Sort By"
+      }
+    ],
+    "sorting": {
+      "current": "menu_order",
+      "options": [...]
+    },
+    "per_page": {
+      "current": 12,
+      "options": [12, 24, 36, 48]
+    },
+    "pagination": {
+      "page": 1,
+      "per_page": 50,
+      "total": 12,
+      "total_pages": 1,
+      "has_more": false
+    }
+  }
+}
+```
+
+Filter definition fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `type` | string | `taxonomy`, `attribute`, `price`, or `sort-by` |
+| `taxonomy` | string | Taxonomy slug (taxonomy and attribute types only) |
+| `filter_key` | string | Legacy-compatible key (use when building website-style URLs) |
+| `canonical_key` | string | The canonical API parameter name (use when calling `GET /group/products`) |
+| `label` | string | Human-readable label for the filter section heading |
+| `multiple` | boolean | Whether multiple terms can be selected simultaneously |
+| `options_endpoint` | string | URL to call for the list of selectable terms with counts |
+
+---
+
+### `GET /filter-terms`
+
+Returns the selectable terms for one taxonomy, with product counts computed in the current context. Use this to populate a filter's option list.
+
+#### Request parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `taxonomy` | string | **Yes** | Taxonomy slug to fetch terms for |
+| `context_taxonomy` | string | No | Archive taxonomy for context-scoped counts |
+| `context_term` | string | No | Archive term slug |
+| `search` | string | No | Filter terms by name |
+| `page` | integer | No | Page number. Default `1` |
+| `per_page` | integer | No | Terms per page. Default `20`, max `100` |
+
+#### Response shape
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "taxonomy": {
+      "name": "pa_colors",
+      "label": "Product Colors",
+      "hierarchical": false
+    },
+    "terms": [
+      {
+        "id": 999,
+        "name": "Vintage Vibes",
+        "slug": "vintage-vibes",
+        "count": 3,
+        "parent": 0,
+        "image": null,
+        "color": "#a8483d"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "per_page": 20,
+      "total": 217,
+      "total_pages": 11,
+      "has_more": true
+    }
+  }
+}
+```
+
+Term fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | Term ID |
+| `name` | string | Display name |
+| `slug` | string | API slug — use this in `filter_{taxonomy}` params |
+| `count` | integer | Products matching this term in the current context |
+| `parent` | integer | Parent term ID, `0` for root terms |
+| `image` | string\|null | Swatch image URL if configured |
+| `color` | string | Swatch hex color if configured (e.g. `"#a8483d"`) |
+
+Pagination is important here — `pa_colors` has 217 terms in the current catalog. Use `page` and `per_page` to load them incrementally (e.g. on scroll in a color picker).
+
+Error codes:
+
+- `400 herlan_invalid_filter_taxonomy` — taxonomy is missing or does not exist
+
+#### Example — load color swatches for the brand archive:
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/filter-terms?taxonomy=pa_colors&context_taxonomy=brand&context_term=nior&per_page=50"
+```
+
+---
+
+### `GET /filter-forms/{id}`
+
+Returns the configuration of a specific WooCommerce Ajax Product Filter form by ID.
+
+#### Path parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | integer | Yes | The wcapf form post ID |
+
+#### Response shape
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "id": 20537,
+    "title": "Sample form",
+    "slug": "sample-form"
+  }
+}
+```
+
+Error codes:
+
+- `404 herlan_wcapf_form_not_found` — form ID does not exist or is not a wcapf form
+
+---
+
+## Other public endpoints
 
 ### `GET /status`
 
@@ -245,7 +935,7 @@ Errors:
 
 ### `GET /products/filters`
 
-Returns mobile product listing filters.
+Returns mobile product listing filters without products.
 
 Query parameters:
 
@@ -255,58 +945,7 @@ Query parameters:
 | `term` | string | none | Optional context term slug |
 | `include_counts` | boolean | `true` | Recalculate counts for current context |
 
-Response shape:
-
-```json
-{
-  "success": true,
-  "message": "",
-  "data": {
-    "context": {
-      "taxonomy": "product_cat",
-      "term": "lips"
-    },
-    "sort_options": [
-      { "key": "popularity", "label": "Best Selling", "orderby": "sales" },
-      { "key": "date", "label": "New Arrivals", "orderby": "date" },
-      { "key": "price_asc", "label": "Price: Low to High", "orderby": "price", "order": "ASC" },
-      { "key": "price_desc", "label": "Price: High to Low", "orderby": "price", "order": "DESC" },
-      { "key": "rating", "label": "Top Rated", "orderby": "rating" }
-    ],
-    "price_range": {
-      "min": 690,
-      "max": 1990
-    },
-    "filters": [
-      {
-        "taxonomy": "brand",
-        "label": "Brands",
-        "type": "taxonomy",
-        "hierarchical": false,
-        "terms": []
-      }
-    ]
-  }
-}
-```
-
-Term fields inside each filter:
-
-| Field | Type | Notes |
-| --- | --- | --- |
-| `id` | integer | Term ID |
-| `name` | string | Term name |
-| `slug` | string | Term slug |
-| `taxonomy` | string | Taxonomy name |
-| `count` | integer | Product count |
-| `parent` | integer | Parent term ID |
-| `link` | string\|null | Term archive URL |
-| `color` | string | Swatch color if configured |
-| `image` | string\|null | Swatch image URL if configured |
-
-Errors:
-
-- `500 herlan_woocommerce_unavailable`
+Note: This is the original filter metadata endpoint. The newer `GET /group/products` endpoint returns the same filter data alongside products in one request, which is preferred for listing screens. Use this endpoint only when you need filter metadata independently.
 
 ### `GET /products/{id}`
 
@@ -419,6 +1058,8 @@ Image object:
 | `id` | integer | Attachment ID |
 | `src` | string | Image URL |
 | `alt` | string | Alt text |
+
+---
 
 ## Protected endpoints
 
@@ -959,7 +1600,11 @@ Protected endpoints may return:
 | `GET` | `/user/coupons` | Yes | Coupon list |
 | `GET` | `/orders` | Yes | Order history |
 | `GET` | `/orders/{id}` | Yes | Order detail |
-| `GET` | `/products/filters` | No | Filter metadata |
+| `GET` | `/group/products` | No | **Product listing with filters** |
+| `GET` | `/filter-config` | No | **Filter UI configuration** |
+| `GET` | `/filter-terms` | No | **Filter term list with counts** |
+| `GET` | `/filter-forms/{id}` | No | **wcapf form inspection** |
+| `GET` | `/products/filters` | No | Filter metadata (legacy, use `/products` instead) |
 | `GET` | `/products/{id}` | No | Product detail |
 | `GET` | `/drawer-brands-categories` | No | Navigation categories and brands |
 | `GET` | `/wishlist` | Yes | Wishlist items |

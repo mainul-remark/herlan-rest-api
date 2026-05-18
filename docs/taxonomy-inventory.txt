@@ -1,0 +1,183 @@
+Taxonomy Inventory
+Generated: 2026-05-18
+Project: herlan.com
+
+I checked the codebase and the live WordPress database on May 18, 2026. Below is the taxonomy inventory for the whole project, including active registered taxonomies and database-only taxonomy data that still exists.
+
+Where the custom taxonomies come from
+
+- brand is registered in wp-content/themes/herlan-theme/inc/features/product-taxonomies.php
+- age-range and skin-type are active ACF taxonomies stored in the database as acf-taxonomy posts
+- keywords is stored in the cptui_taxonomies option, so it is coming from Custom Post Type UI configuration in the database
+- shop_coupon_cat comes from wt-smart-coupon-pro
+- cr_tag comes from customer-reviews-woocommerce
+- elementor_library_type exists in the database but is not currently registered in the active runtime
+
+Registered taxonomies
+
+- category
+  Label: Categories
+  Objects: post, promotional_posts, herlan-heroslider
+  Term count: 30
+  Terms:
+  Accessories, Baby Care, Baby Care, Body, Eye Care, Eye Shadow, Eyes, Face, Face Care, Foundation, Fragrance, Hair, Hair Care, Hair Care, Lip Care, Lip Care, Lips, Lipstick, Makeup, Nail, Nail Care, Nail Care, Nail Polish, News, Shopping, Skin Care, Skin Concerns, Styling, Tools & Techniques, Uncategorized
+
+- post_tag
+  Label: Tags
+  Objects: post
+  Term count: 11
+  Terms:
+  7 signs, 7signs, casino 770, casino777, Coin deposit bonus, Coin free spins, Coin game selection, Coin payment methods, Coin withdrawal review, https://towerrushgalaxsysgame.com/fr/, olympe
+
+- nav_menu
+  Label: Navigation Menus
+  Objects: nav_menu_item
+  Term count: 5
+  Terms:
+  About Menu, Help, Mobile Left Menu, Primary Menu, Secondary Menu
+
+- link_category
+  Label: Link Categories
+  Objects: link
+  Term count: 0
+  Terms:
+  none
+
+- post_format
+  Label: Formats
+  Objects: post
+  Term count: 0
+  Terms:
+  none
+
+- wp_theme
+  Label: Themes
+  Objects: wp_template, wp_template_part, wp_global_styles
+  Term count: 1
+  Terms:
+  herlan
+
+- wp_template_part_area
+  Label: Template Part Areas
+  Objects: wp_template_part
+  Term count: 0
+  Terms:
+  none
+
+- wp_pattern_category
+  Label: Pattern Categories
+  Objects: wp_block
+  Term count: 0
+  Terms:
+  none
+
+- brand
+  Label: Brands
+  Objects: product
+  Term count: 21
+  Terms:
+  Acnol, Blaze O' Skin, Body N Beard, Cavotin, D32, Dermo-U, Glorin, Herlan, Lily, Lily Essentials, Little One, Max Beu, Nior, Noirita, Orix, Ribana, Siodil, Siodil Daily, Skin Mynt, Sunbit, Tylox
+
+- age-range
+  Label: Age Range
+  Objects: product
+  Term count: 5
+  Terms:
+  1+, 16-24, 25-35, 35-50, 50+
+
+- skin-type
+  Label: Skin Types
+  Objects: product
+  Term count: 8
+  Terms:
+  Acne-Prone Skin, Baby skin, Combination Skin, Dry Skin, Hyperpigmentation, Normal Skin, Oily Skin, Sensitive Skin
+
+- product_type
+  Label: Product type
+  Objects: product
+  Term count: 5
+  Terms:
+  easy_product_bundle, external, grouped, simple, variable
+
+- product_visibility
+  Label: Product visibility
+  Objects: product, product_variation
+  Term count: 10
+  Terms:
+  exclude-from-catalog, exclude-from-filtered, exclude-from-search, featured, outofstock, rated-1, rated-2, rated-3, rated-4, rated-5
+
+- product_cat
+  Label: Product categories
+  Objects: product
+  Term count: 88
+  Terms:
+  Accessories, Airy Matte Liquid Lipstick, Baby Care, Bath, Body Care, Body Jelly, Body Lotion, Body Serum, Business, Small Business, Cleanser, Concealer, Conditioner, cotton pad, Cream, Dish Wash, Electric Toothbrush, Eye Shadow, Eyebrow, Eyeliner, Eyes, Fabric Care, Face, Face Care, Face Mask, Face Mist, Face Scrub, Face Wash, Floor Cleaner, Foundation, Fragrance, Gel, Gel Nail Polish, Giftbox, Glass Cleaner, Glitter Nail Polish, Hair, Hair Clip, Hair Gel, Hair Mask, Hair Oil, Hair Serum, Hand Wash, Headwrap, Henna, Herlan Cushion Matte Lipstick, Holographic Nail Polish, Home Care, Jewelry, Lily Satin Lipstick, Lily Semi Matt Liquid Lipstick, Lip, Lip, Lip Balm, Lip Gloss, Lipstick, Liquid Lipstick, Makeup, Makeup Remover, Mascara, Mens Care, Moisturizer, Nail, Nail Polish Remover, Nior No Transfer Matte Lipstick, NIOR No Transfer Retro Matte Lipstick, Nior On Point Micro Eyebrow Pencil, Nior Pout N’ About Lip Gloss, Nior Red Carpet Lip Color, Nior Your Best Skin Perfecting Concealer, Oral Care, Organic, Pigmentation Range, Pouch, Pressed Powder, Primer, Regular Nail Polish, Serum, Shampoo, Shower Cap, Shower Gel, Skin Care, Soap, Soap, Sunscreen, Toilet Cleaner, Toner, Tools & Brushes, Uncategorized
+
+- product_tag
+  Label: Product tags
+  Objects: product
+  Term count: 85
+  Terms:
+  10, 15, 20, 21, 22, 23, 25, 26, 29, 30, 35, 40, 42, 50, Acnol, anti acne, baby care, best selling, Blaze O’ Skin, Body N Beard, bos offers, Cavotin, cavotin bogo, Chocolate, D32, dermo u acne cream, Dermo-U, EID Glam Fest, Facewash, featured acne care, featured chocolate, featured facewash, featured lipstick, featured moisturizer, featured-cavotin, featured-eid-glam-fest, featured-makeup, featured-skincare, Herlan, Herlan Airy Matte Liquid Lipstick, Herlan Cushion Matte Lipstick, Herlan Nail Polish, Jewelry, Lily, Lily BB Cream, Lily Buttery Soft, Lily Essentials, Lily Satin Lipstick, lily shampoo, lily xmass, limited, limited time offer, Lipstick, little one, lotion, Makeup, Men’s Grooming, moisturizer, New-Arrivals, Nior, Nior Facewash, Nior Festive Glam, NIOR No Transfer Retro Matte Lipstick, NIOR Red Carpet, NIOR Red Carpet Flawless Matte Foundation, nior xmass, Noirita, olin, Online Exclusive, Red Carpet Flawless Matte Concealer, selling-fast, Semi Matt Lipstick Half Off, Shower Gel, Siodil, Skin Care, skincare, Skyn Mint, Student's Deal, Sulfate Free, top picks, Unwrap The Glow, Velveteen Matte Lipstick, winter, winter care essentials, Winter Shea Ritual
+
+- product_shipping_class
+  Label: Product shipping classes
+  Objects: product, product_variation
+  Term count: 0
+  Terms:
+  none
+
+- pa_colors
+  Label: Product Colors
+  Objects: product
+  Term count: 217
+  Terms:
+  01 Washington, 02 Florida, 03 Hawaii, 04 Alaska, 05 Michigan, 06 New Jersey, 07 Texas, 08 New York, 09 Georgia, 10 California, 11 Virginia, 12 Nevada, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, Admiral, Affliction, Almond, Anarchy Ash, Antique Honey, Antique Pink, Arcane, Ash Brown, Awake, Awake Long Time, Bare Blush, BB Cream- Almond, BB Cream- Coconut, BB Cream- Milk, BB Cream- Oat, BB Cream- Soy, Beauty Killer, Berry Jam, Berrylicious 10, Black, Blaze, Blossom, Bubblegum, Cabaret, California 10, Caramel, Carolina 13, Caviar Cocoa, Cherry, Cherry Bomb 50, Cherry Pop, Choco-Latte 40, Chocolate Truffle, Cinnamon Charm, Classic Nude, Classic Red, Coffee Bean, Concealer - Custard, Concealer - Desert, Concealer - Pale Ivory, Concealer - Warm Vanilla, Concealer Almond 2W Warm, Concealer Amaretto 3N Neutral, Concealer Amber 3N Neutral, Concealer Brownie 4C Cool, Concealer Chantilly 5C Cool, Concealer Fawn 2N Neutral, Concealer Honey 3W Warm, Concealer Latte 1C Cool, Concealer Mocha 4N Neutral, Concealer Toast 4W Warm, Coral Red, Crimson, Crystal Clear, Custard, Dahlia, Dakota 17, Dangerous Lies, Dawn, Desert, Disco Diva, Dominance, Emerald Bay, Espresso, Eternal Sunshine, Fearless, Fire Pink, Flame Kiss, Flaming Hot, Forbidden Crime, Foundation Almond 2W Warm, Foundation Amaretto 3N Neutral, Foundation Brownie 4C Cool, Foundation Buttercream 2N Neutral, Foundation Hazelnut 2C Cool, Foundation Latte 1C Cool, Foundation Pudding 5W Warm, Foundation Shortcake 3W Warm, Foundation Toast 4W Warm, Foundation Truffle 3C Cool, Frozen Night, Fuchsia Flare, Fuchsia Flirt 70, Golden Tan, Groovy Grape, Gunmetal, Harlequinn, Hawaii 03, Hot Shot, Illusion, Indiana 15, Latte, Latte Love, Light Brown, Lily Creamy Pop Lipstick 016, Lily Creamy Pop Lipstick 017, Lily Creamy Pop Lipstick 018, Lily Creamy Pop Lipstick 019, Lily Creamy Pop Lipstick 020, Lily Divine Matt Liquid Lipstick - BLOOM, Lily Divine Matt Liquid Lipstick - CINNAMON, Lily Divine Matt Liquid Lipstick - DESIRE, Lily Divine Matt Liquid Lipstick - MOCHA, Lily Divine Matt Liquid Lipstick - PECAN, Lily Divine Matt Liquid Lipstick - RUSSET, Lily Divine Matt Liquid Lipstick - SCARLET, Lily Divine Matt Liquid Lipstick - SIREN, Lily Divine Matt Liquid Lipstick - SIZZLE, Lily Divine Matt Liquid Lipstick - TERACOTTA, Lily Flawless Matt 3Way Compact Powder-ALMOND, Lily Flawless Matt 3Way Compact Powder-COCONUT, Lily Flawless Matt 3Way Compact Powder-MILK, Lily Flawless Matt 3Way Compact Powder-OAT, Lily Flawless Matt 3Way Compact Powder-SOY, Maple, Maple Mocha, Merlot, Mimosa, Montana 14, Moonlit Mauve 17, Mulberry, Navy Blue, Nebula, Neutral Beige (Fair Light), Neutral Creme (Light Medium), Nina, No. 02, No. 04, No. 05, No. 06, No. 10, No. 11, No. 16, No. 18, No. 19, No. 20, No. 25, No. 40, No. 50, No. 60, No. 70, Nude Mood, Old Hollywood, Orchid, Orchid Obsession 14, Pale Ivory, Papaya Punch, Pentunia, Plum, Power Red, Psychedelic Pink, Pumpkin Pie 31, Purple Rose, Quince, Raisin, Raspberry Riot, Razzle, Redrum, Retro Ruby, Retro Rust, Retrograde Blue, Roaring Twenties, Rock ‘n’ Roll, Rouge, Sandy, Santana, Scarlet Spice, Seaweed, Secret Window, Shell (Bone), Soft Black, Soft Crème (Light), Soft White, Sugar Taupe, Sunlit Sienna, Sunset Boulevard, Tan, Tango Twist 09, Taupe, Terra Tango, Timeless Rose, Toffee Temptation, Umber, Valentine, Vanilla Ice (Fair), Velvet Teal, Vintage Vibes, Walnut, Warm Vanilla, Wicked Blue
+
+- pa_size
+  Label: Product size
+  Objects: product
+  Term count: 16
+  Terms:
+  100 gm, 1000 gm, 100ml, 200 ml, 200ml, 250ml, 300 gm, 40 ml, 500 gm, 500 ml, 500ml, 75 gm, 750 ml, Lily Creamy Pop Lipstick 019, Nail Polish Remover 30ml, Nail Polish Remover 50ml
+
+- pa_variant
+  Label: Product variant
+  Objects: product
+  Term count: 100
+  Terms:
+  Acne, Aloe, Aloe Vera, Astral Pink, Bella Ciao, Berry, Berry On Top, Berry Pop, Black, Bubbles, Calendula, Candy, Citrus Zing, Classic Nude, Coffee Bean, Cosmic Coral, Cucumber, Cucumber Quench, Dandoff- Anti Dandruff Shampoo 180ml, Equi-Shine Hair Oil 30ml, Equi-Shine Hair Oil 50ml, Extreme Defense Anti-dandruff Shampoo, Flawless, Fresh Lemon, Fruity Fling, Galaxy Glitz, Glitter Nail Enamel Blossom Fairy, Glitter Nail Enamel Celebrity Look, Glitter Nail Enamel Glistening Gold, Glitter Nail Enamel Resplendent Red, Glitter Nail Enamel Surprise Yourself, Glitter Nail Polish Disco Ball, Glitter Nail Polish Glowy Amber, Glitter Nail Polish Happy Birthday, Glitter Nail Polish Inky Shine, Glitter Nail Polish Silver Sparkle, Glitter Nail Polish Stellar Death, Glitter Nail Polish Turquoise, Glitz, Green Apple Burst, Honey Hydration, Hya Bulgarian Rose, Intense Argan, Jolly, Jupiter Jubilee, Lemon, Lily Olin Petroleum Jelly 100% Pure 100ml, Lily Olin Petroleum Jelly Lemon 100ml, Lily Olin Petroleum Jelly Shea Butter 100ml, Lunar Lavender, Mandarin, Mango Mania, Melon Fresh, Melon Splash, Meteor Magic, Moisture-Guard Anti-dandruff Shampoo, Moisturizing, Moonlit Marvel, Mystique Island, Navy Blue, Olin Berry Lip Balm, Olin Lemon Lip Balm, Olin Orange Lip Balm, On An Island, Orange Bliss, Organic Moringa, Pineapple, Pure Green Tea, Pure Growth Anti-dandruff Shampoo, Purple Star, Refreshing, Sea Pearl, Seaweed, Secret Saturn, Shea Butter, Shooting Star, Silkore - Silk & Shine Shampoo 170ml, Silkore- Hair Fall Defense Shampoo 180ml, Snail Abalone Collagen, Soft White, Solar Saffron, Soothing Menthol, Stardust Sparkle, Summer Soiree, Sunset Beads, Supernova Sizzle, Sweet Orange, Tales of Tahiti, Tea-Tree, Trick Or Treat, Tropical Twist, Ultra-Cool Anti-dandruff Shampoo, Unicorn, Vanilla, Vanilla Muse, Vanilla Muse Lip Butter, Velvet Cocoa, Velvet Teal, Whipped Shea, Wildflower Rose
+
+- keywords
+  Label: Keywords
+  Objects: product
+  Term count: 56
+  Terms:
+  72 Hours Moisture Lock, Alcohol Free, Anti Acne, Anti Aging, Anti Dandruff, Anti Pigmentation, Anti-Frizz Elixir for Stunning Hair, Anti-Frizz Elixir for Stunning Hair, Anti-Hair Fall, Best Seller, Breathable, Brightening, Clinically Proven Result, Collagen Booster, Cooling Effect, Cruelty-Free, Damage Hair Repair, Dehydrated Skin Control, Dermatologically Tested, Dermatologist Recommended, Detaning, Doctor Recommended, Dull Skin Control, Extracts, Fragrance Free, Frizz Free, Halal, Hypo Allergenic, Kills 99.99% Germs, Light Weight, Long Lasting, New arrivals, Non Acne Genic, Non Comedogenic, Non Drying, Non Sticky, Non-greasy, Oil Free / Control Excess Oil, Paraben Free, Ph Balanced, Pore Minimizing, Prevent Irritation, Reduces Dark Spot, Rich Pigmentation, Rough Hair Control, Scar Care, Smudge Proof, Soap-Free, Sulfate-Free, Sun Protection, Sunburn Repair, Tear-Free, Transfer Proof, UV Protection, Vegan, Waterproof
+
+- shop_coupon_cat
+  Label: Categories
+  Objects: shop_coupon
+  Term count: 0
+  Terms:
+  none
+
+- cr_tag
+  Label: Tags for Reviews
+  Objects: comment
+  Term count: 0
+  Terms:
+  none
+
+Taxonomies present in the database but not currently registered
+
+- elementor_library_type
+  Term count: 3
+  Terms:
+  loop-item, page, section
+
+Notes from the database
+
+- There are duplicate term names stored in some taxonomies, for example category has repeated names like Baby Care, Hair Care, Lip Care, Nail Care, and product_cat contains repeated display names like Lip and Soap.
+- post_tag contains several suspicious or spam-looking terms on the blog side.
+- elementor_library_type exists in wp_term_taxonomy, but it is not registered in the current runtime, so it looks like leftover Elementor or import data rather than an active taxonomy right now.
