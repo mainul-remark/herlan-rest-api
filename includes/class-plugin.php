@@ -15,6 +15,7 @@ use HerlanRestApi\Controllers\UserController;
 use HerlanRestApi\Controllers\TaxonomyController;
 use HerlanRestApi\Controllers\HomeController;
 use HerlanRestApi\Controllers\CartController;
+use HerlanRestApi\Controllers\StoreController;
 use HerlanRestApi\Controllers\WishlistController;
 
 if (! defined('ABSPATH')) {
@@ -79,6 +80,7 @@ final class Plugin
         (new WishlistController($auth))->register_routes();
         (new CartController($auth))->register_routes();
         (new PaymentController($auth))->register_routes();
+        (new StoreController())->register_routes();
     }
 
     private function is_herlan_rest_request(): bool

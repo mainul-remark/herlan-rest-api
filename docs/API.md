@@ -1338,6 +1338,191 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 
 ---
 
+## Store Locator endpoints
+
+### `GET /stores`
+
+Returns a paginated list of published stores. Supports filtering by district, area, and a keyword search.
+
+All parameters are optional.
+
+#### Request parameters
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `district` | string | — | Exact-match filter by city/district name |
+| `area` | string | — | Exact-match filter by area name |
+| `search` | string | — | Keyword search across `store_name`, `store_address`, `district`, and `phone` |
+| `limit` | integer | `50` | Results per page (max `200`) |
+| `offset` | integer | `0` | Pagination offset |
+
+#### Response shape
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "stores": [
+      {
+        "id": 1,
+        "store_code": "DH-001",
+        "store_name": "Herlan Dhanmondi",
+        "store_address": "House 12, Road 4, Dhanmondi, Dhaka",
+        "district": "Dhaka",
+        "area": "Dhanmondi",
+        "phone": "01700000001",
+        "working_hours": "10:00 AM - 9:00 PM",
+        "offday": "Friday",
+        "map_link": "https://maps.google.com/?q=...",
+        "image_url": "https://herlan.com/wp-content/uploads/store-dh001.jpg"
+      }
+    ],
+    "total": 42,
+    "limit": 50,
+    "offset": 0
+  }
+}
+```
+
+Store fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | Store row ID |
+| `store_code` | string | Unique store code |
+| `store_name` | string | Store display name |
+| `store_address` | string | Full store address |
+| `district` | string | City / district name |
+| `area` | string | Area within the district |
+| `phone` | string | Contact number |
+| `working_hours` | string | Opening hours text |
+| `offday` | string | Weekly off day(s) |
+| `map_link` | string\|null | Google Maps link |
+| `image_url` | string\|null | Store image URL |
+
+#### Example requests
+
+**All stores:**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/stores"
+```
+
+**Filter by district:**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/stores?district=Dhaka"
+```
+
+**Filter by district and area:**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/stores?district=Dhaka&area=Dhanmondi"
+```
+
+**Keyword search:**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/stores?search=dhanmondi"
+```
+
+**Paginate:**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/stores?limit=20&offset=20"
+```
+
+---
+
+### `GET /stores/{id}`
+
+Returns a single published store by its ID.
+
+#### Path parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `id` | integer | Store row ID |
+
+#### Response shape
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "store": {
+      "id": 1,
+      "store_code": "DH-001",
+      "store_name": "Herlan Dhanmondi",
+      "store_address": "House 12, Road 4, Dhanmondi, Dhaka",
+      "district": "Dhaka",
+      "area": "Dhanmondi",
+      "phone": "01700000001",
+      "working_hours": "10:00 AM - 9:00 PM",
+      "offday": "Friday",
+      "map_link": "https://maps.google.com/?q=...",
+      "image_url": "https://herlan.com/wp-content/uploads/store-dh001.jpg"
+    }
+  }
+}
+```
+
+#### Error codes
+
+| Code | HTTP | Description |
+| --- | --- | --- |
+| `herlan_store_not_found` | 404 | No published store exists with the given ID |
+| `herlan_store_db_error` | 500 | Database error while fetching the store |
+
+#### Example
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/stores/1"
+```
+
+---
+
+### `GET /store-locations`
+
+Returns all districts (cities) along with the areas available within each district, for published stores only. Use this to populate district and area dropdowns in the store locator UI.
+
+#### Request parameters
+
+None.
+
+#### Response shape
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "districts": [
+      {
+        "district": "Chattogram",
+        "areas": ["Agrabad", "GEC Circle", "Nasirabad"]
+      },
+      {
+        "district": "Dhaka",
+        "areas": ["Banani", "Dhanmondi", "Gulshan", "Mirpur", "Uttara"]
+      }
+    ]
+  }
+}
+```
+
+Districts are ordered alphabetically. Areas within each district are also ordered alphabetically.
+
+#### Example
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/store-locations"
+```
+
+---
+
 ## Protected endpoints
 
 ### `POST /auth/logout`
@@ -1884,6 +2069,9 @@ Protected endpoints may return:
 | `GET` | `/filter-forms/{id}` | No | **wcapf form inspection** |
 | `GET` | `/products/filters` | No | Filter metadata (legacy, use `/products` instead) |
 | `GET` | `/products/{id}` | No | Product detail |
+| `GET` | `/stores` | No | Store list with district/area/search filters |
+| `GET` | `/stores/{id}` | No | Single store detail |
+| `GET` | `/store-locations` | No | All districts with their nested areas |
 | `GET` | `/drawer-brands-categories` | No | Navigation categories and brands |
 | `GET` | `/wishlist` | Yes | Wishlist items |
 | `POST` | `/wishlist` | Yes | Add wishlist item |

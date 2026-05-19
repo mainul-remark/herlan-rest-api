@@ -5,251 +5,1408 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Herlan REST API Documentation</title>
   <style>
-    :root {
-      color-scheme: light;
-      --bg: #f6f7f9;
-      --panel: #ffffff;
-      --text: #1d252d;
-      --muted: #607080;
-      --line: #d9e0e7;
-      --code: #13202d;
-      --code-bg: #eef3f7;
-      --accent: #0f766e;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Arial, Helvetica, sans-serif;
-      line-height: 1.55;
-    }
-
-    header {
-      background: var(--panel);
-      border-bottom: 1px solid var(--line);
-      padding: 28px 24px;
-    }
-
-    main {
-      display: grid;
-      grid-template-columns: 260px minmax(0, 1fr);
-      gap: 28px;
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 28px 24px 56px;
-    }
-
-    nav {
-      position: sticky;
-      top: 20px;
-      align-self: start;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 16px;
-    }
-
-    nav a {
-      display: block;
-      color: var(--muted);
-      text-decoration: none;
-      padding: 6px 0;
-      font-size: 14px;
-    }
-
-    nav a:hover {
-      color: var(--accent);
-    }
-
-    section {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 22px;
-      margin-bottom: 20px;
-    }
-
-    h1, h2, h3 {
-      line-height: 1.2;
-      margin: 0 0 14px;
-    }
-
-    h1 {
-      max-width: 1180px;
-      margin: 0 auto 8px;
-      font-size: 30px;
-    }
-
-    header p {
-      max-width: 1180px;
-      margin: 0 auto;
-      color: var(--muted);
-    }
-
-    h2 {
-      font-size: 22px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    h3 {
-      margin-top: 18px;
-      font-size: 17px;
-    }
-
-    code {
-      background: var(--code-bg);
-      color: var(--code);
-      border-radius: 4px;
-      padding: 2px 5px;
-      font-family: Consolas, Monaco, monospace;
-      font-size: 0.92em;
-    }
-
-    pre {
-      overflow-x: auto;
-      background: #101820;
-      color: #edf4f8;
-      border-radius: 8px;
-      padding: 14px;
-      font-family: Consolas, Monaco, monospace;
-      font-size: 13px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 12px;
-      font-size: 14px;
-    }
-
-    th, td {
-      border: 1px solid var(--line);
-      padding: 9px;
-      text-align: left;
-      vertical-align: top;
-    }
-
-    th {
-      background: #f0f4f7;
-    }
-
-    .method {
-      display: inline-block;
-      min-width: 52px;
-      color: #ffffff;
-      background: var(--accent);
-      border-radius: 4px;
-      padding: 2px 6px;
-      text-align: center;
-      font-weight: 700;
-      font-size: 12px;
-    }
-
-    .method-patch {
-      background: #7c3aed;
-    }
-
-    .method-put {
-      background: #b45309;
-    }
-
-    .muted {
-      color: var(--muted);
-    }
-
-    @media (max-width: 820px) {
-      main {
-        display: block;
-      }
-
-      nav {
-        position: static;
-        margin-bottom: 20px;
-      }
-    }
+    :root { color-scheme: light; --bg: #f5f1e8; --panel: #fffdf8; --panel-2: #f8f2e5; --text: #261f18; --muted: #6f6257; --line: #e2d7c8; --code-bg: #1f2933; --code-text: #f4f7fb; --inline-bg: #efe4d5; --accent: #a63c29; --shadow: 0 18px 38px rgba(38, 31, 24, 0.08); }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; min-height: 100vh; color: var(--text); background: radial-gradient(circle at top left, rgba(217, 119, 6, 0.08), transparent 28%), linear-gradient(180deg, #fcf8f2 0%, var(--bg) 100%); font: 16px/1.65 Georgia, "Times New Roman", serif; }
+    header { padding: 36px 24px 28px; border-bottom: 1px solid rgba(166, 60, 41, 0.12); background: linear-gradient(135deg, rgba(166, 60, 41, 0.08), rgba(217, 119, 6, 0.04)), var(--panel); }
+    .header-inner, .layout { max-width: 1280px; margin: 0 auto; }
+    h1.page-title { margin: 0; font-size: clamp(2rem, 3vw, 3rem); line-height: 1.05; letter-spacing: -0.03em; }
+    .lede { max-width: 820px; margin: 12px 0 0; color: var(--muted); font-size: 1.05rem; }
+    .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 28px; padding: 28px 24px 56px; align-items: start; }
+    nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow: auto; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255, 253, 248, 0.92); box-shadow: var(--shadow); }
+    nav h2 { margin: 0 0 12px; font-size: 0.95rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    nav a { display: block; padding: 6px 0; color: var(--muted); text-decoration: none; font-size: 0.95rem; }
+    nav a.level-3 { padding-left: 14px; font-size: 0.9rem; }
+    nav a:hover, nav a:focus { color: var(--accent); }
+    main { min-width: 0; padding: 28px 32px 34px; border: 1px solid var(--line); border-radius: 24px; background: var(--panel); box-shadow: var(--shadow); }
+    article > *:first-child { margin-top: 0; }
+    article h1 { margin: 0 0 1rem; font-size: 2.1rem; line-height: 1.08; letter-spacing: -0.03em; }
+    article h2, article h3, article h4 { line-height: 1.18; letter-spacing: -0.02em; }
+    article h2 { margin: 2.5rem 0 1rem; padding-bottom: 0.65rem; border-bottom: 1px solid var(--line); font-size: 1.9rem; }
+    article h3 { margin: 1.7rem 0 0.75rem; font-size: 1.35rem; }
+    article h4 { margin: 1.3rem 0 0.5rem; font-size: 1.08rem; color: var(--accent); }
+    p, ul, ol, table, pre, blockquote { margin: 0 0 1rem; }
+    ul, ol { padding-left: 1.4rem; }
+    li + li { margin-top: 0.35rem; }
+    hr { border: 0; border-top: 1px solid var(--line); margin: 1.6rem 0; }
+    code { padding: 0.14rem 0.4rem; border-radius: 6px; background: var(--inline-bg); font-family: Consolas, Monaco, monospace; font-size: 0.92em; }
+    pre { overflow: auto; padding: 16px 18px; border-radius: 16px; background: var(--code-bg); color: var(--code-text); }
+    pre code { padding: 0; background: transparent; color: inherit; font-size: 0.92rem; }
+    table { width: 100%; border-collapse: collapse; border: 1px solid var(--line); font-size: 0.96rem; }
+    th, td { padding: 10px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: var(--panel-2); }
+    a { color: var(--accent); }
+    @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } nav { position: static; max-height: none; } main { padding: 24px 20px 28px; } }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Herlan REST API Documentation</h1>
-    <p>Mobile application API for auth, account management, orders, loyalty program, product details, and payment placeholders.</p>
-  </header>
-
-  <main>
-    <nav aria-label="Documentation navigation">
-      <a href="#base-url">Base URL</a>
-      <a href="#response-format">Response Format</a>
-      <a href="#authentication">Authentication</a>
-      <a href="#status">Status</a>
-      <a href="#promo-bar">Promo Bar</a>
-      <a href="#header-config">Header Config</a>
-      <a href="#image-popup">Image Popup</a>
-      <a href="#auth">Auth</a>
-      <a href="#user">User</a>
-      <a href="#account">Account</a>
-      <a href="#loyalty">Loyalty</a>
-      <a href="#coupons">Coupons</a>
-      <a href="#orders">Orders</a>
-      <a href="#filters">Product Filters</a>
-      <a href="#products">Products</a>
-      <a href="#recommendations">Recommendations</a>
-      <a href="#linked-products">Linked Products</a>
-      <a href="#navigation">Navigation</a>
-      <a href="#wishlist">Wishlist</a>
-      <a href="#payments">Payments</a>
-      <a href="#auth-error-codes">Auth Error Codes</a>
-      <a href="#routes">Route Inventory</a>
+  <header><div class="header-inner"><h1 class="page-title">Herlan REST API</h1><p class="lede">Mobile application API exposed by the `herlan-rest-api` WordPress plugin.</p></div></header>
+  <div class="layout">
+    <nav aria-label="Documentation navigation"><h2>Contents</h2>
+<a href="#base-url">Base URL</a>
+<a href="#response-format">Response format</a>
+<a href="#authentication">Authentication</a>
+<a href="#user-object">User object</a>
+<a href="#product-listing-api">Product Listing API</a>
+<a class="level-3" href="#how-it-works">How it works</a>
+<a class="level-3" href="#website-url-api-call-mapping">Website URL → API call mapping</a>
+<a class="level-3" href="#legacy-alias-normalization">Legacy alias normalization</a>
+<a class="level-3" href="#get-group-products">GET /group/products</a>
+<a class="level-3" href="#get-filter-config">GET /filter-config</a>
+<a class="level-3" href="#get-filter-terms">GET /filter-terms</a>
+<a class="level-3" href="#get-filter-forms-id">GET /filter-forms/{id}</a>
+<a href="#other-public-endpoints">Other public endpoints</a>
+<a class="level-3" href="#get-status">GET /status</a>
+<a class="level-3" href="#get-promo-bar">GET /promo-bar</a>
+<a class="level-3" href="#get-header-config">GET /header-config</a>
+<a class="level-3" href="#get-image-popup">GET /image-popup</a>
+<a class="level-3" href="#get-home">GET /home</a>
+<a class="level-3" href="#post-auth-login">POST /auth/login</a>
+<a class="level-3" href="#post-auth-register">POST /auth/register</a>
+<a class="level-3" href="#get-products-filters">GET /products/filters</a>
+<a class="level-3" href="#get-products-id">GET /products/{id}</a>
+<a class="level-3" href="#get-drawer-brands-categories">GET /drawer-brands-categories</a>
+<a class="level-3" href="#get-taxonomies">GET /taxonomies</a>
+<a href="#protected-endpoints">Protected endpoints</a>
+<a class="level-3" href="#post-auth-logout">POST /auth/logout</a>
+<a class="level-3" href="#get-user-me">GET /user/me</a>
+<a class="level-3" href="#put-user-account-and-patch-user-account">PUT /user/account and PATCH /user/account</a>
+<a class="level-3" href="#post-user-avatar">POST /user/avatar</a>
+<a class="level-3" href="#get-user-loyalty">GET /user/loyalty</a>
+<a class="level-3" href="#get-user-coupons">GET /user/coupons</a>
+<a class="level-3" href="#get-orders">GET /orders</a>
+<a class="level-3" href="#get-orders-id">GET /orders/{id}</a>
+<a class="level-3" href="#get-wishlist">GET /wishlist</a>
+<a class="level-3" href="#post-wishlist">POST /wishlist</a>
+<a class="level-3" href="#delete-wishlist-product-id">DELETE /wishlist/{product_id}</a>
+<a href="#cart-endpoints">Cart endpoints</a>
+<a class="level-3" href="#get-cart">GET /cart</a>
+<a class="level-3" href="#post-cart-add-to-cart">POST /cart/add-to-cart</a>
+<a class="level-3" href="#post-cart-update-item">POST /cart/update-item</a>
+<a class="level-3" href="#delete-cart-remove-item-cart-item-key">DELETE /cart/remove-item/{cart_item_key}</a>
+<a class="level-3" href="#delete-cart-clear">DELETE /cart/clear</a>
+<a class="level-3" href="#get-payments-methods">GET /payments/methods</a>
+<a class="level-3" href="#post-payments-create">POST /payments/create</a>
+<a href="#common-auth-errors">Common auth errors</a>
+<a href="#route-inventory">Route inventory</a>
     </nav>
-
-    <div>
-      <section id="base-url">
-        <h2>Base URL</h2>
-        <p>Local development:</p>
-        <pre>http://localhost/herlanlive3/wp-json/herlan/v1</pre>
-        <p>Production:</p>
-        <pre>https://YOUR_DOMAIN/wp-json/herlan/v1</pre>
-      </section>
-
-      <section id="response-format">
-        <h2>Response Format</h2>
-        <p>Successful responses use this wrapper:</p>
-        <pre>{
+    <main><article>
+<h1>Herlan REST API</h1>
+<p>Mobile application API exposed by the <code>herlan-rest-api</code> WordPress plugin.</p>
+<h2 id="base-url">Base URL</h2>
+<pre><code class="language-text">https://YOUR_DOMAIN/wp-json/herlan/v1</code></pre>
+<p>Local example:</p>
+<pre><code class="language-text">http://localhost/herlanlive3/wp-json/herlan/v1</code></pre>
+<h2 id="response-format">Response format</h2>
+<p>Successful responses use:</p>
+<pre><code class="language-json">{
   "success": true,
   "message": "",
   "data": {}
-}</pre>
-        <p>WordPress REST errors use this wrapper:</p>
-        <pre>{
+}</code></pre>
+<p>WordPress REST errors use:</p>
+<pre><code class="language-json">{
   "code": "herlan_error_code",
   "message": "Error message.",
   "data": {
     "status": 400
   }
-}</pre>
-      </section>
-
-      <section id="authentication">
-        <h2>Authentication</h2>
-        <p>Protected endpoints require this header:</p>
-        <pre>Authorization: Bearer USER_ID_BASE64.SECRET</pre>
-        <p>Tokens are issued by login/register and expire after 30 days.</p>
-        <p>Public endpoints: <code>GET /status</code>, <code>GET /promo-bar</code>, <code>GET /header-config</code>, <code>GET /image-popup</code>, <code>POST /auth/login</code>, <code>POST /auth/register</code>, <code>GET /products/{id}</code>, <code>GET /products/filters</code>, <code>GET /drawer-brands-categories</code>.</p>
-        <p>Protected endpoints: <code>POST /auth/logout</code>, <code>GET /user/me</code>, <code>PUT/PATCH /user/account</code>, <code>GET /user/loyalty</code>, <code>GET /user/coupons</code>, <code>GET /orders</code>, <code>GET /orders/{id}</code>, <code>GET /wishlist</code>, <code>POST /wishlist</code>, <code>DELETE /wishlist/{product_id}</code>, <code>GET /payments/methods</code>, <code>POST /payments/create</code>.</p>
-        <p>Protected endpoint auth errors: <code>herlan_missing_token</code>, <code>herlan_invalid_token</code>, <code>herlan_expired_token</code>.</p>
-      </section>
-
-      <section id="status">
-        <h2>Status</h2>
-        <h3><span class="method">GET</span> <code>/status</code></h3>
-        <p>Returns API status and site metadata. Public endpoint.</p>
-        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/status"</pre>
-        <pre>{
+}</code></pre>
+<h2 id="authentication">Authentication</h2>
+<p>Protected endpoints require:</p>
+<pre><code class="language-http">Authorization: Bearer USER_ID_BASE64.SECRET</code></pre>
+<p>Tokens are issued by <code>POST /auth/login</code> and <code>POST /auth/register</code>.</p>
+<p>Notes:</p>
+<ul>
+<li>Herlan mobile tokens currently live for 30 days.</li>
+<li>The plugin also accepts compatible auth-popup bearer tokens when present.</li>
+</ul>
+<h2 id="user-object">User object</h2>
+<p>Several endpoints return the same user shape:</p>
+<pre><code class="language-json">{
+  "id": 1,
+  "name": "Customer Name",
+  "first_name": "Customer",
+  "last_name": "Name",
+  "email": "customer@example.com",
+  "username": "customer@example.com",
+  "roles": ["customer"],
+  "avatar": "https://example.com/avatar.jpg",
+  "phone": "01712345678",
+  "has_password": true
+}</code></pre>
+<hr />
+<h2 id="product-listing-api">Product Listing API</h2>
+<p>This section covers the unified product listing endpoint and its companion filter endpoints. They power every product archive page, filter drawer, and search screen in the mobile app.</p>
+<h3 id="how-it-works">How it works</h3>
+<p>Every product listing screen — whether it is a brand page, a category page, a filtered result page, or a search — is served by a single endpoint:</p>
+<pre><code class="language-text">GET /wp-json/herlan/v1/group/products</code></pre>
+<p>The caller tells the endpoint two things:</p>
+<ol>
+<li><strong>Archive context</strong> — where the user is (e.g., on the Nior brand page, or the Lipstick category page)</li>
+<li><strong>Active filters</strong> — what the user has selected (e.g., skin type = Combination Skin, category = Eyes)</li>
+</ol>
+<p>The endpoint returns the matching products, filter options with live counts, price range, pagination, and the current sort state — all in one response.</p>
+<hr />
+<h3 id="website-url-api-call-mapping">Website URL → API call mapping</h3>
+<p>This is the most important concept for the mobile developer. Every URL on the website maps directly to an API call. The table below shows common examples.</p>
+<table>
+<thead>
+<tr>
+<th>Website URL</th>
+<th>Equivalent API call</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/shop/</code></td>
+<td><code>GET /group/products</code></td>
+</tr>
+<tr>
+<td><code>/brand/d32/</code></td>
+<td><code>GET /group/products?context_taxonomy=brand&amp;context_term=d32</code></td>
+</tr>
+<tr>
+<td><code>/brand/nior/</code></td>
+<td><code>GET /group/products?context_taxonomy=brand&amp;context_term=nior</code></td>
+</tr>
+<tr>
+<td><code>/brand/d32/?product-cat=electric-toothbrush</code></td>
+<td><code>GET /group/products?context_taxonomy=brand&amp;context_term=d32&amp;filter_product_cat=electric-toothbrush</code></td>
+</tr>
+<tr>
+<td><code>/brand/nior/?_skin-type=combination-skin</code></td>
+<td><code>GET /group/products?context_taxonomy=brand&amp;context_term=nior&amp;filter_skin-type=combination-skin</code></td>
+</tr>
+<tr>
+<td><code>/product-category/makeup/</code></td>
+<td><code>GET /group/products?context_taxonomy=product_cat&amp;context_term=makeup</code></td>
+</tr>
+<tr>
+<td><code>/product-category/makeup/lip/lipstick/</code></td>
+<td><code>GET /group/products?context_taxonomy=product_cat&amp;context_term=lipstick</code></td>
+</tr>
+<tr>
+<td><code>/product-category/skin-care/?_brand=herlan</code></td>
+<td><code>GET /group/products?context_taxonomy=product_cat&amp;context_term=skin-care&amp;filter_brand=herlan</code></td>
+</tr>
+<tr>
+<td><code>/search/?s=lipstick</code></td>
+<td><code>GET /group/products?search=lipstick</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Important notes:</strong></p>
+<ul>
+<li>For hierarchical category URLs like <code>/makeup/lip/lipstick/</code>, only the final term slug (<code>lipstick</code>) is needed in <code>context_term</code>. WordPress stores each term with a unique slug.</li>
+<li>The endpoint always includes child categories automatically (<code>include_children=true</code>), so pointing to a parent category like <code>makeup</code> will include all products in <code>lip</code>, <code>lipstick</code>, <code>lip-gloss</code>, and every other child.</li>
+<li>Legacy frontend query string parameters from the website (like <code>?product-cat=...</code> or <code>?_brand=...</code>) are accepted and normalized automatically — the mobile app does not need to translate them.</li>
+</ul>
+<hr />
+<h3 id="legacy-alias-normalization">Legacy alias normalization</h3>
+<p>The website frontend uses some non-standard query parameter names for filters. The API accepts both the old and new names and normalizes them internally.</p>
+<table>
+<thead>
+<tr>
+<th>Legacy (website URL style)</th>
+<th>Canonical (use this in new code)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>_brand</code></td>
+<td><code>filter_brand</code></td>
+</tr>
+<tr>
+<td><code>product-cat</code></td>
+<td><code>filter_product_cat</code></td>
+</tr>
+<tr>
+<td><code>_skin-type</code></td>
+<td><code>filter_skin-type</code></td>
+</tr>
+<tr>
+<td><code>_age-range</code></td>
+<td><code>filter_age-range</code></td>
+</tr>
+<tr>
+<td><code>_keywords</code></td>
+<td><code>filter_keywords</code></td>
+</tr>
+<tr>
+<td><code>sort-by</code></td>
+<td><code>orderby</code></td>
+</tr>
+</tbody>
+</table>
+<p>Example — this legacy frontend URL:</p>
+<pre><code class="language-text">/brand/nior/?product-cat=eyebrow,eyes&amp;_skin-type=combination-skin</code></pre>
+<p>Can be sent to the API as-is and is normalized to:</p>
+<pre><code class="language-text">GET /group/products?context_taxonomy=brand&amp;context_term=nior&amp;filter_product_cat=eyebrow,eyes&amp;filter_skin-type=combination-skin</code></pre>
+<hr />
+<h3 id="get-group-products"><code>GET /group/products</code></h3>
+<p>Returns a paginated product list with live filter counts, price range, active filters, and pagination. This is the core endpoint for all product listing screens.</p>
+<h4>Request parameters</h4>
+<p><strong>Archive context</strong> — where the user is:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>context_taxonomy</code></td>
+<td>string</td>
+<td>No</td>
+<td>Base archive taxonomy slug. One of: <code>product_cat</code>, <code>product_tag</code>, <code>brand</code>, <code>keywords</code>, <code>skin-type</code>, <code>age-range</code></td>
+</tr>
+<tr>
+<td><code>context_term</code></td>
+<td>string</td>
+<td>Conditional</td>
+<td>Base archive term slug. Required when <code>context_taxonomy</code> is provided.</td>
+</tr>
+</tbody>
+</table>
+<p>Rules:</p>
+<ul>
+<li>If both are omitted, the endpoint behaves as a general shop/search listing.</li>
+<li>If <code>context_taxonomy</code> is set, <code>context_term</code> is required.</li>
+<li>For <code>product_cat</code>, child categories are always included.</li>
+</ul>
+<p><strong>Taxonomy filters</strong> — what the user has selected:</p>
+<p>Filters follow this format: <code>filter_{taxonomy}=slug-a,slug-b</code></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Example</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>filter_brand</code></td>
+<td><code>filter_brand=nior,herlan</code></td>
+<td>Filter by one or more brand slugs</td>
+</tr>
+<tr>
+<td><code>filter_product_cat</code></td>
+<td><code>filter_product_cat=eyes,eyebrow</code></td>
+<td>Filter by one or more category slugs</td>
+</tr>
+<tr>
+<td><code>filter_skin-type</code></td>
+<td><code>filter_skin-type=combination-skin</code></td>
+<td>Filter by skin type</td>
+</tr>
+<tr>
+<td><code>filter_age-range</code></td>
+<td><code>filter_age-range=25-35</code></td>
+<td>Filter by age range</td>
+</tr>
+<tr>
+<td><code>filter_keywords</code></td>
+<td><code>filter_keywords=paraben-free</code></td>
+<td>Filter by keyword</td>
+</tr>
+<tr>
+<td><code>filter_pa_colors</code></td>
+<td><code>filter_pa_colors=vintage-vibes</code></td>
+<td>Filter by color attribute</td>
+</tr>
+<tr>
+<td><code>filter_pa_size</code></td>
+<td><code>filter_pa_size=100ml</code></td>
+<td>Filter by size attribute</td>
+</tr>
+<tr>
+<td><code>filter_pa_variant</code></td>
+<td><code>filter_pa_variant=aloe</code></td>
+<td>Filter by variant attribute</td>
+</tr>
+</tbody>
+</table>
+<p>Any <code>pa_*</code> attribute registered in WooCommerce is supported without code changes.</p>
+<p><strong>Filter operators</strong> — how multi-value filters are combined:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Values</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>filter_operator_{taxonomy}</code></td>
+<td><code>in</code></td>
+<td><code>in</code>, <code>and</code>, <code>not_in</code></td>
+<td><code>in</code> = any selected term, <code>and</code> = must match all selected terms, <code>not_in</code> = exclude</td>
+</tr>
+</tbody>
+</table>
+<p>Example: <code>filter_operator_brand=and</code> — product must belong to ALL selected brands.</p>
+<p><strong>Price, stock, and sale:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>min_price</code></td>
+<td>number</td>
+<td>Minimum price</td>
+</tr>
+<tr>
+<td><code>max_price</code></td>
+<td>number</td>
+<td>Maximum price</td>
+</tr>
+<tr>
+<td><code>stock_status</code></td>
+<td>string</td>
+<td><code>instock</code>, <code>outofstock</code>, or <code>onbackorder</code></td>
+</tr>
+<tr>
+<td><code>on_sale</code></td>
+<td>boolean</td>
+<td><code>1</code> or <code>true</code> to show only on-sale products</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Search and sort:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>search</code></td>
+<td>string</td>
+<td>—</td>
+<td>Product text search</td>
+</tr>
+<tr>
+<td><code>orderby</code></td>
+<td>string</td>
+<td><code>menu_order</code></td>
+<td><code>menu_order</code>, <code>popularity</code>, <code>rating</code>, <code>date</code>, <code>price</code>, <code>price-desc</code>, <code>title</code></td>
+</tr>
+</tbody>
+</table>
+<p>Sort reference:</p>
+<table>
+<thead>
+<tr>
+<th><code>orderby</code> value</th>
+<th>Sorts by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>menu_order</code></td>
+<td>Default catalog order set in admin</td>
+</tr>
+<tr>
+<td><code>popularity</code></td>
+<td>Best selling (WooCommerce total sales)</td>
+</tr>
+<tr>
+<td><code>rating</code></td>
+<td>Highest average customer rating</td>
+</tr>
+<tr>
+<td><code>date</code></td>
+<td>Newest first</td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>Lowest price first</td>
+</tr>
+<tr>
+<td><code>price-desc</code></td>
+<td>Highest price first</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>Alphabetical A–Z</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Pagination:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>page</code></td>
+<td>integer</td>
+<td><code>1</code></td>
+<td>Page number</td>
+</tr>
+<tr>
+<td><code>per_page</code></td>
+<td>integer</td>
+<td><code>12</code></td>
+<td>Products per page (max <code>50</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Include flags</strong> — control what the response contains:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>include_products</code></td>
+<td>boolean</td>
+<td><code>1</code></td>
+<td>Include product list in response</td>
+</tr>
+<tr>
+<td><code>include_filters</code></td>
+<td>boolean</td>
+<td><code>0</code></td>
+<td>Include filter groups and counts. Must be explicitly set to <code>1</code> to return filter data. Defaults to <code>0</code> to keep responses lightweight</td>
+</tr>
+<tr>
+<td><code>include_pagination</code></td>
+<td>boolean</td>
+<td><code>1</code></td>
+<td>Include pagination block</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Tip:</strong> Keep <code>include_filters=0</code> (the default) for normal product listing and pagination requests. Only pass <code>include_filters=1</code> when the user opens the filter drawer — this triggers the full filter computation including live term counts across all taxonomies.</p>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "context": {},
+    "request": {},
+    "products": [],
+    "filters": {},
+    "pagination": {}
+  }
+}</code></pre>
+<h4><code>data.context</code></h4>
+<p>Describes the archive the user is browsing. Null fields mean no archive context (general listing or search).</p>
+<pre><code class="language-json">{
+  "taxonomy": "brand",
+  "label": "Brands",
+  "term": {
+    "id": 12,
+    "name": "Nior",
+    "slug": "nior",
+    "taxonomy": "brand",
+    "description": "",
+    "parent": 0,
+    "count": 24,
+    "link": "https://herlan.com/brand/nior/",
+    "image": {
+      "id": 501,
+      "src": "https://herlan.com/wp-content/uploads/nior-logo.jpg",
+      "alt": "Nior"
+    }
+  }
+}</code></pre>
+<p>If no context:</p>
+<pre><code class="language-json">{
+  "taxonomy": null,
+  "label": null,
+  "term": null
+}</code></pre>
+<h4><code>data.request</code></h4>
+<p>The normalized parameters actually used for this request after alias resolution and sanitization. Useful for debugging and for the mobile app to reflect the current filter state back to the user.</p>
+<pre><code class="language-json">{
+  "page": 1,
+  "per_page": 12,
+  "orderby": "popularity",
+  "order": "ASC",
+  "search": null,
+  "filters": {
+    "filter_product_cat": ["eyes", "eyebrow"],
+    "filter_skin-type": ["combination-skin"],
+    "min_price": "300",
+    "max_price": "1200",
+    "stock_status": "instock",
+    "on_sale": true
+  }
+}</code></pre>
+<h4><code>data.products[]</code></h4>
+<p>Each product in the listing. This is a lightweight card object — use <code>GET /products/{id}</code> for full detail.</p>
+<pre><code class="language-json">{
+  "id": 10119,
+  "name": "Herlan Cushion Matte Lipstick Vintage Vibes",
+  "slug": "herlan-cushion-matte-lipstick-vintage-vibes",
+  "type": "simple",
+  "permalink": "https://herlan.com/product/herlan-cushion-matte-lipstick-vintage-vibes/",
+  "sku": "HL-LIP-VV",
+  "price": "690",
+  "regular_price": "690",
+  "sale_price": "",
+  "price_html": "&lt;span class=\"woocommerce-Price-amount amount\"&gt;690&lt;/span&gt;",
+  "on_sale": false,
+  "stock_status": "instock",
+  "in_stock": true,
+  "average_rating": "0",
+  "rating_count": 0,
+  "brand": {
+    "id": 12,
+    "name": "Herlan",
+    "slug": "herlan"
+  },
+  "image": {
+    "id": 301,
+    "src": "https://herlan.com/wp-content/uploads/product.jpg",
+    "alt": "Herlan Cushion Matte Lipstick"
+  },
+  "categories": [
+    { "id": 88, "name": "Lipstick", "slug": "lipstick" }
+  ],
+  "tags": [
+    { "id": 45, "name": "Herlan Cushion Matte Lipstick", "slug": "herlan-cushion-matte-lipstick" }
+  ]
+}</code></pre>
+<p>Product card fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>WooCommerce product ID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Product name</td>
+</tr>
+<tr>
+<td><code>slug</code></td>
+<td>string</td>
+<td>URL slug</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td><code>simple</code>, <code>variable</code>, etc.</td>
+</tr>
+<tr>
+<td><code>permalink</code></td>
+<td>string</td>
+<td>Full product URL</td>
+</tr>
+<tr>
+<td><code>sku</code></td>
+<td>string</td>
+<td>SKU</td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>string</td>
+<td>Current active price</td>
+</tr>
+<tr>
+<td><code>regular_price</code></td>
+<td>string</td>
+<td>Regular (non-sale) price</td>
+</tr>
+<tr>
+<td><code>sale_price</code></td>
+<td>string</td>
+<td>Sale price if set, otherwise empty string</td>
+</tr>
+<tr>
+<td><code>price_html</code></td>
+<td>string</td>
+<td>WooCommerce formatted price HTML</td>
+</tr>
+<tr>
+<td><code>on_sale</code></td>
+<td>boolean</td>
+<td><code>true</code> if currently on sale</td>
+</tr>
+<tr>
+<td><code>stock_status</code></td>
+<td>string</td>
+<td><code>instock</code>, <code>outofstock</code>, <code>onbackorder</code></td>
+</tr>
+<tr>
+<td><code>in_stock</code></td>
+<td>boolean</td>
+<td><code>true</code> if purchasable stock exists</td>
+</tr>
+<tr>
+<td><code>average_rating</code></td>
+<td>string</td>
+<td>Decimal string e.g. <code>"4.5"</code></td>
+</tr>
+<tr>
+<td><code>rating_count</code></td>
+<td>integer</td>
+<td>Number of ratings</td>
+</tr>
+<tr>
+<td><code>brand</code></td>
+<td>object|null</td>
+<td>First brand term</td>
+</tr>
+<tr>
+<td><code>image</code></td>
+<td>object|null</td>
+<td>Main product image</td>
+</tr>
+<tr>
+<td><code>categories</code></td>
+<td>array</td>
+<td>Assigned <code>product_cat</code> terms</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td>array</td>
+<td>Assigned <code>product_tag</code> terms</td>
+</tr>
+</tbody>
+</table>
+<h4><code>data.filters</code></h4>
+<pre><code class="language-json">{
+  "active": [],
+  "available": {},
+  "price_range": {},
+  "availability": {},
+  "sorting": {},
+  "per_page": {}
+}</code></pre>
+<p><strong><code>filters.active</code></strong> — filters the user has currently applied, suitable for rendering &quot;remove filter&quot; chips:</p>
+<pre><code class="language-json">[
+  {
+    "key": "filter_product_cat",
+    "value": "eyebrow",
+    "label": "Product categories: Eyebrow"
+  },
+  {
+    "key": "filter_skin-type",
+    "value": "combination-skin",
+    "label": "Skin Types: Combination Skin"
+  },
+  {
+    "key": "stock_status",
+    "value": "instock",
+    "label": "In stock"
+  }
+]</code></pre>
+<p><strong><code>filters.available</code></strong> — one object per filterable taxonomy, with live product counts:</p>
+<pre><code class="language-json">{
+  "brand": {
+    "label": "Brands",
+    "taxonomy": "brand",
+    "hierarchical": false,
+    "terms": [
+      {
+        "id": 12,
+        "name": "Nior",
+        "slug": "nior",
+        "count": 7,
+        "parent": 0,
+        "link": "https://herlan.com/brand/nior/",
+        "image": null
+      }
+    ]
+  },
+  "pa_colors": {
+    "label": "Product Colors",
+    "taxonomy": "pa_colors",
+    "hierarchical": false,
+    "terms": [
+      {
+        "id": 999,
+        "name": "Vintage Vibes",
+        "slug": "vintage-vibes",
+        "count": 3,
+        "parent": 0,
+        "link": "...",
+        "color": "#a8483d",
+        "image": null
+      }
+    ]
+  }
+}</code></pre>
+<p><strong>How counts work (faceted filtering):</strong> The count for each term reflects how many products would match if the user tapped that term — using all current context and active filters, but excluding the currently-being-counted taxonomy. This matches the behaviour of the website's filter plugin. A term with <code>count: 0</code> is not returned.</p>
+<p><strong><code>filters.price_range</code></strong> — min and max price of the currently matched product set:</p>
+<pre><code class="language-json">{
+  "min": 300,
+  "max": 1200
+}</code></pre>
+<p><strong><code>filters.availability</code></strong> — stock and sale counts for the current result set:</p>
+<pre><code class="language-json">{
+  "in_stock_count": 18,
+  "on_sale_count": 4
+}</code></pre>
+<p><strong><code>filters.sorting</code></strong> — current sort and all available sort options:</p>
+<pre><code class="language-json">{
+  "current": "popularity",
+  "options": [
+    { "key": "menu_order", "label": "Default sorting" },
+    { "key": "popularity", "label": "Sort by popularity" },
+    { "key": "rating",     "label": "Sort by average rating" },
+    { "key": "date",       "label": "Sort by latest" },
+    { "key": "price",      "label": "Sort by price: low to high" },
+    { "key": "price-desc", "label": "Sort by price: high to low" }
+  ]
+}</code></pre>
+<p><strong><code>filters.per_page</code></strong> — current page size and options:</p>
+<pre><code class="language-json">{
+  "current": 12,
+  "options": [12, 24, 36, 48]
+}</code></pre>
+<h4><code>data.pagination</code></h4>
+<pre><code class="language-json">{
+  "page": 1,
+  "per_page": 12,
+  "total": 48,
+  "total_pages": 4,
+  "has_more": true
+}</code></pre>
+<h4>Error codes</h4>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>HTTP</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>herlan_woocommerce_unavailable</code></td>
+<td>500</td>
+<td>WooCommerce is not active</td>
+</tr>
+<tr>
+<td><code>herlan_invalid_context_taxonomy</code></td>
+<td>400</td>
+<td><code>context_taxonomy</code> is not a supported taxonomy</td>
+</tr>
+<tr>
+<td><code>herlan_missing_context_term</code></td>
+<td>400</td>
+<td><code>context_taxonomy</code> was set but <code>context_term</code> was not</td>
+</tr>
+<tr>
+<td><code>herlan_invalid_orderby</code></td>
+<td>400</td>
+<td><code>orderby</code> value is not recognized</td>
+</tr>
+<tr>
+<td><code>herlan_invalid_stock_status</code></td>
+<td>400</td>
+<td><code>stock_status</code> is not one of <code>instock</code>, <code>outofstock</code>, <code>onbackorder</code></td>
+</tr>
+</tbody>
+</table>
+<h4>Example requests</h4>
+<p><strong>Brand archive — Nior:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/products?context_taxonomy=brand&amp;context_term=nior"</code></pre>
+<p><strong>Brand archive with category and skin-type filter:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/products?context_taxonomy=brand&amp;context_term=nior&amp;filter_product_cat=eyes,eyebrow&amp;filter_skin-type=combination-skin"</code></pre>
+<p><strong>Category archive — Lipstick (nested URL <code>/makeup/lip/lipstick/</code>):</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/products?context_taxonomy=product_cat&amp;context_term=lipstick"</code></pre>
+<p><strong>Category archive — D32 brand filtered to electric toothbrush:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/products?context_taxonomy=brand&amp;context_term=d32&amp;filter_product_cat=electric-toothbrush"</code></pre>
+<p><strong>Search with price range, stock, and sort:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/products?search=lipstick&amp;min_price=300&amp;max_price=900&amp;stock_status=instock&amp;orderby=popularity&amp;page=1&amp;per_page=12"</code></pre>
+<p><strong>Fetch page 2 of products (filters already off by default):</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand&amp;context_term=nior&amp;page=2"</code></pre>
+<p><strong>Fetch products with filter data (e.g. when opening the filter drawer):</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand&amp;context_term=nior&amp;include_filters=1"</code></pre>
+<p><strong>Using legacy frontend alias parameters (also accepted):</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/products?context_taxonomy=brand&amp;context_term=nior&amp;product-cat=eyebrow,eyes&amp;_skin-type=combination-skin&amp;sort-by=popularity"</code></pre>
+<hr />
+<h3 id="get-filter-config"><code>GET /filter-config</code></h3>
+<p>Returns the list of available filter types that the mobile app should render in the filter drawer. Also includes sorting options and per-page controls.</p>
+<p>This endpoint is designed to be fetched once when the filter drawer opens, then cached locally by the app.</p>
+<h4>Request parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>context_taxonomy</code></td>
+<td>string</td>
+<td>No</td>
+<td>Archive taxonomy slug for context-aware config</td>
+</tr>
+<tr>
+<td><code>context_term</code></td>
+<td>string</td>
+<td>No</td>
+<td>Archive term slug</td>
+</tr>
+<tr>
+<td><code>page</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Page number. Default <code>1</code></td>
+</tr>
+<tr>
+<td><code>per_page</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Filter definitions per page. Default <code>50</code>, max <code>100</code></td>
+</tr>
+</tbody>
+</table>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "context": {
+      "taxonomy": "brand",
+      "term": { "slug": "nior" }
+    },
+    "filters": [
+      {
+        "type": "taxonomy",
+        "taxonomy": "product_cat",
+        "filter_key": "product-cat",
+        "canonical_key": "filter_product_cat",
+        "label": "Product categories",
+        "multiple": true,
+        "options_endpoint": "https://herlan.com/wp-json/herlan/v1/filter-terms?taxonomy=product_cat"
+      },
+      {
+        "type": "taxonomy",
+        "taxonomy": "brand",
+        "filter_key": "_brand",
+        "canonical_key": "filter_brand",
+        "label": "Brands",
+        "multiple": true,
+        "options_endpoint": "https://herlan.com/wp-json/herlan/v1/filter-terms?taxonomy=brand"
+      },
+      {
+        "type": "price",
+        "filter_key": "price",
+        "canonical_key": "min_price,max_price",
+        "label": "Price"
+      },
+      {
+        "type": "sort-by",
+        "filter_key": "sort-by",
+        "canonical_key": "orderby",
+        "label": "Sort By"
+      }
+    ],
+    "sorting": {
+      "current": "menu_order",
+      "options": [...]
+    },
+    "per_page": {
+      "current": 12,
+      "options": [12, 24, 36, 48]
+    },
+    "pagination": {
+      "page": 1,
+      "per_page": 50,
+      "total": 12,
+      "total_pages": 1,
+      "has_more": false
+    }
+  }
+}</code></pre>
+<p>Filter definition fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td><code>taxonomy</code>, <code>attribute</code>, <code>price</code>, or <code>sort-by</code></td>
+</tr>
+<tr>
+<td><code>taxonomy</code></td>
+<td>string</td>
+<td>Taxonomy slug (taxonomy and attribute types only)</td>
+</tr>
+<tr>
+<td><code>filter_key</code></td>
+<td>string</td>
+<td>Legacy-compatible key (use when building website-style URLs)</td>
+</tr>
+<tr>
+<td><code>canonical_key</code></td>
+<td>string</td>
+<td>The canonical API parameter name (use when calling <code>GET /group/products</code>)</td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td>string</td>
+<td>Human-readable label for the filter section heading</td>
+</tr>
+<tr>
+<td><code>multiple</code></td>
+<td>boolean</td>
+<td>Whether multiple terms can be selected simultaneously</td>
+</tr>
+<tr>
+<td><code>options_endpoint</code></td>
+<td>string</td>
+<td>URL to call for the list of selectable terms with counts</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="get-filter-terms"><code>GET /filter-terms</code></h3>
+<p>Returns the selectable terms for one taxonomy, with product counts computed in the current context. Use this to populate a filter's option list.</p>
+<h4>Request parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>taxonomy</code></td>
+<td>string</td>
+<td><strong>Yes</strong></td>
+<td>Taxonomy slug to fetch terms for</td>
+</tr>
+<tr>
+<td><code>context_taxonomy</code></td>
+<td>string</td>
+<td>No</td>
+<td>Archive taxonomy for context-scoped counts</td>
+</tr>
+<tr>
+<td><code>context_term</code></td>
+<td>string</td>
+<td>No</td>
+<td>Archive term slug</td>
+</tr>
+<tr>
+<td><code>search</code></td>
+<td>string</td>
+<td>No</td>
+<td>Filter terms by name</td>
+</tr>
+<tr>
+<td><code>page</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Page number. Default <code>1</code></td>
+</tr>
+<tr>
+<td><code>per_page</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Terms per page. Default <code>20</code>, max <code>100</code></td>
+</tr>
+</tbody>
+</table>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "taxonomy": {
+      "name": "pa_colors",
+      "label": "Product Colors",
+      "hierarchical": false
+    },
+    "terms": [
+      {
+        "id": 999,
+        "name": "Vintage Vibes",
+        "slug": "vintage-vibes",
+        "count": 3,
+        "parent": 0,
+        "image": null,
+        "color": "#a8483d"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "per_page": 20,
+      "total": 217,
+      "total_pages": 11,
+      "has_more": true
+    }
+  }
+}</code></pre>
+<p>Term fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Term ID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Display name</td>
+</tr>
+<tr>
+<td><code>slug</code></td>
+<td>string</td>
+<td>API slug — use this in <code>filter_{taxonomy}</code> params</td>
+</tr>
+<tr>
+<td><code>count</code></td>
+<td>integer</td>
+<td>Products matching this term in the current context</td>
+</tr>
+<tr>
+<td><code>parent</code></td>
+<td>integer</td>
+<td>Parent term ID, <code>0</code> for root terms</td>
+</tr>
+<tr>
+<td><code>image</code></td>
+<td>string|null</td>
+<td>Swatch image URL if configured</td>
+</tr>
+<tr>
+<td><code>color</code></td>
+<td>string</td>
+<td>Swatch hex color if configured (e.g. <code>"#a8483d"</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Pagination is important here — <code>pa_colors</code> has 217 terms in the current catalog. Use <code>page</code> and <code>per_page</code> to load them incrementally (e.g. on scroll in a color picker).</p>
+<p>Error codes:</p>
+<ul>
+<li><code>400 herlan_invalid_filter_taxonomy</code> — taxonomy is missing or does not exist</li>
+</ul>
+<h4>Example — load color swatches for the brand archive:</h4>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/filter-terms?taxonomy=pa_colors&amp;context_taxonomy=brand&amp;context_term=nior&amp;per_page=50"</code></pre>
+<hr />
+<h3 id="get-filter-forms-id"><code>GET /filter-forms/{id}</code></h3>
+<p>Returns the full filter configuration of a WooCommerce Ajax Product Filter (wcapf) form. This is the primary endpoint for driving the mobile filter drawer — it tells the app exactly which filters exist, how to display them, what terms are available, and which API parameter to send to <code>GET /group/products</code> when the user makes a selection.</p>
+<h4>How it connects to <code>/group/products</code></h4>
+<p>Each filter in the response includes an <code>api_param</code> field. When the user selects a filter option in the app, use that param name when calling <code>/group/products</code>.</p>
+<p>Example flow:</p>
+<ol>
+<li>Call <code>GET /filter-forms/20537?context_taxonomy=brand&amp;context_term=siodil</code></li>
+<li>Response includes a <code>skin-type</code> filter with <code>"api_param": "filter_skin-type"</code> and terms like <code>{ "slug": "combination-skin", ... }</code></li>
+<li>User selects &quot;Combination Skin&quot;</li>
+<li>Call <code>GET /group/products?context_taxonomy=brand&amp;context_term=siodil&amp;filter_skin-type=combination-skin</code></li>
+</ol>
+<h4>Path parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Yes</td>
+<td>The wcapf form post ID (e.g. <code>20537</code>)</td>
+</tr>
+</tbody>
+</table>
+<h4>Query parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>context_taxonomy</code></td>
+<td>string</td>
+<td>No</td>
+<td>Archive taxonomy slug — scopes term counts to this context</td>
+</tr>
+<tr>
+<td><code>context_term</code></td>
+<td>string</td>
+<td>No</td>
+<td>Archive term slug — scopes term counts to this context</td>
+</tr>
+</tbody>
+</table>
+<p>Passing context is strongly recommended. Without it, term counts reflect the entire catalog. With it, counts reflect only products in the current archive (e.g. the Siodil brand page).</p>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "form": {
+      "id": 20537,
+      "title": "Sample form",
+      "slug": "sample-form"
+    },
+    "context": {
+      "taxonomy": "brand",
+      "term": "siodil"
+    },
+    "filters": [...],
+    "products_endpoint": "https://herlan.com/wp-json/herlan/v1/group/products"
+  }
+}</code></pre>
+<h4><code>filters[]</code> — filter types</h4>
+<p>Each filter in the array is one panel in the filter drawer. The <code>type</code> field determines what kind of filter it is.</p>
+<p><strong>Taxonomy filter</strong> (<code>type: "taxonomy"</code>) — a list of selectable terms:</p>
+<pre><code class="language-json">{
+  "id": 1001,
+  "type": "taxonomy",
+  "label": "Brand",
+  "filter_key": "_brand",
+  "taxonomy": "brand",
+  "api_param": "filter_brand",
+  "display_type": "checkbox",
+  "multiple": true,
+  "operator": "in",
+  "hierarchical": false,
+  "terms": [
+    {
+      "id": 12,
+      "name": "Siodil",
+      "slug": "siodil",
+      "count": 18,
+      "parent": 0,
+      "image": null
+    }
+  ],
+  "terms_endpoint": "https://herlan.com/wp-json/herlan/v1/filter-terms?taxonomy=brand&amp;context_taxonomy=brand&amp;context_term=siodil"
+}</code></pre>
+<p>Taxonomy filter fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>filter_key</code></td>
+<td>string</td>
+<td>The URL param used on the website (legacy). Use <code>api_param</code> instead when calling <code>/group/products</code></td>
+</tr>
+<tr>
+<td><code>api_param</code></td>
+<td>string</td>
+<td>The parameter to send to <code>/group/products</code> when user selects a term. Format: <code>filter_{taxonomy}</code></td>
+</tr>
+<tr>
+<td><code>display_type</code></td>
+<td>string</td>
+<td>How wcapf displays this filter: <code>checkbox</code>, <code>radio</code>, <code>select</code>, <code>multi-select</code>, <code>label</code></td>
+</tr>
+<tr>
+<td><code>multiple</code></td>
+<td>boolean</td>
+<td>Whether multiple terms can be selected at once</td>
+</tr>
+<tr>
+<td><code>operator</code></td>
+<td>string</td>
+<td><code>in</code> (any selected term matches) or <code>and</code> (all selected terms must match). Pass as <code>filter_operator_{taxonomy}</code> to <code>/group/products</code></td>
+</tr>
+<tr>
+<td><code>hierarchical</code></td>
+<td>boolean</td>
+<td>Whether terms have a parent/child hierarchy</td>
+</tr>
+<tr>
+<td><code>terms</code></td>
+<td>array</td>
+<td>Available terms with product counts in the current context</td>
+</tr>
+<tr>
+<td><code>terms_endpoint</code></td>
+<td>string</td>
+<td>URL to load terms with pagination — use for large taxonomies like <code>pa_colors</code> (217 terms)</td>
+</tr>
+</tbody>
+</table>
+<p>Term fields inside <code>terms[]</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Term ID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Display name</td>
+</tr>
+<tr>
+<td><code>slug</code></td>
+<td>string</td>
+<td>Use this value in the API call: <code>filter_brand=siodil</code></td>
+</tr>
+<tr>
+<td><code>count</code></td>
+<td>integer</td>
+<td>Products matching this term in the current context</td>
+</tr>
+<tr>
+<td><code>parent</code></td>
+<td>integer</td>
+<td>Parent term ID, <code>0</code> for root</td>
+</tr>
+<tr>
+<td><code>image</code></td>
+<td>string|null</td>
+<td>Swatch image URL if configured</td>
+</tr>
+<tr>
+<td><code>color</code></td>
+<td>string</td>
+<td>Swatch hex color if configured (only present when set)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Price filter</strong> (<code>type: "price"</code>) — a range slider:</p>
+<pre><code class="language-json">{
+  "id": 1002,
+  "type": "price",
+  "label": "Price",
+  "filter_key": "price",
+  "api_param_min": "min_price",
+  "api_param_max": "max_price",
+  "range": {
+    "min": 150,
+    "max": 2500
+  }
+}</code></pre>
+<p><code>range</code> shows the actual min/max price of products in the current context. Use <code>api_param_min</code> and <code>api_param_max</code> as parameter names when calling <code>/group/products</code>.</p>
+<p><strong>Sort-by filter</strong> (<code>type: "sort-by"</code>):</p>
+<pre><code class="language-json">{
+  "id": 1003,
+  "type": "sort-by",
+  "label": "Sort By",
+  "filter_key": "sort-by",
+  "api_param": "orderby",
+  "options": [
+    { "key": "menu_order", "label": "Default sorting" },
+    { "key": "popularity", "label": "Sort by popularity" },
+    { "key": "date",       "label": "Sort by latest" },
+    { "key": "price",      "label": "Sort by price: low to high" },
+    { "key": "price-desc", "label": "Sort by price: high to low" }
+  ]
+}</code></pre>
+<p><strong>Product status filter</strong> (<code>type: "product-status"</code>):</p>
+<pre><code class="language-json">{
+  "id": 1004,
+  "type": "product-status",
+  "label": "Availability",
+  "filter_key": "product-status",
+  "api_param": "on_sale or stock_status",
+  "note": "Pass on_sale=1 for on-sale products, stock_status=instock|outofstock|onbackorder for stock filtering."
+}</code></pre>
+<p><strong>Keyword / search filter</strong> (<code>type: "keyword"</code>):</p>
+<pre><code class="language-json">{
+  "id": 1005,
+  "type": "keyword",
+  "label": "Search",
+  "filter_key": "s",
+  "api_param": "search"
+}</code></pre>
+<h4>Full example</h4>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/filter-forms/20537?context_taxonomy=brand&amp;context_term=siodil"</code></pre>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/filter-forms/20537?context_taxonomy=product_cat&amp;context_term=liquid-lipstick"</code></pre>
+<h4>How to build a filter request from this response</h4>
+<pre><code># User is on /brand/d32/ and selects Electric Toothbrush category + In Stock
+GET /group/products
+  ?context_taxonomy=brand
+  &amp;context_term=d32
+  &amp;filter_product_cat=electric-toothbrush   ← api_param from category filter
+  &amp;stock_status=instock                      ← from product-status filter</code></pre>
+<p>Error codes:</p>
+<ul>
+<li><code>404 herlan_wcapf_form_not_found</code> — form ID does not exist or is not a wcapf form</li>
+</ul>
+<hr />
+<h2 id="other-public-endpoints">Other public endpoints</h2>
+<h3 id="get-status"><code>GET /status</code></h3>
+<p>Returns API and site metadata.</p>
+<p>Example:</p>
+<pre><code class="language-bash">curl "http://localhost/herlanlive3/wp-json/herlan/v1/status"</code></pre>
+<p>Response:</p>
+<pre><code class="language-json">{
   "success": true,
   "message": "",
   "data": {
@@ -257,152 +1414,239 @@
     "site": "Herlan Live",
     "timezone": "Asia/Dhaka"
   }
-}</pre>
-      </section>
-
-      <section id="promo-bar">
-        <h2>Promo Bar</h2>
-        <h3><span class="method">GET</span> <code>/promo-bar</code></h3>
-        <p>Returns the site-wide promotional top bar configuration saved under <strong>Herlan Settings -> Top Bar Promo</strong>. Mobile apps use this to decide whether to show the banner and what content to display.</p>
-        <p>This endpoint is public.</p>
-        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/promo-bar"</pre>
-        <pre>{
-  "success": true,
-  "message": "",
-  "data": {
-    "enabled": true,
-    "bg_color": "#D50032",
-    "text": "<p>Free shipping on orders over <strong>৳999</strong>!</p>"
-  }
-}</pre>
-        <pre>{
-  "success": true,
-  "message": "",
-  "data": {
-    "enabled": false,
-    "bg_color": "#333333",
-    "text": ""
-  }
-}</pre>
-        <table>
-          <thead>
-            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>enabled</code></td><td>boolean</td><td>Whether the promo bar is turned on in admin settings</td></tr>
-            <tr><td><code>bg_color</code></td><td>string</td><td>Hex background color for the bar, e.g. <code>#D50032</code></td></tr>
-            <tr><td><code>text</code></td><td>string</td><td>Sanitized HTML content to display inside the bar</td></tr>
-          </tbody>
-        </table>
-        <p class="muted">When <code>enabled</code> is <code>false</code>, hide the bar entirely regardless of <code>text</code> or <code>bg_color</code> values.</p>
-      </section>
-
-      <section id="header-config">
-        <h2>Header Config</h2>
-        <h3><span class="method">GET</span> <code>/header-config</code></h3>
-        <p>Returns the header appearance settings saved under <strong>Herlan Settings -> Header</strong>. Mobile apps use this to theme the app header colors and optionally display decorative ornament images.</p>
-        <p>This endpoint is public.</p>
-        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/header-config"</pre>
-        <pre>{
-  "success": true,
-  "message": "",
-  "data": {
-    "top_bar": {
-      "bg_color": "#ffffff",
-      "text_color": "#000000"
-    },
-    "nav": {
-      "bg_color": "#ffffff",
-      "text_color": "#000000"
-    },
-    "mini_cart_badge_color": "#D50032",
-    "ornaments": {
-      "enabled": true,
-      "left": "https://herlan.com/wp-content/uploads/ornament-left.png",
-      "right": "https://herlan.com/wp-content/uploads/ornament-right.png"
-    }
-  }
-}</pre>
-        <table>
-          <thead>
-            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>top_bar.bg_color</code></td><td>string</td><td>Hex background color for the top bar</td></tr>
-            <tr><td><code>top_bar.text_color</code></td><td>string</td><td>Hex text color for the top bar</td></tr>
-            <tr><td><code>nav.bg_color</code></td><td>string</td><td>Hex background color for the navigation bar</td></tr>
-            <tr><td><code>nav.text_color</code></td><td>string</td><td>Hex text color for the navigation bar</td></tr>
-            <tr><td><code>mini_cart_badge_color</code></td><td>string</td><td>Hex background color for the cart item count badge</td></tr>
-            <tr><td><code>ornaments.enabled</code></td><td>boolean</td><td>Whether header ornament images are active</td></tr>
-            <tr><td><code>ornaments.left</code></td><td>string</td><td>URL of the left ornament image, empty string if not set</td></tr>
-            <tr><td><code>ornaments.right</code></td><td>string</td><td>URL of the right ornament image, empty string if not set</td></tr>
-          </tbody>
-        </table>
-        <p class="muted">When <code>ornaments.enabled</code> is <code>false</code>, ignore the <code>left</code> and <code>right</code> image URLs.</p>
-      </section>
-
-      <section id="image-popup">
-        <h2>Image Popup</h2>
-        <h3><span class="method">GET</span> <code>/image-popup</code></h3>
-        <p>Returns the image popup configuration saved under <strong>Herlan Settings -> Image Popup</strong>. Mobile apps use this to decide whether to display a promotional popup, when to show it again, and which image to use.</p>
-        <p>This endpoint is public.</p>
-        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/image-popup"</pre>
-        <pre>{
-  "success": true,
-  "message": "",
-  "data": {
-    "enabled": true,
-    "display_location": "all",
-    "show_again_after": {
-      "hours": 24,
-      "minutes": 0,
-      "seconds": 0
-    },
-    "image": "https://herlan.com/wp-content/uploads/popup-desktop.jpg",
-    "mobile": {
-      "enabled": true,
-      "image": "https://herlan.com/wp-content/uploads/popup-mobile.jpg"
-    },
-    "cta_url": "https://herlan.com/shop/"
-  }
-}</pre>
-        <table>
-          <thead>
-            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>enabled</code></td><td>boolean</td><td>Whether the popup is active</td></tr>
-            <tr><td><code>display_location</code></td><td>string</td><td><code>all</code> for all pages, <code>checkout</code> for checkout only</td></tr>
-            <tr><td><code>show_again_after.hours</code></td><td>integer</td><td>Hours before the popup is shown again</td></tr>
-            <tr><td><code>show_again_after.minutes</code></td><td>integer</td><td>Additional minutes</td></tr>
-            <tr><td><code>show_again_after.seconds</code></td><td>integer</td><td>Additional seconds. All three at <code>0</code> means show on every page load</td></tr>
-            <tr><td><code>image</code></td><td>string|null</td><td>Desktop popup image URL, <code>null</code> if not set</td></tr>
-            <tr><td><code>mobile.enabled</code></td><td>boolean</td><td>Whether a separate mobile image is configured</td></tr>
-            <tr><td><code>mobile.image</code></td><td>string|null</td><td>Mobile popup image URL, <code>null</code> if not set</td></tr>
-            <tr><td><code>cta_url</code></td><td>string|null</td><td>URL to open when the popup image is tapped, <code>null</code> if not set</td></tr>
-          </tbody>
-        </table>
-        <p class="muted"><strong>Mobile image logic:</strong> if <code>mobile.enabled</code> is <code>true</code> and <code>mobile.image</code> is not <code>null</code>, use <code>mobile.image</code> on mobile devices. Otherwise fall back to <code>image</code>.</p>
-        <p class="muted"><strong>Show again timer:</strong> store the timestamp when the popup was last shown locally on the device and compare it against the total interval (<code>hours × 3600 + minutes × 60 + seconds</code>) to decide whether to show the popup again.</p>
-      </section>
-
-      <section id="auth">
-        <h2>Auth</h2>
-
-        <h3><span class="method">POST</span> <code>/auth/login</code></h3>
-        <p>Login with WordPress username/email and password. Returns a bearer token.</p>
-        <pre>{
+}</code></pre>
+<h3 id="get-promo-bar"><code>GET /promo-bar</code></h3>
+<p>Returns top promo bar settings.</p>
+<p>Response fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td>Whether the bar should be shown</td>
+</tr>
+<tr>
+<td><code>bg_color</code></td>
+<td>string</td>
+<td>Hex color</td>
+</tr>
+<tr>
+<td><code>text</code></td>
+<td>string</td>
+<td>Sanitized HTML</td>
+</tr>
+</tbody>
+</table>
+<h3 id="get-header-config"><code>GET /header-config</code></h3>
+<p>Returns header color and ornament settings.</p>
+<p>Response fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>top_bar.bg_color</code></td>
+<td>string</td>
+<td>Top bar background</td>
+</tr>
+<tr>
+<td><code>top_bar.text_color</code></td>
+<td>string</td>
+<td>Top bar text color</td>
+</tr>
+<tr>
+<td><code>nav.bg_color</code></td>
+<td>string</td>
+<td>Nav background</td>
+</tr>
+<tr>
+<td><code>nav.text_color</code></td>
+<td>string</td>
+<td>Nav text color</td>
+</tr>
+<tr>
+<td><code>mini_cart_badge_color</code></td>
+<td>string</td>
+<td>Badge background</td>
+</tr>
+<tr>
+<td><code>ornaments.enabled</code></td>
+<td>boolean</td>
+<td>Ornament toggle</td>
+</tr>
+<tr>
+<td><code>ornaments.left</code></td>
+<td>string</td>
+<td>Left ornament URL or empty string</td>
+</tr>
+<tr>
+<td><code>ornaments.right</code></td>
+<td>string</td>
+<td>Right ornament URL or empty string</td>
+</tr>
+</tbody>
+</table>
+<h3 id="get-image-popup"><code>GET /image-popup</code></h3>
+<p>Returns popup configuration.</p>
+<p>Response fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td>Popup active flag</td>
+</tr>
+<tr>
+<td><code>display_location</code></td>
+<td>string</td>
+<td>Stored option, usually <code>all</code></td>
+</tr>
+<tr>
+<td><code>show_again_after.hours</code></td>
+<td>integer</td>
+<td>Interval hours</td>
+</tr>
+<tr>
+<td><code>show_again_after.minutes</code></td>
+<td>integer</td>
+<td>Interval minutes</td>
+</tr>
+<tr>
+<td><code>show_again_after.seconds</code></td>
+<td>integer</td>
+<td>Interval seconds</td>
+</tr>
+<tr>
+<td><code>image</code></td>
+<td>string|null</td>
+<td>Desktop image URL</td>
+</tr>
+<tr>
+<td><code>mobile.enabled</code></td>
+<td>boolean</td>
+<td>Separate mobile image enabled</td>
+</tr>
+<tr>
+<td><code>mobile.image</code></td>
+<td>string|null</td>
+<td>Mobile image URL</td>
+</tr>
+<tr>
+<td><code>cta_url</code></td>
+<td>string|null</td>
+<td>Optional click target</td>
+</tr>
+</tbody>
+</table>
+<h3 id="get-home"><code>GET /home</code></h3>
+<p>Returns mobile home page configuration assembled from ACF option fields and related content.</p>
+<p>Top-level response fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hero_slider</code></td>
+<td>object</td>
+<td>Slider items and autoplay duration</td>
+</tr>
+<tr>
+<td><code>promotional_block</code></td>
+<td>object</td>
+<td>Promotional post cards</td>
+</tr>
+<tr>
+<td><code>campaign_shortcuts</code></td>
+<td>object</td>
+<td>Shortcut tags/buttons</td>
+</tr>
+<tr>
+<td><code>product_groups</code></td>
+<td>object</td>
+<td>Product group tabs/tags</td>
+</tr>
+<tr>
+<td><code>campaigns</code></td>
+<td>array</td>
+<td>Active campaign sections</td>
+</tr>
+<tr>
+<td><code>categories_block</code></td>
+<td>object</td>
+<td>Category block enabled flag</td>
+</tr>
+<tr>
+<td><code>custom_tags</code></td>
+<td>object</td>
+<td>Custom tag cards</td>
+</tr>
+<tr>
+<td><code>product_sliders</code></td>
+<td>array</td>
+<td>Configured product slider definitions</td>
+</tr>
+<tr>
+<td><code>home_video</code></td>
+<td>object|null</td>
+<td>Home video block</td>
+</tr>
+</tbody>
+</table>
+<p>Key nested shapes:</p>
+<ul>
+<li><code>hero_slider.items[]</code>
+<ul>
+<li>image slide: <code>type</code>, <code>url</code>, <code>image</code>, <code>mobile_image</code></li>
+<li>video slide: <code>type</code>, <code>url</code>, <code>video_url</code></li>
+</ul></li>
+<li><code>promotional_block.posts[]</code>: <code>id</code>, <code>title</code>, <code>subtitle</code>, <code>image</code>, <code>url</code></li>
+<li><code>campaign_shortcuts.items[]</code>: <code>name</code>, <code>url</code></li>
+<li><code>product_groups.groups[]</code>: <code>title</code>, <code>product_tag</code>, <code>featured_tag</code></li>
+<li><code>campaigns[]</code>: <code>title</code>, <code>product_tag</code>, <code>tag_url</code>, <code>see_all_text</code>, <code>background_image</code></li>
+<li><code>custom_tags.items[]</code>: <code>name</code>, <code>url</code>, <code>image</code></li>
+<li><code>product_sliders[]</code>: <code>title</code>, <code>product_type</code>, <code>taxonomy_type</code>, <code>term_slug</code>, <code>url</code>, <code>background_image</code></li>
+<li><code>home_video</code>: <code>video_desktop</code>, <code>video_mobile</code>, <code>poster</code>, <code>link_url</code></li>
+</ul>
+<h3 id="post-auth-login"><code>POST /auth/login</code></h3>
+<p>Logs a user in with WordPress username/email and password.</p>
+<p>Request body:</p>
+<pre><code class="language-json">{
   "username": "customer@example.com",
   "password": "password123",
   "device_name": "iPhone 15"
-}</pre>
-        <pre>{
+}</code></pre>
+<p>Response:</p>
+<pre><code class="language-json">{
   "success": true,
   "message": "",
   "data": {
     "token_type": "Bearer",
-    "access_token": "MQ.example_token_secret",
-    "expires_at": "2026-05-30T06:00:00+00:00",
+    "access_token": "MQ.example_secret",
+    "expires_at": "2026-06-16T12:00:00+00:00",
     "user": {
       "id": 1,
       "name": "Customer Name",
@@ -410,865 +1654,1758 @@
       "last_name": "Name",
       "email": "customer@example.com",
       "username": "customer@example.com",
-      "roles": ["customer"]
+      "roles": ["customer"],
+      "avatar": "https://example.com/avatar.jpg",
+      "phone": "01712345678",
+      "has_password": true
     }
   }
-}</pre>
-        <p>Errors: <code>401 herlan_invalid_credentials</code></p>
-
-        <h3><span class="method">POST</span> <code>/auth/register</code></h3>
-        <p>Creates a WordPress user and returns a mobile token. WordPress registration must be enabled. Response shape is identical to login.</p>
-        <pre>{
+}</code></pre>
+<p>Errors:</p>
+<ul>
+<li><code>401 herlan_invalid_credentials</code></li>
+</ul>
+<h3 id="post-auth-register"><code>POST /auth/register</code></h3>
+<p>Creates a WordPress user and immediately issues a bearer token.</p>
+<p>Request body:</p>
+<pre><code class="language-json">{
   "name": "Customer Name",
   "email": "customer@example.com",
   "password": "password123"
-}</pre>
-        <p>Errors: <code>403 herlan_registration_disabled</code> &nbsp; <code>409 herlan_email_exists</code> &nbsp; <code>422 herlan_invalid_email</code> &nbsp; <code>422 herlan_weak_password</code></p>
-
-        <h3><span class="method">POST</span> <code>/auth/logout</code></h3>
-        <p>Revokes the current bearer token.</p>
-        <pre>curl -X POST "http://localhost/herlanlive3/wp-json/herlan/v1/auth/logout" \
-  -H "Authorization: Bearer MQ.example_token_secret"</pre>
-      </section>
-
-      <section id="user">
-        <h2>User</h2>
-        <h3><span class="method">GET</span> <code>/user/me</code></h3>
-        <p>Returns the authenticated user's profile.</p>
-        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/me" \
-  -H "Authorization: Bearer MQ.example_token_secret"</pre>
-        <pre>{
+}</code></pre>
+<p>Response data matches <code>POST /auth/login</code>.</p>
+<p>Errors:</p>
+<ul>
+<li><code>403 herlan_registration_disabled</code></li>
+<li><code>409 herlan_email_exists</code></li>
+<li><code>422 herlan_invalid_email</code></li>
+<li><code>422 herlan_weak_password</code></li>
+</ul>
+<h3 id="get-products-filters"><code>GET /products/filters</code></h3>
+<p>Returns mobile product listing filters without products.</p>
+<p>Query parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>taxonomy</code></td>
+<td>string</td>
+<td>none</td>
+<td>Optional context taxonomy slug</td>
+</tr>
+<tr>
+<td><code>term</code></td>
+<td>string</td>
+<td>none</td>
+<td>Optional context term slug</td>
+</tr>
+<tr>
+<td><code>include_counts</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Recalculate counts for current context</td>
+</tr>
+</tbody>
+</table>
+<p>Note: This is the original filter metadata endpoint. The newer <code>GET /group/products</code> endpoint returns the same filter data alongside products in one request, which is preferred for listing screens. Use this endpoint only when you need filter metadata independently.</p>
+<h3 id="get-products-id"><code>GET /products/{id}</code></h3>
+<p>Returns a published WooCommerce product.</p>
+<p>Main fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Product ID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Product name</td>
+</tr>
+<tr>
+<td><code>slug</code></td>
+<td>string</td>
+<td>Product slug</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td>WooCommerce type</td>
+</tr>
+<tr>
+<td><code>permalink</code></td>
+<td>string</td>
+<td>Product URL</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>Product status</td>
+</tr>
+<tr>
+<td><code>sku</code></td>
+<td>string</td>
+<td>SKU</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>Sanitized HTML</td>
+</tr>
+<tr>
+<td><code>short_description</code></td>
+<td>string</td>
+<td>Sanitized HTML</td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>string</td>
+<td>Current price</td>
+</tr>
+<tr>
+<td><code>regular_price</code></td>
+<td>string</td>
+<td>Regular price</td>
+</tr>
+<tr>
+<td><code>sale_price</code></td>
+<td>string</td>
+<td>Sale price</td>
+</tr>
+<tr>
+<td><code>price_html</code></td>
+<td>string</td>
+<td>WooCommerce formatted HTML</td>
+</tr>
+<tr>
+<td><code>on_sale</code></td>
+<td>boolean</td>
+<td>Sale flag</td>
+</tr>
+<tr>
+<td><code>purchasable</code></td>
+<td>boolean</td>
+<td>Purchasable flag</td>
+</tr>
+<tr>
+<td><code>stock_status</code></td>
+<td>string</td>
+<td>Stock status</td>
+</tr>
+<tr>
+<td><code>stock_quantity</code></td>
+<td>integer|null</td>
+<td>Stock quantity</td>
+</tr>
+<tr>
+<td><code>average_rating</code></td>
+<td>string</td>
+<td>Average rating</td>
+</tr>
+<tr>
+<td><code>rating_count</code></td>
+<td>integer</td>
+<td>Rating count</td>
+</tr>
+<tr>
+<td><code>categories</code></td>
+<td>array</td>
+<td>Assigned <code>product_cat</code> terms</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td>array</td>
+<td>Assigned <code>product_tag</code> terms</td>
+</tr>
+<tr>
+<td><code>brand</code></td>
+<td>object|null</td>
+<td>First brand term</td>
+</tr>
+<tr>
+<td><code>taxonomies</code></td>
+<td>object</td>
+<td>Assigned public taxonomies and attributes</td>
+</tr>
+<tr>
+<td><code>attributes</code></td>
+<td>array</td>
+<td>Product attributes</td>
+</tr>
+<tr>
+<td><code>images</code></td>
+<td>array</td>
+<td>Main image plus gallery</td>
+</tr>
+<tr>
+<td><code>custom_fields</code></td>
+<td>object</td>
+<td>ACF fields normalized for API use</td>
+</tr>
+<tr>
+<td><code>linked_products</code></td>
+<td>object</td>
+<td>WPC Linked Variation data</td>
+</tr>
+<tr>
+<td><code>recommendations</code></td>
+<td>object</td>
+<td>Recommendation sections</td>
+</tr>
+<tr>
+<td><code>variations</code></td>
+<td>array</td>
+<td>Present for variable products only</td>
+</tr>
+</tbody>
+</table>
+<p><code>recommendations</code> always contains:</p>
+<ul>
+<li><code>you_may_like</code></li>
+<li><code>more_from_this_brand</code></li>
+<li><code>best_selling</code></li>
+<li><code>new_arrivals</code></li>
+</ul>
+<p>Errors:</p>
+<ul>
+<li><code>404 herlan_product_not_found</code></li>
+<li><code>500 herlan_woocommerce_unavailable</code></li>
+</ul>
+<h3 id="get-drawer-brands-categories"><code>GET /drawer-brands-categories</code></h3>
+<p>Returns product categories and brands for app navigation.</p>
+<p>Query parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hide_empty</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Exclude empty terms</td>
+</tr>
+<tr>
+<td><code>categories_flat</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Return categories as a flat list</td>
+</tr>
+<tr>
+<td><code>order</code></td>
+<td>string</td>
+<td><code>asc</code></td>
+<td><code>asc</code> or <code>desc</code></td>
+</tr>
+<tr>
+<td><code>order_by</code></td>
+<td>string</td>
+<td><code>name</code></td>
+<td><code>name</code>, <code>count</code>, <code>id</code>, or <code>slug</code></td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<pre><code class="language-bash">curl "http://localhost/herlanlive3/wp-json/herlan/v1/drawer-brands-categories"</code></pre>
+<p>Response fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>categories</code></td>
+<td>array</td>
+<td>Nested tree by default</td>
+</tr>
+<tr>
+<td><code>total_categories</code></td>
+<td>integer</td>
+<td>Number of category terms before nesting</td>
+</tr>
+<tr>
+<td><code>brands</code></td>
+<td>array</td>
+<td>Brand term list</td>
+</tr>
+<tr>
+<td><code>total_brands</code></td>
+<td>integer</td>
+<td>Number of brand terms</td>
+</tr>
+</tbody>
+</table>
+<p>Category fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Term ID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Category name</td>
+</tr>
+<tr>
+<td><code>slug</code></td>
+<td>string</td>
+<td>Category slug</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>Category description</td>
+</tr>
+<tr>
+<td><code>count</code></td>
+<td>integer</td>
+<td>Product count</td>
+</tr>
+<tr>
+<td><code>parent</code></td>
+<td>integer</td>
+<td>Parent term ID</td>
+</tr>
+<tr>
+<td><code>link</code></td>
+<td>string|null</td>
+<td>Category archive URL</td>
+</tr>
+<tr>
+<td><code>image</code></td>
+<td>object|null</td>
+<td>Thumbnail image</td>
+</tr>
+<tr>
+<td><code>children</code></td>
+<td>array</td>
+<td>Child categories</td>
+</tr>
+</tbody>
+</table>
+<p>Brand fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Term ID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Brand name</td>
+</tr>
+<tr>
+<td><code>slug</code></td>
+<td>string</td>
+<td>Brand slug</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>Brand description</td>
+</tr>
+<tr>
+<td><code>count</code></td>
+<td>integer</td>
+<td>Product count</td>
+</tr>
+<tr>
+<td><code>link</code></td>
+<td>string|null</td>
+<td>Brand archive URL</td>
+</tr>
+<tr>
+<td><code>image</code></td>
+<td>object|null</td>
+<td>Brand logo image</td>
+</tr>
+</tbody>
+</table>
+<p>Image object:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Attachment ID</td>
+</tr>
+<tr>
+<td><code>src</code></td>
+<td>string</td>
+<td>Image URL</td>
+</tr>
+<tr>
+<td><code>alt</code></td>
+<td>string</td>
+<td>Alt text</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="get-taxonomies"><code>GET /taxonomies</code></h3>
+<p>Returns all filterable product taxonomies and their terms in a single call. Use this to populate filter UI (dropdowns, checkboxes, chips) and to know which <code>filter_*</code> parameter to send to <code>GET /group/products</code> when the user picks a term.</p>
+<p>Query parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hide_empty</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Exclude terms with no published products</td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/taxonomies"
+curl "https://herlan.com/wp-json/herlan/v1/taxonomies?hide_empty=false"</code></pre>
+<p>Response shape:</p>
+<pre><code class="language-json">{
   "success": true,
   "message": "",
   "data": {
-    "user": {
-      "id": 1,
-      "name": "Customer Name",
-      "first_name": "Customer",
-      "last_name": "Name",
-      "email": "customer@example.com",
-      "username": "customer@example.com",
-      "roles": ["customer"]
-    }
-  }
-}</pre>
-      </section>
-
-      <section id="account">
-        <h2>Account</h2>
-        <h3>
-          <span class="method method-put">PUT</span>
-          <span class="method method-patch">PATCH</span>
-          <code>/user/account</code>
-        </h3>
-        <p>Updates the authenticated user's profile. All fields are optional — only send what needs to change. Changing <code>email</code> or <code>new_password</code> requires <code>current_password</code>.</p>
-
-        <table>
-          <thead>
-            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>first_name</code></td><td>string</td><td>No password required</td></tr>
-            <tr><td><code>last_name</code></td><td>string</td><td>No password required</td></tr>
-            <tr><td><code>display_name</code></td><td>string</td><td>No password required</td></tr>
-            <tr><td><code>email</code></td><td>string</td><td>Requires <code>current_password</code></td></tr>
-            <tr><td><code>current_password</code></td><td>string</td><td>Required when changing email or password</td></tr>
-            <tr><td><code>new_password</code></td><td>string</td><td>Min 8 characters. Requires <code>current_password</code></td></tr>
-          </tbody>
-        </table>
-
-        <h3>Update name</h3>
-        <pre>curl -X PATCH "http://localhost/herlanlive3/wp-json/herlan/v1/user/account" \
-  -H "Authorization: Bearer MQ.example_token_secret" \
-  -H "Content-Type: application/json" \
-  -d "{\"first_name\":\"Jane\",\"last_name\":\"Doe\"}"</pre>
-
-        <h3>Change password</h3>
-        <pre>curl -X PATCH "http://localhost/herlanlive3/wp-json/herlan/v1/user/account" \
-  -H "Authorization: Bearer MQ.example_token_secret" \
-  -H "Content-Type: application/json" \
-  -d "{\"current_password\":\"oldpass123\",\"new_password\":\"newpass456\"}"</pre>
-
-        <h3>Response</h3>
-        <pre>{
-  "success": true,
-  "message": "Account updated successfully.",
-  "data": {
-    "user": {
-      "id": 1,
-      "name": "Jane Doe",
-      "first_name": "Jane",
-      "last_name": "Doe",
-      "email": "customer@example.com",
-      "username": "customer@example.com",
-      "roles": ["customer"]
-    }
-  }
-}</pre>
-        <p>Errors: <code>401 herlan_invalid_password</code> &nbsp; <code>409 herlan_email_exists</code> &nbsp; <code>422 herlan_password_required</code> &nbsp; <code>422 herlan_invalid_email</code> &nbsp; <code>422 herlan_weak_password</code></p>
-      </section>
-
-      <section id="loyalty">
-        <h2>Loyalty</h2>
-        <h3><span class="method">GET</span> <code>/user/loyalty</code></h3>
-        <p>Returns the authenticated user's loyalty program summary — points, cash balance, level progress, and recent transactions. Requires the Herlan Loyalty plugin to be active and the user's billing phone number to be set. Results are cached per user for 5 minutes.</p>
-        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/loyalty" \
-  -H "Authorization: Bearer MQ.example_token_secret"</pre>
-        <pre>{
-  "success": true,
-  "message": "",
-  "data": {
-    "customer": {
-      "name": "Customer Name",
-      "phone": "01712345678",
-      "status": "Active",
-      "level": "Gold"
-    },
-    "points": 1250,
-    "available_cash": 125.50,
-    "total_spent": 15000.00,
-    "level": {
-      "name": "Gold",
-      "color": "#DDAE56",
-      "progress_percent": 62.5,
-      "next": "Platinum",
-      "next_at": 20000,
-      "retention": {
-        "message": "Spend BDT 5,000 more to keep Gold level.",
-        "target": 12000
-      }
-    },
-    "next_expiring_cash": null,
-    "transactions": {
-      "purchase_orders": [],
-      "redeem_orders": [],
-      "cashes": []
-    }
-  }
-}</pre>
-
-        <table>
-          <thead>
-            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>points</code></td><td>integer</td><td>Usable loyalty points</td></tr>
-            <tr><td><code>available_cash</code></td><td>float</td><td>Redeemable cash balance</td></tr>
-            <tr><td><code>total_spent</code></td><td>float</td><td>Lifetime spend used for tier calculation</td></tr>
-            <tr><td><code>level.name</code></td><td>string</td><td>Current tier name</td></tr>
-            <tr><td><code>level.color</code></td><td>string</td><td>Tier accent color for the UI</td></tr>
-            <tr><td><code>level.progress_percent</code></td><td>float</td><td>0–100 progress toward next tier</td></tr>
-            <tr><td><code>level.next</code></td><td>string|null</td><td>Next tier name, null at top tier</td></tr>
-            <tr><td><code>level.next_at</code></td><td>float|null</td><td>Spend threshold to reach next tier</td></tr>
-            <tr><td><code>level.retention.message</code></td><td>string|null</td><td>Retention warning message</td></tr>
-            <tr><td><code>level.retention.target</code></td><td>float|null</td><td>Minimum spend to retain current tier</td></tr>
-            <tr><td><code>next_expiring_cash</code></td><td>mixed|null</td><td>Next cash expiry data from loyalty API</td></tr>
-            <tr><td><code>transactions</code></td><td>object</td><td>Raw transaction arrays from the loyalty API</td></tr>
-          </tbody>
-        </table>
-
-        <p>Errors: <code>422 herlan_loyalty_no_phone</code> &nbsp; <code>502 herlan_loyalty_auth_failed</code> &nbsp; <code>503 herlan_loyalty_unavailable</code></p>
-      </section>
-
-      <section id="coupons">
-        <h2>Coupons</h2>
-        <h3><span class="method">GET</span> <code>/user/coupons</code></h3>
-        <p>Returns the authenticated user's coupons from the WooCommerce Smart Coupon plugin. Requires <code>wt-smart-coupon-pro</code> to be active.</p>
-
-        <table>
-          <thead>
-            <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>type</code></td><td>string</td><td>available</td><td><code>available</code>, <code>expired</code>, or <code>used</code></td></tr>
-            <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
-            <tr><td><code>per_page</code></td><td>integer</td><td>10</td><td>Max 50</td></tr>
-            <tr><td><code>orderby</code></td><td>string</td><td>created_date:asc</td><td><code>created_date:asc</code>, <code>created_date:desc</code>, <code>amount:asc</code>, <code>amount:desc</code>. Ignored for <code>type=used</code></td></tr>
-          </tbody>
-        </table>
-
-        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/coupons" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/coupons?type=expired&amp;orderby=created_date:desc" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/user/coupons?type=used&amp;page=2" \
-  -H "Authorization: Bearer MQ.example_token_secret"</pre>
-
-        <pre>{
-  "success": true,
-  "message": "",
-  "data": {
-    "coupons": [
+    "taxonomies": [
       {
-        "id": 4210,
-        "code": "WELCOME10",
-        "discount_type": "percent",
-        "coupon_type": "Cart discount",
-        "amount": 10.0,
-        "coupon_amount": "10%",
-        "description": "Welcome discount for new customers.",
-        "free_shipping": false,
-        "starts_at": null,
-        "expires_at": "2026-12-31T23:59:59+00:00",
-        "is_expired": false,
-        "minimum_amount": "500",
-        "maximum_amount": "",
-        "usage_limit": 1,
-        "usage_count": 0,
-        "usage_limit_per_user": 1,
-        "used_by_current_user": 0,
-        "individual_use": true,
-        "email_restrictions": []
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "per_page": 10,
-      "has_more": false
-    }
-  }
-}</pre>
-
-        <p><strong>Pagination note:</strong> <code>type=available</code> and <code>type=expired</code> return <code>has_more</code> only — no <code>total</code> count, because the plugin applies live eligibility rules that make a total count query impractical. <code>type=used</code> additionally returns <code>total</code> and <code>total_pages</code>.</p>
-
-        <table>
-          <thead>
-            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>id</code></td><td>integer</td><td>WooCommerce coupon post ID</td></tr>
-            <tr><td><code>code</code></td><td>string</td><td>Coupon code to apply at checkout</td></tr>
-            <tr><td><code>discount_type</code></td><td>string</td><td>Raw type: <code>fixed_cart</code>, <code>percent</code>, <code>store_credit</code>, <code>wbte_sc_bogo</code>, etc.</td></tr>
-            <tr><td><code>coupon_type</code></td><td>string</td><td>Human label: Cart discount, Product discount, Free shipping, Free products, Store credit, etc.</td></tr>
-            <tr><td><code>amount</code></td><td>float</td><td>Raw numeric discount amount</td></tr>
-            <tr><td><code>coupon_amount</code></td><td>string</td><td>Formatted amount, e.g. <code>৳690</code> or <code>10%</code>. Empty for free shipping / free product coupons</td></tr>
-            <tr><td><code>description</code></td><td>string</td><td>Admin-defined coupon description</td></tr>
-            <tr><td><code>free_shipping</code></td><td>boolean</td><td>Whether the coupon grants free shipping</td></tr>
-            <tr><td><code>starts_at</code></td><td>string|null</td><td>ISO 8601 start date, or <code>null</code> if no start restriction</td></tr>
-            <tr><td><code>expires_at</code></td><td>string|null</td><td>ISO 8601 expiry date, or <code>null</code> if the coupon never expires</td></tr>
-            <tr><td><code>is_expired</code></td><td>boolean</td><td><code>true</code> when <code>expires_at</code> is in the past</td></tr>
-            <tr><td><code>minimum_amount</code></td><td>string</td><td>Minimum order subtotal required, empty if none</td></tr>
-            <tr><td><code>maximum_amount</code></td><td>string</td><td>Maximum order subtotal allowed, empty if none</td></tr>
-            <tr><td><code>usage_limit</code></td><td>integer</td><td>Global usage limit, <code>0</code> = unlimited</td></tr>
-            <tr><td><code>usage_count</code></td><td>integer</td><td>Total times the coupon has been used globally</td></tr>
-            <tr><td><code>usage_limit_per_user</code></td><td>integer</td><td>Per-user usage limit, <code>0</code> = unlimited</td></tr>
-            <tr><td><code>used_by_current_user</code></td><td>integer</td><td>Times the authenticated user has used this coupon</td></tr>
-            <tr><td><code>individual_use</code></td><td>boolean</td><td>Cannot be combined with other coupons if <code>true</code></td></tr>
-            <tr><td><code>email_restrictions</code></td><td>array</td><td>Restricted email addresses, empty array if open to all</td></tr>
-          </tbody>
-        </table>
-
-        <p>Errors: <code>503 herlan_coupons_unavailable</code></p>
-      </section>
-
-      <section id="orders">
-        <h2>Orders</h2>
-
-        <h3><span class="method">GET</span> <code>/orders</code></h3>
-        <p>Returns the authenticated user's WooCommerce order history, newest first.</p>
-
-        <table>
-          <thead>
-            <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
-            <tr><td><code>per_page</code></td><td>integer</td><td>10</td><td>Orders per page, max 50</td></tr>
-            <tr><td><code>status</code></td><td>string</td><td>any</td><td>WooCommerce status, e.g. <code>processing</code>, <code>completed</code>, <code>cancelled</code></td></tr>
-          </tbody>
-        </table>
-
-        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/orders" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/orders?status=completed&amp;per_page=5" \
-  -H "Authorization: Bearer MQ.example_token_secret"</pre>
-
-        <pre>{
-  "success": true,
-  "message": "",
-  "data": {
-    "orders": [
-      {
-        "id": 5021,
-        "number": "5021",
-        "status": "processing",
-        "date_created": "2026-05-10T14:32:00+06:00",
-        "currency": "BDT",
-        "total": "1380",
-        "item_count": 2,
-        "payment_method_title": "bKash"
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "per_page": 10,
-      "total": 24,
-      "total_pages": 3
-    }
-  }
-}</pre>
-
-        <h3><span class="method">GET</span> <code>/orders/{id}</code></h3>
-        <p>Returns full detail of a single order. Users can only access their own orders.</p>
-        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/orders/5021" \
-  -H "Authorization: Bearer MQ.example_token_secret"</pre>
-        <pre>{
-  "success": true,
-  "message": "",
-  "data": {
-    "id": 5021,
-    "number": "5021",
-    "status": "processing",
-    "date_created": "2026-05-10T14:32:00+06:00",
-    "date_modified": "2026-05-10T14:35:00+06:00",
-    "currency": "BDT",
-    "total": "1380",
-    "subtotal": "1380",
-    "total_tax": "0",
-    "shipping_total": "0",
-    "discount_total": "0",
-    "payment_method": "bkash",
-    "payment_method_title": "bKash",
-    "transaction_id": "TXN123456",
-    "customer_note": "",
-    "billing": {
-      "first_name": "Customer",
-      "last_name": "Name",
-      "address_1": "123 Gulshan Avenue",
-      "city": "Dhaka",
-      "country": "BD",
-      "email": "customer@example.com",
-      "phone": "01712345678"
-    },
-    "shipping": {
-      "first_name": "Customer",
-      "last_name": "Name",
-      "address_1": "123 Gulshan Avenue",
-      "city": "Dhaka",
-      "country": "BD"
-    },
-    "line_items": [
-      {
-        "id": 88,
-        "product_id": 10119,
-        "variation_id": null,
-        "name": "Herlan Cushion Matte Lipstick Vintage Vibes",
-        "sku": "HL-LIP-VV",
-        "quantity": 2,
-        "subtotal": "1380",
-        "total": "1380",
-        "image": "http://localhost/herlanlive3/wp-content/uploads/product.jpg"
-      }
-    ],
-    "coupon_lines": []
-  }
-}</pre>
-
-        <table>
-          <thead>
-            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>id</code></td><td>integer</td><td>WooCommerce order ID</td></tr>
-            <tr><td><code>number</code></td><td>string</td><td>Order number displayed to the customer</td></tr>
-            <tr><td><code>status</code></td><td>string</td><td>Status without <code>wc-</code> prefix</td></tr>
-            <tr><td><code>date_created</code></td><td>string</td><td>ISO 8601 date</td></tr>
-            <tr><td><code>currency</code></td><td>string</td><td>Currency code, e.g. <code>BDT</code></td></tr>
-            <tr><td><code>total</code></td><td>string</td><td>Order grand total</td></tr>
-            <tr><td><code>subtotal</code></td><td>string</td><td>Sum of line item subtotals</td></tr>
-            <tr><td><code>shipping_total</code></td><td>string</td><td>Shipping cost</td></tr>
-            <tr><td><code>discount_total</code></td><td>string</td><td>Total discount applied</td></tr>
-            <tr><td><code>payment_method_title</code></td><td>string</td><td>Payment method display name</td></tr>
-            <tr><td><code>billing</code></td><td>object</td><td>Full billing address including email and phone</td></tr>
-            <tr><td><code>shipping</code></td><td>object</td><td>Full shipping address</td></tr>
-            <tr><td><code>line_items</code></td><td>array</td><td>Ordered products with image, SKU, and totals</td></tr>
-            <tr><td><code>coupon_lines</code></td><td>array</td><td>Applied coupons with code and discount amount</td></tr>
-          </tbody>
-        </table>
-
-        <p>Errors: <code>404 herlan_order_not_found</code> &nbsp; <code>500 herlan_woocommerce_unavailable</code></p>
-      </section>
-
-      <section id="filters">
-        <h2>Product Filters</h2>
-        <h3><span class="method">GET</span> <code>/products/filters</code></h3>
-        <p>Returns mobile filter metadata for shop and taxonomy pages. Use <code>taxonomy</code> and <code>term</code> for category, brand, keyword, or attribute archive context. Results are cached for 10 minutes. Public endpoint.</p>
-        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/products/filters"
-
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/products/filters?taxonomy=product_cat&amp;term=makeup"
-
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/products/filters?taxonomy=brand&amp;term=herlan"</pre>
-        <p>The response includes <code>sort_options</code>, <code>price_range</code>, and <code>filters</code>. Filters include <code>product_cat</code>, <code>brand</code>, <code>product_tag</code>, <code>keywords</code>, and <code>pa_*</code> product attributes.</p>
-      </section>
-
-      <section id="products">
-        <h2>Products</h2>
-        <h3><span class="method">GET</span> <code>/products/{id}</code></h3>
-        <p>Returns one published WooCommerce product for mobile product details. The product object is returned directly inside <code>data</code>. Public endpoint.</p>
-        <pre>curl "http://localhost/herlanlive3/wp-json/herlan/v1/products/10119"</pre>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Field</th>
-              <th>Type</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td><code>id</code></td><td>integer</td><td>WooCommerce product ID</td></tr>
-            <tr><td><code>name</code></td><td>string</td><td>Product name</td></tr>
-            <tr><td><code>type</code></td><td>string</td><td>WooCommerce product type</td></tr>
-            <tr><td><code>price</code></td><td>string</td><td>Current product price</td></tr>
-            <tr><td><code>stock_status</code></td><td>string</td><td><code>instock</code>, <code>outofstock</code>, or <code>onbackorder</code></td></tr>
-            <tr><td><code>taxonomies</code></td><td>object</td><td>Assigned public taxonomies and product attributes, including <code>keywords</code> and <code>pa_*</code></td></tr>
-            <tr><td><code>custom_fields</code></td><td>object</td><td>ACF fields from <code>get_fields($product_id)</code></td></tr>
-            <tr><td><code>linked_products</code></td><td>object</td><td>WPC Linked Variation data for mobile swatches</td></tr>
-            <tr><td><code>recommendations</code></td><td>object</td><td>You May Like, More from this brand, Best Selling, New Arrivals</td></tr>
-            <tr><td><code>variations</code></td><td>array</td><td>Present only for variable products</td></tr>
-          </tbody>
-        </table>
-
-        <p>Errors: <code>404 herlan_product_not_found</code> &nbsp; <code>500 herlan_woocommerce_unavailable</code></p>
-      </section>
-
-      <section id="recommendations">
-        <h2>Recommendations</h2>
-        <p>The single product response includes the same four product sections used on the product detail page.</p>
-        <pre>{
-  "recommendations": {
-    "you_may_like": {
-      "title": "You May Like",
-      "url": "http://localhost/herlanlive3/product-category/makeup/",
-      "products": []
-    },
-    "more_from_this_brand": {
-      "title": "More from this brand",
-      "url": "http://localhost/herlanlive3/brand/herlan/",
-      "products": []
-    },
-    "best_selling": {
-      "title": "Best Selling",
-      "url": "http://localhost/herlanlive3/shop/?orderby=sales",
-      "products": []
-    },
-    "new_arrivals": {
-      "title": "New Arrivals",
-      "url": "http://localhost/herlanlive3/shop/?orderby=date",
-      "products": []
-    }
-  }
-}</pre>
-        <p>Each product card includes <code>id</code>, <code>name</code>, <code>permalink</code>, prices, stock status, rating, brand, and main image.</p>
-      </section>
-
-      <section id="linked-products">
-        <h2>Linked Products</h2>
-        <p><code>linked_products</code> is generated from the WPC Linked Variation plugin. It replaces frontend HTML such as <code>.wpclv-attributes</code> with mobile-ready JSON.</p>
-        <pre>{
-  "enabled": true,
-  "link_id": 456,
-  "source": "products",
-  "attributes": [
-    {
-      "id": 1,
-      "name": "pa_colors",
-      "slug": "pa_colors",
-      "label": "Colors",
-      "display": "swatches",
-      "current_terms": ["vintage-vibes"],
-      "terms": [
-        {
-          "term_id": 999,
-          "name": "Vintage Vibes",
-          "slug": "vintage-vibes",
-          "color": "#a8483d",
-          "image": null,
-          "active": true,
-          "in_stock": true,
-          "product": {
-            "id": 10119,
-            "name": "Herlan Cushion Matte Lipstick Vintage Vibes",
-            "permalink": "http://localhost/herlanlive3/product/herlan-cushion-matte-lipstick-vintage-vibes/",
-            "price": "690",
-            "stock_status": "instock"
-          }
-        }
-      ]
-    }
-  ]
-}</pre>
-        <p>For product <code>10119</code>, the API returns <code>pa_colors</code> with terms like:</p>
-        <pre>Vintage Vibes | active=true  | in_stock=true  | color=#a8483d | product.id=10119
-Disco Diva    | active=false | in_stock=true  | color=#3e7155 | product.id=10150
-Retro Rust    | active=false | in_stock=false | color=#803134 | product.id=10138</pre>
-      </section>
-
-      <section id="navigation">
-        <h2>Navigation</h2>
-        <p>Returns all product categories as a nested tree and brands in a single request. Designed for mobile app navigation menus and category drawers.</p>
-        <p>This endpoint is public.</p>
-        <h3><span class="method">GET</span> <code>/drawer-brands-categories</code></h3>
-        <table>
-          <thead>
-            <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>hide_empty</code></td><td>boolean</td><td>true</td><td>Exclude categories and brands that have no products</td></tr>
-            <tr><td><code>categories_flat</code></td><td>boolean</td><td>false</td><td>Return categories as a flat list instead of a nested tree</td></tr>
-            <tr><td><code>order</code></td><td>string</td><td>asc</td><td>Sort direction: <code>asc</code> or <code>desc</code></td></tr>
-            <tr><td><code>order_by</code></td><td>string</td><td>name</td><td>Sort field: <code>name</code>, <code>count</code>, <code>id</code>, <code>slug</code></td></tr>
-          </tbody>
-        </table>
-        <pre># Default - nested categories + brands
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/navigation"
-
-# Flat category list, sorted by product count descending
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/navigation?categories_flat=true&order_by=count&order=desc"
-
-# Include empty categories and brands
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/navigation?hide_empty=false"</pre>
-        <pre>{
-  "success": true,
-  "message": "",
-  "data": {
-    "categories": [
-      {
-        "id": 5,
-        "name": "Makeup",
-        "slug": "makeup",
-        "description": "",
-        "count": 50,
-        "parent": 0,
-        "link": "https://herlan.com/product-category/makeup/",
-        "image": {
-          "id": 301,
-          "src": "https://herlan.com/wp-content/uploads/makeup.jpg",
-          "alt": "Makeup"
-        },
-        "children": [
-          {
-            "id": 8,
-            "name": "Lips",
-            "slug": "lips",
-            "description": "",
-            "count": 20,
-            "parent": 5,
-            "link": "https://herlan.com/product-category/makeup/lips/",
-            "image": null,
-            "children": []
-          },
-          {
-            "id": 9,
-            "name": "Eyes",
-            "slug": "eyes",
-            "description": "",
-            "count": 15,
-            "parent": 5,
-            "link": "https://herlan.com/product-category/makeup/eyes/",
-            "image": null,
-            "children": []
-          }
+        "taxonomy": "product_cat",
+        "label": "Product categories",
+        "filter_key": "filter_product_cat",
+        "hierarchical": true,
+        "terms": [
+          { "id": 12, "name": "Skin Care", "slug": "skin-care", "count": 34, "parent": 0, "image": null },
+          { "id": 15, "name": "Cleanser",  "slug": "cleanser",  "count":  8, "parent": 12, "image": null }
         ]
       },
       {
-        "id": 6,
-        "name": "Skin Care",
-        "slug": "skin-care",
-        "description": "",
-        "count": 30,
-        "parent": 0,
-        "link": "https://herlan.com/product-category/skin-care/",
-        "image": {
-          "id": 302,
-          "src": "https://herlan.com/wp-content/uploads/skin-care.jpg",
-          "alt": "Skin Care"
-        },
-        "children": []
-      }
-    ],
-    "total_categories": 12,
-    "brands": [
-      {
-        "id": 12,
-        "name": "Herlan",
-        "slug": "herlan",
-        "description": "",
-        "count": 124,
-        "link": "https://herlan.com/brand/herlan/",
-        "image": {
-          "id": 502,
-          "src": "https://herlan.com/wp-content/uploads/herlan-logo.jpg",
-          "alt": "Herlan"
-        }
+        "taxonomy": "brand",
+        "label": "Brands",
+        "filter_key": "filter_brand",
+        "hierarchical": false,
+        "terms": [
+          { "id": 42, "name": "Nior", "slug": "nior", "count": 22, "parent": 0, "image": { "id": 100, "src": "...", "alt": "Nior" } }
+        ]
       },
       {
-        "id": 13,
-        "name": "Herlan Pro",
-        "slug": "herlan-pro",
-        "description": "",
-        "count": 45,
-        "link": "https://herlan.com/brand/herlan-pro/",
-        "image": {
-          "id": 503,
-          "src": "https://herlan.com/wp-content/uploads/herlan-pro-logo.jpg",
-          "alt": "Herlan Pro"
-        }
+        "taxonomy": "pa_colors",
+        "label": "Product Colors",
+        "filter_key": "filter_pa_colors",
+        "hierarchical": false,
+        "terms": [
+          { "id": 88, "name": "Classic Red", "slug": "classic-red", "count": 5, "parent": 0, "image": null, "color": "#cc0000" }
+        ]
       }
-    ],
-    "total_brands": 5
+    ]
   }
-}</pre>
-        <h3>Category Fields</h3>
-        <table>
-          <thead>
-            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>id</code></td><td>integer</td><td>Term ID</td></tr>
-            <tr><td><code>name</code></td><td>string</td><td>Category name</td></tr>
-            <tr><td><code>slug</code></td><td>string</td><td>Category slug</td></tr>
-            <tr><td><code>description</code></td><td>string</td><td>Category description</td></tr>
-            <tr><td><code>count</code></td><td>integer</td><td>Number of products in this category</td></tr>
-            <tr><td><code>parent</code></td><td>integer</td><td>Parent term ID, <code>0</code> for top-level categories</td></tr>
-            <tr><td><code>link</code></td><td>string|null</td><td>Category archive URL</td></tr>
-            <tr><td><code>image</code></td><td>object|null</td><td>Category thumbnail (<code>thumbnail_id</code> meta)</td></tr>
-            <tr><td><code>children</code></td><td>array</td><td>Nested child categories, empty array if none</td></tr>
-          </tbody>
-        </table>
-        <h3>Brand Fields</h3>
-        <table>
-          <thead>
-            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>id</code></td><td>integer</td><td>Term ID</td></tr>
-            <tr><td><code>name</code></td><td>string</td><td>Brand name</td></tr>
-            <tr><td><code>slug</code></td><td>string</td><td>Brand slug</td></tr>
-            <tr><td><code>description</code></td><td>string</td><td>Brand description</td></tr>
-            <tr><td><code>count</code></td><td>integer</td><td>Number of products under this brand</td></tr>
-            <tr><td><code>link</code></td><td>string|null</td><td>Brand archive URL</td></tr>
-            <tr><td><code>image</code></td><td>object|null</td><td>Brand logo (<code>logo</code> meta)</td></tr>
-          </tbody>
-        </table>
-        <h3>Image Object</h3>
-        <table>
-          <thead>
-            <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>id</code></td><td>integer</td><td>WordPress attachment ID</td></tr>
-            <tr><td><code>src</code></td><td>string</td><td>Full image URL</td></tr>
-            <tr><td><code>alt</code></td><td>string</td><td>Image alt text</td></tr>
-          </tbody>
-        </table>
-        <h3>Flat Category Response</h3>
-        <p>When <code>categories_flat=true</code>, categories are returned as a plain array ordered by the <code>order_by</code> parameter. The <code>parent</code> field identifies the hierarchy and <code>children</code> is always an empty array.</p>
-        <pre>{
-  "data": {
-    "categories": [
-      { "id": 9,  "name": "Eyes",      "parent": 5, "children": [] },
-      { "id": 8,  "name": "Lips",      "parent": 5, "children": [] },
-      { "id": 5,  "name": "Makeup",    "parent": 0, "children": [] },
-      { "id": 6,  "name": "Skin Care", "parent": 0, "children": [] }
-    ],
-    "total_categories": 4,
-    "brands": [],
-    "total_brands": 0
-  }
-}</pre>
-      </section>
+}</code></pre>
+<p>Taxonomy response fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>taxonomy</code></td>
+<td>string</td>
+<td>Internal taxonomy slug</td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td>string</td>
+<td>Human-readable taxonomy label</td>
+</tr>
+<tr>
+<td><code>filter_key</code></td>
+<td>string</td>
+<td>Query param name to use with <code>GET /group/products</code></td>
+</tr>
+<tr>
+<td><code>hierarchical</code></td>
+<td>boolean</td>
+<td>Whether terms have parent/child relationships</td>
+</tr>
+<tr>
+<td><code>terms</code></td>
+<td>array</td>
+<td>Terms for this taxonomy</td>
+</tr>
+</tbody>
+</table>
+<p>Term fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Term ID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Display name</td>
+</tr>
+<tr>
+<td><code>slug</code></td>
+<td>string</td>
+<td>URL slug — use this value when filtering</td>
+</tr>
+<tr>
+<td><code>count</code></td>
+<td>integer</td>
+<td>Number of published products</td>
+</tr>
+<tr>
+<td><code>parent</code></td>
+<td>integer</td>
+<td>Parent term ID (0 = top-level)</td>
+</tr>
+<tr>
+<td><code>image</code></td>
+<td>object|null</td>
+<td>Term image (thumbnail or swatch image)</td>
+</tr>
+<tr>
+<td><code>color</code></td>
+<td>string</td>
+<td>(only present when set) Hex color code for swatch terms</td>
+</tr>
+</tbody>
+</table>
+<h4>How to use with <code>GET /group/products</code></h4>
+<p>The <code>filter_key</code> field tells you exactly which query parameter to append to <code>/group/products</code>. Pass one or more slugs (comma-separated) as the value.</p>
+<pre><code>GET /group/products?{filter_key}={slug1},{slug2}</code></pre>
+<p>Examples:</p>
+<pre><code class="language-bash"># Filter by product category
+curl "https://herlan.com/wp-json/herlan/v1/group/products?filter_product_cat=skin-care"
 
-      <section id="wishlist">
-        <h2>Wishlist</h2>
-        <p>Requires the <strong>TI WooCommerce Wishlist</strong> plugin (<code>ti-woocommerce-wishlist</code>) to be active.</p>
-        <h3><span class="method">GET</span> <code>/wishlist</code></h3>
-        <p>Returns the authenticated user's wishlist items with pagination.</p>
-        <table>
-          <thead>
-            <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
-            <tr><td><code>per_page</code></td><td>integer</td><td>10</td><td>Items per page, max 50</td></tr>
-            <tr><td><code>order</code></td><td>string</td><td>desc</td><td>Sort direction: <code>asc</code> or <code>desc</code></td></tr>
-            <tr><td><code>order_by</code></td><td>string</td><td>date</td><td>Sort field: <code>date</code>, <code>price</code>, <code>product_id</code>, <code>quantity</code>, <code>ID</code></td></tr>
-          </tbody>
-        </table>
-        <pre># Default - newest first
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist" \
-  -H "Authorization: Bearer MQ.example_token_secret"
+# Filter by brand
+curl "https://herlan.com/wp-json/herlan/v1/group/products?filter_brand=nior"
 
-# Page 2, 20 per page, sorted by price ascending
-curl "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist?page=2&per_page=20&order_by=price&order=asc" \
-  -H "Authorization: Bearer MQ.example_token_secret"</pre>
-        <pre>{
+# Filter by skin type + age range (combined)
+curl "https://herlan.com/wp-json/herlan/v1/group/products?filter_skin-type=oily-skin&amp;filter_age-range=25-35"
+
+# Filter by color attribute
+curl "https://herlan.com/wp-json/herlan/v1/group/products?filter_pa_colors=classic-red,cherry"
+
+# Context + filter: brand archive filtered by skin type
+curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand&amp;context_term=nior&amp;filter_skin-type=oily-skin"</code></pre>
+<hr />
+<h2 id="protected-endpoints">Protected endpoints</h2>
+<h3 id="post-auth-logout"><code>POST /auth/logout</code></h3>
+<p>Revokes the current token.</p>
+<p>Response:</p>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "Logged out successfully.",
+  "data": {}
+}</code></pre>
+<h3 id="get-user-me"><code>GET /user/me</code></h3>
+<p>Returns the authenticated user.</p>
+<p>Response:</p>
+<pre><code class="language-json">{
   "success": true,
   "message": "",
   "data": {
-    "items": [
-      {
-        "wishlist_item_id": 14,
-        "product_id": 10119,
-        "variation_id": null,
-        "date_added": "2026-05-14 10:23:45",
-        "quantity": 1,
-        "product": {
-          "id": 10119,
-          "name": "Herlan Cushion Matte Lipstick Vintage Vibes",
-          "slug": "herlan-cushion-matte-lipstick-vintage-vibes",
-          "type": "simple",
-          "permalink": "http://localhost/herlanlive3/product/herlan-cushion-matte-lipstick-vintage-vibes/",
-          "sku": "HL-LIP-VV",
-          "price": "690",
-          "regular_price": "690",
-          "sale_price": "",
-          "price_html": "<span class=\"woocommerce-Price-amount amount\">৳690</span>",
-          "on_sale": false,
-          "stock_status": "instock",
-          "in_stock": true,
-          "image": {
-            "id": 301,
-            "src": "http://localhost/herlanlive3/wp-content/uploads/product.jpg",
-            "alt": "Herlan Cushion Matte Lipstick"
-          }
-        }
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "per_page": 10,
-      "total": 24,
-      "total_pages": 3
+    "user": {
+      "id": 1,
+      "name": "Customer Name",
+      "first_name": "Customer",
+      "last_name": "Name",
+      "email": "customer@example.com",
+      "username": "customer@example.com",
+      "roles": ["customer"],
+      "avatar": "https://example.com/avatar.jpg",
+      "phone": "01712345678",
+      "has_password": true
     }
   }
-}</pre>
-        <p>Errors: <code>500 herlan_wishlist_unavailable</code> - TI WooCommerce Wishlist plugin is not active</p>
-
-        <h3><span class="method">POST</span> <code>/wishlist</code></h3>
-        <p>Adds a product to the authenticated user's wishlist. If the product is already in the wishlist it is updated in place.</p>
-        <table>
-          <thead>
-            <tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>product_id</code></td><td>integer</td><td>Yes</td><td>WooCommerce product ID</td></tr>
-            <tr><td><code>variation_id</code></td><td>integer</td><td>No</td><td>Variation ID for variable products, defaults to <code>0</code></td></tr>
-          </tbody>
-        </table>
-        <pre>curl -X POST "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist" \
-  -H "Authorization: Bearer MQ.example_token_secret" \
-  -H "Content-Type: application/json" \
-  -d "{\"product_id\": 10119}"</pre>
-        <pre>curl -X POST "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist" \
-  -H "Authorization: Bearer MQ.example_token_secret" \
-  -H "Content-Type: application/json" \
-  -d "{\"product_id\": 10200, \"variation_id\": 10205}"</pre>
-        <pre>{
+}</code></pre>
+<h3 id="put-user-account-and-patch-user-account"><code>PUT /user/account</code> and <code>PATCH /user/account</code></h3>
+<p>Updates the authenticated user's account.</p>
+<p>Request fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>first_name</code></td>
+<td>string</td>
+<td>No</td>
+<td>Optional</td>
+</tr>
+<tr>
+<td><code>last_name</code></td>
+<td>string</td>
+<td>No</td>
+<td>Optional</td>
+</tr>
+<tr>
+<td><code>display_name</code></td>
+<td>string</td>
+<td>No</td>
+<td>Optional</td>
+</tr>
+<tr>
+<td><code>email</code></td>
+<td>string</td>
+<td>No</td>
+<td>Requires <code>current_password</code></td>
+</tr>
+<tr>
+<td><code>current_password</code></td>
+<td>string</td>
+<td>Conditional</td>
+<td>Required when changing email or password</td>
+</tr>
+<tr>
+<td><code>new_password</code></td>
+<td>string</td>
+<td>No</td>
+<td>Minimum 8 chars, requires <code>current_password</code></td>
+</tr>
+</tbody>
+</table>
+<p>Response contains the updated <code>user</code> object.</p>
+<p>Errors:</p>
+<ul>
+<li><code>401 herlan_user_missing</code></li>
+<li><code>409 herlan_email_exists</code></li>
+<li><code>422 herlan_password_required</code></li>
+<li><code>422 herlan_invalid_password</code></li>
+<li><code>422 herlan_invalid_email</code></li>
+<li><code>422 herlan_weak_password</code></li>
+</ul>
+<h3 id="post-user-avatar"><code>POST /user/avatar</code></h3>
+<p>Uploads or replaces the authenticated user's profile photo.</p>
+<p><strong>Content-Type:</strong> <code>multipart/form-data</code></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>avatar</code></td>
+<td>file</td>
+<td>Yes</td>
+<td>JPEG, PNG, GIF, or WebP — maximum 3 MB</td>
+</tr>
+</tbody>
+</table>
+<p>The uploaded file is stored in the WordPress uploads directory. The <code>profile_image_url</code> user meta is updated with the public URL and is reflected in the <code>avatar</code> field of all subsequent user responses.</p>
+<p>Response contains the updated <code>user</code> object.</p>
+<p>Example (curl):</p>
+<pre><code class="language-bash">curl -X POST "https://your-domain.com/wp-json/herlan/v1/user/avatar" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "avatar=@/path/to/photo.jpg"</code></pre>
+<p>Response:</p>
+<pre><code class="language-json">{
   "success": true,
-  "message": "Product added to wishlist.",
-  "data": {}
-}</pre>
-        <p>Errors: <code>404 herlan_product_not_found</code> <code>500 herlan_wishlist_unavailable</code> <code>500 herlan_wishlist_error</code> <code>500 herlan_wishlist_add_failed</code></p>
-
-        <h3><span class="method">DELETE</span> <code>/wishlist/{product_id}</code></h3>
-        <p>Removes a product from the authenticated user's wishlist.</p>
-        <table>
-          <thead>
-            <tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>variation_id</code></td><td>integer</td><td>No</td><td>Required when the wishlisted item is a variation</td></tr>
-          </tbody>
-        </table>
-        <pre>curl -X DELETE "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist/10119" \
-  -H "Authorization: Bearer MQ.example_token_secret"
-
-curl -X DELETE "http://localhost/herlanlive3/wp-json/herlan/v1/wishlist/10200?variation_id=10205" \
-  -H "Authorization: Bearer MQ.example_token_secret"</pre>
-        <pre>{
+  "message": "Profile photo updated.",
+  "data": {
+    "user": {
+      "id": 1,
+      "name": "Customer Name",
+      "avatar": "https://your-domain.com/wp-content/uploads/2026/05/photo.jpg",
+      "...": "..."
+    }
+  }
+}</code></pre>
+<p>Errors:</p>
+<ul>
+<li><code>400 herlan_missing_file</code> — no file attached in the <code>avatar</code> field</li>
+<li><code>400 herlan_file_too_large</code> — file exceeds 3 MB</li>
+<li><code>400 herlan_invalid_file_type</code> — file is not a supported image format</li>
+<li><code>401 herlan_user_missing</code></li>
+<li><code>500 herlan_upload_failed</code> — server-side upload error</li>
+</ul>
+<hr />
+<h3 id="get-user-loyalty"><code>GET /user/loyalty</code></h3>
+<p>Returns loyalty summary for the authenticated user.</p>
+<p>The controller is implemented in <code>class-loyalty-controller.php</code>; the response includes customer profile data, points, available cash, level/progress information, next expiring cash, and transaction groups.</p>
+<p>Typical errors:</p>
+<ul>
+<li><code>422 herlan_loyalty_no_phone</code></li>
+<li><code>502 herlan_loyalty_auth_failed</code></li>
+<li><code>503 herlan_loyalty_unavailable</code></li>
+</ul>
+<h3 id="get-user-coupons"><code>GET /user/coupons</code></h3>
+<p>Returns Smart Coupon data for the authenticated user.</p>
+<p>Query parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td><code>available</code></td>
+<td><code>available</code>, <code>expired</code>, <code>used</code></td>
+</tr>
+<tr>
+<td><code>page</code></td>
+<td>integer</td>
+<td><code>1</code></td>
+<td>Page number</td>
+</tr>
+<tr>
+<td><code>per_page</code></td>
+<td>integer</td>
+<td><code>10</code></td>
+<td>Max <code>50</code></td>
+</tr>
+<tr>
+<td><code>orderby</code></td>
+<td>string</td>
+<td><code>created_date:asc</code></td>
+<td><code>created_date:asc</code>, <code>created_date:desc</code>, <code>amount:asc</code>, <code>amount:desc</code></td>
+</tr>
+</tbody>
+</table>
+<p>Coupon fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Coupon post ID</td>
+</tr>
+<tr>
+<td><code>code</code></td>
+<td>string</td>
+<td>Coupon code</td>
+</tr>
+<tr>
+<td><code>discount_type</code></td>
+<td>string</td>
+<td>WooCommerce discount type</td>
+</tr>
+<tr>
+<td><code>coupon_type</code></td>
+<td>string</td>
+<td>Human readable type from Smart Coupon</td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>float</td>
+<td>Raw numeric amount</td>
+</tr>
+<tr>
+<td><code>coupon_amount</code></td>
+<td>string</td>
+<td>Formatted amount label</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>Coupon description</td>
+</tr>
+<tr>
+<td><code>free_shipping</code></td>
+<td>boolean</td>
+<td>Free shipping flag</td>
+</tr>
+<tr>
+<td><code>starts_at</code></td>
+<td>string|null</td>
+<td>ISO 8601</td>
+</tr>
+<tr>
+<td><code>expires_at</code></td>
+<td>string|null</td>
+<td>ISO 8601</td>
+</tr>
+<tr>
+<td><code>is_expired</code></td>
+<td>boolean</td>
+<td>Derived from expiry</td>
+</tr>
+<tr>
+<td><code>minimum_amount</code></td>
+<td>string</td>
+<td>Minimum order amount</td>
+</tr>
+<tr>
+<td><code>maximum_amount</code></td>
+<td>string</td>
+<td>Maximum order amount</td>
+</tr>
+<tr>
+<td><code>usage_limit</code></td>
+<td>integer</td>
+<td>Total usage limit, <code>0</code> means unlimited</td>
+</tr>
+<tr>
+<td><code>usage_count</code></td>
+<td>integer</td>
+<td>Current usage count</td>
+</tr>
+<tr>
+<td><code>usage_limit_per_user</code></td>
+<td>integer</td>
+<td>Per-user limit, <code>0</code> means unlimited</td>
+</tr>
+<tr>
+<td><code>used_by_current_user</code></td>
+<td>integer</td>
+<td>Times used by this user</td>
+</tr>
+<tr>
+<td><code>individual_use</code></td>
+<td>boolean</td>
+<td>Cannot combine with other coupons</td>
+</tr>
+<tr>
+<td><code>email_restrictions</code></td>
+<td>array</td>
+<td>Allowed email list</td>
+</tr>
+</tbody>
+</table>
+<p>Pagination notes:</p>
+<ul>
+<li><code>available</code> and <code>expired</code> return <code>page</code>, <code>per_page</code>, and <code>has_more</code>.</li>
+<li><code>used</code> returns <code>page</code>, <code>per_page</code>, <code>total</code>, <code>total_pages</code>, and <code>has_more</code>.</li>
+</ul>
+<p>Errors:</p>
+<ul>
+<li><code>503 herlan_coupons_unavailable</code></li>
+</ul>
+<h3 id="get-orders"><code>GET /orders</code></h3>
+<p>Returns the authenticated user's orders.</p>
+<p>Query parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>page</code></td>
+<td>integer</td>
+<td><code>1</code></td>
+<td>Page number</td>
+</tr>
+<tr>
+<td><code>per_page</code></td>
+<td>integer</td>
+<td><code>10</code></td>
+<td>Max <code>50</code></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td><code>any</code></td>
+<td>WooCommerce order status slug</td>
+</tr>
+</tbody>
+</table>
+<p>Order summary fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Order ID</td>
+</tr>
+<tr>
+<td><code>number</code></td>
+<td>string</td>
+<td>Order number</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>Order status</td>
+</tr>
+<tr>
+<td><code>date_created</code></td>
+<td>string|null</td>
+<td>ISO 8601</td>
+</tr>
+<tr>
+<td><code>currency</code></td>
+<td>string</td>
+<td>Currency code</td>
+</tr>
+<tr>
+<td><code>total</code></td>
+<td>string</td>
+<td>Grand total</td>
+</tr>
+<tr>
+<td><code>item_count</code></td>
+<td>integer</td>
+<td>Total item count</td>
+</tr>
+<tr>
+<td><code>payment_method_title</code></td>
+<td>string</td>
+<td>Payment method label</td>
+</tr>
+</tbody>
+</table>
+<h3 id="get-orders-id"><code>GET /orders/{id}</code></h3>
+<p>Returns one order belonging to the authenticated user.</p>
+<p>Additional detail fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>date_modified</code></td>
+<td>string|null</td>
+<td>ISO 8601</td>
+</tr>
+<tr>
+<td><code>subtotal</code></td>
+<td>string</td>
+<td>Line-item subtotal</td>
+</tr>
+<tr>
+<td><code>total_tax</code></td>
+<td>string</td>
+<td>Tax total</td>
+</tr>
+<tr>
+<td><code>shipping_total</code></td>
+<td>string</td>
+<td>Shipping total</td>
+</tr>
+<tr>
+<td><code>discount_total</code></td>
+<td>string</td>
+<td>Discount total</td>
+</tr>
+<tr>
+<td><code>payment_method</code></td>
+<td>string</td>
+<td>Gateway ID</td>
+</tr>
+<tr>
+<td><code>transaction_id</code></td>
+<td>string</td>
+<td>Gateway transaction ID</td>
+</tr>
+<tr>
+<td><code>customer_note</code></td>
+<td>string</td>
+<td>Customer note</td>
+</tr>
+<tr>
+<td><code>billing</code></td>
+<td>object</td>
+<td>WooCommerce billing address</td>
+</tr>
+<tr>
+<td><code>shipping</code></td>
+<td>object</td>
+<td>WooCommerce shipping address</td>
+</tr>
+<tr>
+<td><code>line_items</code></td>
+<td>array</td>
+<td>Ordered items</td>
+</tr>
+<tr>
+<td><code>coupon_lines</code></td>
+<td>array</td>
+<td>Applied coupons</td>
+</tr>
+</tbody>
+</table>
+<p><code>line_items[]</code> fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Line item ID</td>
+</tr>
+<tr>
+<td><code>product_id</code></td>
+<td>integer</td>
+<td>Product ID</td>
+</tr>
+<tr>
+<td><code>variation_id</code></td>
+<td>integer|null</td>
+<td>Variation ID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Item name</td>
+</tr>
+<tr>
+<td><code>sku</code></td>
+<td>string|null</td>
+<td>SKU</td>
+</tr>
+<tr>
+<td><code>quantity</code></td>
+<td>integer</td>
+<td>Quantity</td>
+</tr>
+<tr>
+<td><code>subtotal</code></td>
+<td>string</td>
+<td>Line subtotal</td>
+</tr>
+<tr>
+<td><code>total</code></td>
+<td>string</td>
+<td>Line total</td>
+</tr>
+<tr>
+<td><code>image</code></td>
+<td>string|null</td>
+<td>Product image URL</td>
+</tr>
+</tbody>
+</table>
+<p>Errors:</p>
+<ul>
+<li><code>404 herlan_order_not_found</code></li>
+<li><code>500 herlan_woocommerce_unavailable</code></li>
+</ul>
+<h3 id="get-wishlist"><code>GET /wishlist</code></h3>
+<p>Returns the authenticated user's wishlist items.</p>
+<p>Query parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>page</code></td>
+<td>integer</td>
+<td><code>1</code></td>
+<td>Page number</td>
+</tr>
+<tr>
+<td><code>per_page</code></td>
+<td>integer</td>
+<td><code>10</code></td>
+<td>Max <code>50</code></td>
+</tr>
+<tr>
+<td><code>order</code></td>
+<td>string</td>
+<td><code>desc</code></td>
+<td><code>asc</code> or <code>desc</code></td>
+</tr>
+<tr>
+<td><code>order_by</code></td>
+<td>string</td>
+<td><code>date</code></td>
+<td><code>date</code>, <code>price</code>, <code>product_id</code>, <code>quantity</code>, <code>id</code></td>
+</tr>
+</tbody>
+</table>
+<p>Response fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>items</code></td>
+<td>array</td>
+<td>Wishlist items</td>
+</tr>
+<tr>
+<td><code>pagination.page</code></td>
+<td>integer</td>
+<td>Current page</td>
+</tr>
+<tr>
+<td><code>pagination.per_page</code></td>
+<td>integer</td>
+<td>Page size</td>
+</tr>
+<tr>
+<td><code>pagination.total</code></td>
+<td>integer</td>
+<td>Total items</td>
+</tr>
+<tr>
+<td><code>pagination.total_pages</code></td>
+<td>integer</td>
+<td>Page count</td>
+</tr>
+</tbody>
+</table>
+<p>Wishlist item fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>wishlist_item_id</code></td>
+<td>integer</td>
+<td>Wishlist row ID</td>
+</tr>
+<tr>
+<td><code>product_id</code></td>
+<td>integer</td>
+<td>Product ID</td>
+</tr>
+<tr>
+<td><code>variation_id</code></td>
+<td>integer|null</td>
+<td>Variation ID</td>
+</tr>
+<tr>
+<td><code>date_added</code></td>
+<td>string|null</td>
+<td>Raw plugin date string</td>
+</tr>
+<tr>
+<td><code>quantity</code></td>
+<td>integer</td>
+<td>Quantity</td>
+</tr>
+<tr>
+<td><code>product</code></td>
+<td>object</td>
+<td>Product summary</td>
+</tr>
+</tbody>
+</table>
+<h3 id="post-wishlist"><code>POST /wishlist</code></h3>
+<p>Adds a product to the wishlist.</p>
+<p>Request body:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>product_id</code></td>
+<td>integer</td>
+<td>Yes</td>
+<td>Product ID</td>
+</tr>
+<tr>
+<td><code>variation_id</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Defaults to <code>0</code></td>
+</tr>
+</tbody>
+</table>
+<p>Errors:</p>
+<ul>
+<li><code>404 herlan_product_not_found</code></li>
+<li><code>500 herlan_wishlist_unavailable</code></li>
+<li><code>500 herlan_wishlist_error</code></li>
+<li><code>500 herlan_wishlist_add_failed</code></li>
+</ul>
+<h3 id="delete-wishlist-product-id"><code>DELETE /wishlist/{product_id}</code></h3>
+<p>Removes a product from the wishlist.</p>
+<p>Query parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>variation_id</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Use for variation wishlist items</td>
+</tr>
+</tbody>
+</table>
+<p>Errors:</p>
+<ul>
+<li><code>404 herlan_wishlist_not_found</code></li>
+<li><code>500 herlan_wishlist_unavailable</code></li>
+<li><code>500 herlan_wishlist_remove_failed</code></li>
+</ul>
+<hr />
+<h2 id="cart-endpoints">Cart endpoints</h2>
+<p>All cart endpoints require a Bearer token. The cart is tied to the authenticated user and persists between sessions (backed by WooCommerce's persistent cart in user meta).</p>
+<p>Every cart response includes the full <code>cart</code> object in <code>data</code>:</p>
+<pre><code class="language-json">{
   "success": true,
-  "message": "Product removed from wishlist.",
-  "data": {}
-}</pre>
-        <p>Errors: <code>404 herlan_wishlist_not_found</code> <code>500 herlan_wishlist_unavailable</code> <code>500 herlan_wishlist_remove_failed</code></p>
-      </section>
-
-      <section id="payments">
-        <h2>Payments</h2>
-        <p class="muted">Payment endpoints are placeholders and require gateway integration before production use.</p>
-
-        <h3><span class="method">GET</span> <code>/payments/methods</code></h3>
-        <p>Protected endpoint. Returns configured mobile payment methods.</p>
-        <pre>{
+  "message": "...",
+  "data": {
+    "cart": {
+      "items": [
+        {
+          "key": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+          "product_id": 49045,
+          "variation_id": 0,
+          "name": "BOS Mystique Island Body Mist 150 ml",
+          "sku": "1400001233",
+          "quantity": 1,
+          "price": "450.00",
+          "subtotal": "450.00",
+          "image": "https://your-domain.com/wp-content/uploads/.../thumbnail.jpg"
+        }
+      ],
+      "item_count": 1,
+      "subtotal": "450.00",
+      "total": "450.00",
+      "currency": "BDT"
+    }
+  }
+}</code></pre>
+<p><code>cart.items[]</code> fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>key</code></td>
+<td>string</td>
+<td>MD5 cart item key — use this for update/remove</td>
+</tr>
+<tr>
+<td><code>product_id</code></td>
+<td>integer</td>
+<td>Product ID</td>
+</tr>
+<tr>
+<td><code>variation_id</code></td>
+<td>integer</td>
+<td>Variation ID, <code>0</code> for simple products</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Product name</td>
+</tr>
+<tr>
+<td><code>sku</code></td>
+<td>string</td>
+<td>Product SKU</td>
+</tr>
+<tr>
+<td><code>quantity</code></td>
+<td>integer</td>
+<td>Quantity in cart</td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>string</td>
+<td>Unit price (decimal string)</td>
+</tr>
+<tr>
+<td><code>subtotal</code></td>
+<td>string</td>
+<td><code>price × quantity</code></td>
+</tr>
+<tr>
+<td><code>image</code></td>
+<td>string|null</td>
+<td>Thumbnail image URL</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="get-cart"><code>GET /cart</code></h3>
+<p>Returns the current user's cart.</p>
+<p>Example:</p>
+<pre><code class="language-bash">curl "https://your-domain.com/wp-json/herlan/v1/cart" \
+  -H "Authorization: Bearer YOUR_TOKEN"</code></pre>
+<hr />
+<h3 id="post-cart-add-to-cart"><code>POST /cart/add-to-cart</code></h3>
+<p>Adds a product to the cart.</p>
+<p>Request body:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>product_id</code></td>
+<td>integer</td>
+<td>Yes</td>
+<td>WooCommerce product ID</td>
+</tr>
+<tr>
+<td><code>quantity</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Defaults to <code>1</code>, minimum <code>1</code></td>
+</tr>
+<tr>
+<td><code>variation_id</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Required for variable products</td>
+</tr>
+<tr>
+<td><code>variation</code></td>
+<td>object</td>
+<td>No</td>
+<td>Variation attributes, e.g. <code>{"attribute_pa_color": "red"}</code></td>
+</tr>
+</tbody>
+</table>
+<p>Example (simple product):</p>
+<pre><code class="language-bash">curl -X POST "https://your-domain.com/wp-json/herlan/v1/cart/add-to-cart" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"product_id": 49045, "quantity": 1}'</code></pre>
+<p>Example (variable product):</p>
+<pre><code class="language-bash">curl -X POST "https://your-domain.com/wp-json/herlan/v1/cart/add-to-cart" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"product_id": 49045, "variation_id": 49060, "quantity": 2, "variation": {"attribute_pa_size": "150ml"}}'</code></pre>
+<p>Success response (<code>200</code>):</p>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "\"BOS Mystique Island Body Mist 150 ml\" has been added to your cart.",
+  "data": { "cart": { "...": "..." } }
+}</code></pre>
+<p>Errors:</p>
+<ul>
+<li><code>404 herlan_product_not_found</code> — product does not exist or is not purchasable</li>
+<li><code>422 herlan_out_of_stock</code> — product is out of stock</li>
+<li><code>422 herlan_cart_add_failed</code> — WooCommerce rejected the add (includes WC's own error message)</li>
+</ul>
+<hr />
+<h3 id="post-cart-update-item"><code>POST /cart/update-item</code></h3>
+<p>Updates the quantity of a cart item. Send <code>quantity: 0</code> to remove the item.</p>
+<p>Request body:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cart_item_key</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>The <code>key</code> field from <code>cart.items[]</code></td>
+</tr>
+<tr>
+<td><code>quantity</code></td>
+<td>integer</td>
+<td>Yes</td>
+<td>New quantity; <code>0</code> removes the item</td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<pre><code class="language-bash">curl -X POST "https://your-domain.com/wp-json/herlan/v1/cart/update-item" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"cart_item_key": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4", "quantity": 3}'</code></pre>
+<p>Errors:</p>
+<ul>
+<li><code>404 herlan_cart_item_not_found</code></li>
+</ul>
+<hr />
+<h3 id="delete-cart-remove-item-cart-item-key"><code>DELETE /cart/remove-item/{cart_item_key}</code></h3>
+<p>Removes a single item from the cart.</p>
+<p><code>cart_item_key</code> is the 32-character hex key from <code>cart.items[].key</code>.</p>
+<p>Example:</p>
+<pre><code class="language-bash">curl -X DELETE "https://your-domain.com/wp-json/herlan/v1/cart/remove-item/a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4" \
+  -H "Authorization: Bearer YOUR_TOKEN"</code></pre>
+<p>Errors:</p>
+<ul>
+<li><code>404 herlan_cart_item_not_found</code></li>
+</ul>
+<hr />
+<h3 id="delete-cart-clear"><code>DELETE /cart/clear</code></h3>
+<p>Empties the entire cart.</p>
+<p>Example:</p>
+<pre><code class="language-bash">curl -X DELETE "https://your-domain.com/wp-json/herlan/v1/cart/clear" \
+  -H "Authorization: Bearer YOUR_TOKEN"</code></pre>
+<hr />
+<h3 id="get-payments-methods"><code>GET /payments/methods</code></h3>
+<p>Placeholder endpoint.</p>
+<p>Current response:</p>
+<pre><code class="language-json">{
   "success": true,
   "message": "No mobile payment methods have been configured yet.",
   "data": {
     "methods": []
   }
-}</pre>
-
-        <h3><span class="method">POST</span> <code>/payments/create</code></h3>
-        <p>Protected endpoint. Placeholder for creating a payment intent, session, or order payment request.</p>
-        <pre>{
+}</code></pre>
+<h3 id="post-payments-create"><code>POST /payments/create</code></h3>
+<p>Placeholder endpoint.</p>
+<p>Current response:</p>
+<pre><code class="language-json">{
   "success": true,
   "message": "Payment gateway integration is pending.",
   "data": {
     "payment": null
   }
-}</pre>
-      </section>
-
-      <section id="auth-error-codes">
-        <h2>Auth Error Codes</h2>
-        <p>Protected endpoints can return:</p>
-        <ul>
-          <li><code>401 herlan_missing_token</code></li>
-          <li><code>401 herlan_invalid_token</code></li>
-          <li><code>401 herlan_expired_token</code></li>
-        </ul>
-      </section>
-
-      <section id="routes">
-        <h2>Route Inventory</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Method</th>
-              <th>Path</th>
-              <th>Auth</th>
-              <th>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td><code>GET</code></td><td><code>/status</code></td><td>No</td><td>API status</td></tr>
-            <tr><td><code>GET</code></td><td><code>/promo-bar</code></td><td>No</td><td>Promotional top bar settings</td></tr>
-            <tr><td><code>GET</code></td><td><code>/header-config</code></td><td>No</td><td>Header colors and ornament settings</td></tr>
-            <tr><td><code>GET</code></td><td><code>/image-popup</code></td><td>No</td><td>Image popup configuration</td></tr>
-            <tr><td><code>POST</code></td><td><code>/auth/login</code></td><td>No</td><td>Login and issue token</td></tr>
-            <tr><td><code>POST</code></td><td><code>/auth/register</code></td><td>No</td><td>Register and issue token</td></tr>
-            <tr><td><code>POST</code></td><td><code>/auth/logout</code></td><td>Yes</td><td>Revoke current token</td></tr>
-            <tr><td><code>GET</code></td><td><code>/user/me</code></td><td>Yes</td><td>Current user profile</td></tr>
-            <tr><td><code>PUT / PATCH</code></td><td><code>/user/account</code></td><td>Yes</td><td>Update profile, email, or password</td></tr>
-            <tr><td><code>GET</code></td><td><code>/user/loyalty</code></td><td>Yes</td><td>Loyalty points, cash, level, and transactions</td></tr>
-            <tr><td><code>GET</code></td><td><code>/user/coupons</code></td><td>Yes</td><td>Available, expired, or used coupons</td></tr>
-            <tr><td><code>GET</code></td><td><code>/orders</code></td><td>Yes</td><td>Paginated order history</td></tr>
-            <tr><td><code>GET</code></td><td><code>/orders/{id}</code></td><td>Yes</td><td>Single order detail</td></tr>
-            <tr><td><code>GET</code></td><td><code>/products/filters</code></td><td>No</td><td>Shop and taxonomy filter metadata</td></tr>
-            <tr><td><code>GET</code></td><td><code>/products/{id}</code></td><td>No</td><td>Single product details</td></tr>
-            <tr><td><code>GET</code></td><td><code>/navigation</code></td><td>No</td><td>Nested categories and brands in one request</td></tr>
-            <tr><td><code>GET</code></td><td><code>/wishlist</code></td><td>Yes</td><td>Get user's wishlist items</td></tr>
-            <tr><td><code>POST</code></td><td><code>/wishlist</code></td><td>Yes</td><td>Add product to wishlist</td></tr>
-            <tr><td><code>DELETE</code></td><td><code>/wishlist/{product_id}</code></td><td>Yes</td><td>Remove product from wishlist</td></tr>
-            <tr><td><code>GET</code></td><td><code>/payments/methods</code></td><td>Yes</td><td>Payment methods placeholder</td></tr>
-            <tr><td><code>POST</code></td><td><code>/payments/create</code></td><td>Yes</td><td>Payment creation placeholder</td></tr>
-          </tbody>
-        </table>
-      </section>
-    </div>
-  </main>
+}</code></pre>
+<h2 id="common-auth-errors">Common auth errors</h2>
+<p>Protected endpoints may return:</p>
+<ul>
+<li><code>401 herlan_missing_token</code></li>
+<li><code>401 herlan_invalid_token</code></li>
+</ul>
+<h2 id="route-inventory">Route inventory</h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Auth</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET</code></td>
+<td><code>/status</code></td>
+<td>No</td>
+<td>API status</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/promo-bar</code></td>
+<td>No</td>
+<td>Promo bar settings</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/header-config</code></td>
+<td>No</td>
+<td>Header settings</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/image-popup</code></td>
+<td>No</td>
+<td>Popup settings</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/home</code></td>
+<td>No</td>
+<td>Mobile home payload</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/auth/login</code></td>
+<td>No</td>
+<td>Login and issue token</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/auth/register</code></td>
+<td>No</td>
+<td>Register and issue token</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/auth/logout</code></td>
+<td>Yes</td>
+<td>Revoke current token</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/user/me</code></td>
+<td>Yes</td>
+<td>Current user</td>
+</tr>
+<tr>
+<td><code>PUT/PATCH</code></td>
+<td><code>/user/account</code></td>
+<td>Yes</td>
+<td>Update account</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/user/avatar</code></td>
+<td>Yes</td>
+<td>Upload profile photo</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/user/loyalty</code></td>
+<td>Yes</td>
+<td>Loyalty summary</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/user/coupons</code></td>
+<td>Yes</td>
+<td>Coupon list</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/orders</code></td>
+<td>Yes</td>
+<td>Order history</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/orders/{id}</code></td>
+<td>Yes</td>
+<td>Order detail</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/group/products</code></td>
+<td>No</td>
+<td><strong>Product listing with filters</strong></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/taxonomies</code></td>
+<td>No</td>
+<td><strong>All filterable taxonomies and terms</strong></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/filter-config</code></td>
+<td>No</td>
+<td><strong>Filter UI configuration</strong></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/filter-terms</code></td>
+<td>No</td>
+<td><strong>Filter term list with counts</strong></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/filter-forms/{id}</code></td>
+<td>No</td>
+<td><strong>wcapf form inspection</strong></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/products/filters</code></td>
+<td>No</td>
+<td>Filter metadata (legacy, use <code>/products</code> instead)</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/products/{id}</code></td>
+<td>No</td>
+<td>Product detail</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/drawer-brands-categories</code></td>
+<td>No</td>
+<td>Navigation categories and brands</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/wishlist</code></td>
+<td>Yes</td>
+<td>Wishlist items</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/wishlist</code></td>
+<td>Yes</td>
+<td>Add wishlist item</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/wishlist/{product_id}</code></td>
+<td>Yes</td>
+<td>Remove wishlist item</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/cart</code></td>
+<td>Yes</td>
+<td>Cart contents</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/cart/add-to-cart</code></td>
+<td>Yes</td>
+<td>Add item to cart</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/cart/update-item</code></td>
+<td>Yes</td>
+<td>Update item quantity</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/cart/remove-item/{key}</code></td>
+<td>Yes</td>
+<td>Remove one item</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/cart/clear</code></td>
+<td>Yes</td>
+<td>Empty the cart</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/payments/methods</code></td>
+<td>Yes</td>
+<td>Payment method placeholder</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/payments/create</code></td>
+<td>Yes</td>
+<td>Payment creation placeholder</td>
+</tr>
+</tbody>
+</table>
+    </article></main>
+  </div>
 </body>
 </html>
