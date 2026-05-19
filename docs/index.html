@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -68,6 +68,12 @@
 <a class="level-3" href="#get-products-id">GET /products/{id}</a>
 <a class="level-3" href="#get-drawer-brands-categories">GET /drawer-brands-categories</a>
 <a class="level-3" href="#get-taxonomies">GET /taxonomies</a>
+<a href="#search-api">Search API</a>
+<a class="level-3" href="#get-search">GET /search</a>
+<a href="#store-locator-endpoints">Store Locator endpoints</a>
+<a class="level-3" href="#get-stores">GET /stores</a>
+<a class="level-3" href="#get-stores-id">GET /stores/{id}</a>
+<a class="level-3" href="#get-store-locations">GET /store-locations</a>
 <a href="#protected-endpoints">Protected endpoints</a>
 <a class="level-3" href="#post-auth-logout">POST /auth/logout</a>
 <a class="level-3" href="#get-user-me">GET /user/me</a>
@@ -2255,6 +2261,457 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?filter_pa_colors=class
 # Context + filter: brand archive filtered by skin type
 curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand&amp;context_term=nior&amp;filter_skin-type=oily-skin"</code></pre>
 <hr />
+<h2 id="search-api">Search API</h2>
+<h3 id="get-search"><code>GET /search</code></h3>
+<p>Product search endpoint powered by the same engine as the live autocomplete on the website (Ajax Search for WooCommerce / FiboSearch). Returns clean JSON product cards — no HTML rendering. Use this for the mobile search results screen.</p>
+<h4>Request parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>s</code></td>
+<td>string</td>
+<td><strong>Yes</strong></td>
+<td>—</td>
+<td>Search phrase (minimum 2 characters)</td>
+</tr>
+<tr>
+<td><code>per_page</code></td>
+<td>integer</td>
+<td>No</td>
+<td><code>10</code></td>
+<td>Results per page (max <code>50</code>)</td>
+</tr>
+<tr>
+<td><code>page</code></td>
+<td>integer</td>
+<td>No</td>
+<td><code>1</code></td>
+<td>Page number</td>
+</tr>
+</tbody>
+</table>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "query": "cav",
+    "products": [],
+    "pagination": {
+      "page": 1,
+      "per_page": 10,
+      "total": 5,
+      "total_pages": 1,
+      "has_more": false
+    }
+  }
+}</code></pre>
+<h4><code>data.products[]</code></h4>
+<p>Each item is a lightweight product card (same structure as <code>GET /group/products</code>):</p>
+<pre><code class="language-json">{
+  "id": 123,
+  "name": "Caviar Night Cream",
+  "slug": "caviar-night-cream",
+  "type": "simple",
+  "permalink": "https://herlan.com/product/caviar-night-cream/",
+  "sku": "CAV-001",
+  "price": "1200",
+  "regular_price": "1500",
+  "sale_price": "1200",
+  "price_html": "&lt;del&gt;৳1,500&lt;/del&gt; ৳1,200",
+  "on_sale": true,
+  "stock_status": "instock",
+  "in_stock": true,
+  "average_rating": "4.5",
+  "rating_count": 12,
+  "image": {
+    "id": 456,
+    "src": "https://herlan.com/wp-content/uploads/product.jpg",
+    "width": 300,
+    "height": 300,
+    "alt": "Caviar Night Cream"
+  },
+  "categories": [
+    { "id": 7, "name": "Skincare", "slug": "skincare" }
+  ]
+}</code></pre>
+<p>Product card fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>WooCommerce product ID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Product name</td>
+</tr>
+<tr>
+<td><code>slug</code></td>
+<td>string</td>
+<td>URL slug</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td><code>simple</code>, <code>variable</code>, etc.</td>
+</tr>
+<tr>
+<td><code>permalink</code></td>
+<td>string</td>
+<td>Full product URL</td>
+</tr>
+<tr>
+<td><code>sku</code></td>
+<td>string</td>
+<td>SKU</td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>string</td>
+<td>Current active price</td>
+</tr>
+<tr>
+<td><code>regular_price</code></td>
+<td>string</td>
+<td>Regular (non-sale) price</td>
+</tr>
+<tr>
+<td><code>sale_price</code></td>
+<td>string</td>
+<td>Sale price if set, otherwise empty string</td>
+</tr>
+<tr>
+<td><code>price_html</code></td>
+<td>string</td>
+<td>WooCommerce formatted price HTML</td>
+</tr>
+<tr>
+<td><code>on_sale</code></td>
+<td>boolean</td>
+<td><code>true</code> if currently on sale</td>
+</tr>
+<tr>
+<td><code>stock_status</code></td>
+<td>string</td>
+<td><code>instock</code>, <code>outofstock</code>, <code>onbackorder</code></td>
+</tr>
+<tr>
+<td><code>in_stock</code></td>
+<td>boolean</td>
+<td><code>true</code> if purchasable stock exists</td>
+</tr>
+<tr>
+<td><code>average_rating</code></td>
+<td>string</td>
+<td>Decimal string e.g. <code>"4.5"</code></td>
+</tr>
+<tr>
+<td><code>rating_count</code></td>
+<td>integer</td>
+<td>Number of ratings</td>
+</tr>
+<tr>
+<td><code>image</code></td>
+<td>object|null</td>
+<td>Main product image (<code>id</code>, <code>src</code>, <code>width</code>, <code>height</code>, <code>alt</code>)</td>
+</tr>
+<tr>
+<td><code>categories</code></td>
+<td>array</td>
+<td>Assigned <code>product_cat</code> terms (<code>id</code>, <code>name</code>, <code>slug</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Notes:</p>
+<ul>
+<li>Queries shorter than 2 characters return an empty <code>products</code> array immediately (no search is performed).</li>
+<li>Search results match those of the website autocomplete. If the FiboSearch plugin is unavailable the endpoint falls back to native WooCommerce search.</li>
+<li>For full product detail (description, gallery, variations, etc.) call <code>GET /products/{id}</code> using the returned <code>id</code>.</li>
+</ul>
+<h4>Example requests</h4>
+<p><strong>Basic search:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/search?s=cav"</code></pre>
+<p><strong>Search with pagination:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/search?s=lipstick&amp;per_page=20&amp;page=1"</code></pre>
+<p><strong>Search page 2:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/search?s=lipstick&amp;per_page=10&amp;page=2"</code></pre>
+<h4>Error codes</h4>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>HTTP</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>herlan_woocommerce_unavailable</code></td>
+<td>500</td>
+<td>WooCommerce is not active</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="store-locator-endpoints">Store Locator endpoints</h2>
+<h3 id="get-stores"><code>GET /stores</code></h3>
+<p>Returns a paginated list of published stores. Supports filtering by district, area, and a keyword search.</p>
+<p>All parameters are optional.</p>
+<h4>Request parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>district</code></td>
+<td>string</td>
+<td>—</td>
+<td>Exact-match filter by city/district name</td>
+</tr>
+<tr>
+<td><code>area</code></td>
+<td>string</td>
+<td>—</td>
+<td>Exact-match filter by area name</td>
+</tr>
+<tr>
+<td><code>search</code></td>
+<td>string</td>
+<td>—</td>
+<td>Keyword search across <code>store_name</code>, <code>store_address</code>, <code>district</code>, and <code>phone</code></td>
+</tr>
+<tr>
+<td><code>limit</code></td>
+<td>integer</td>
+<td><code>50</code></td>
+<td>Results per page (max <code>200</code>)</td>
+</tr>
+<tr>
+<td><code>offset</code></td>
+<td>integer</td>
+<td><code>0</code></td>
+<td>Pagination offset</td>
+</tr>
+</tbody>
+</table>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "stores": [
+      {
+        "id": 1,
+        "store_code": "DH-001",
+        "store_name": "Herlan Dhanmondi",
+        "store_address": "House 12, Road 4, Dhanmondi, Dhaka",
+        "district": "Dhaka",
+        "area": "Dhanmondi",
+        "phone": "01700000001",
+        "working_hours": "10:00 AM - 9:00 PM",
+        "offday": "Friday",
+        "map_link": "https://maps.google.com/?q=...",
+        "image_url": "https://herlan.com/wp-content/uploads/store-dh001.jpg"
+      }
+    ],
+    "total": 42,
+    "limit": 50,
+    "offset": 0
+  }
+}</code></pre>
+<p>Store fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Store row ID</td>
+</tr>
+<tr>
+<td><code>store_code</code></td>
+<td>string</td>
+<td>Unique store code</td>
+</tr>
+<tr>
+<td><code>store_name</code></td>
+<td>string</td>
+<td>Store display name</td>
+</tr>
+<tr>
+<td><code>store_address</code></td>
+<td>string</td>
+<td>Full store address</td>
+</tr>
+<tr>
+<td><code>district</code></td>
+<td>string</td>
+<td>City / district name</td>
+</tr>
+<tr>
+<td><code>area</code></td>
+<td>string</td>
+<td>Area within the district</td>
+</tr>
+<tr>
+<td><code>phone</code></td>
+<td>string</td>
+<td>Contact number</td>
+</tr>
+<tr>
+<td><code>working_hours</code></td>
+<td>string</td>
+<td>Opening hours text</td>
+</tr>
+<tr>
+<td><code>offday</code></td>
+<td>string</td>
+<td>Weekly off day(s)</td>
+</tr>
+<tr>
+<td><code>map_link</code></td>
+<td>string|null</td>
+<td>Google Maps link</td>
+</tr>
+<tr>
+<td><code>image_url</code></td>
+<td>string|null</td>
+<td>Store image URL</td>
+</tr>
+</tbody>
+</table>
+<h4>Example requests</h4>
+<p><strong>All stores:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/stores"</code></pre>
+<p><strong>Filter by district:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/stores?district=Dhaka"</code></pre>
+<p><strong>Filter by district and area:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/stores?district=Dhaka&amp;area=Dhanmondi"</code></pre>
+<p><strong>Keyword search:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/stores?search=dhanmondi"</code></pre>
+<p><strong>Paginate:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/stores?limit=20&amp;offset=20"</code></pre>
+<hr />
+<h3 id="get-stores-id"><code>GET /stores/{id}</code></h3>
+<p>Returns a single published store by its ID.</p>
+<h4>Path parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Store row ID</td>
+</tr>
+</tbody>
+</table>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "store": {
+      "id": 1,
+      "store_code": "DH-001",
+      "store_name": "Herlan Dhanmondi",
+      "store_address": "House 12, Road 4, Dhanmondi, Dhaka",
+      "district": "Dhaka",
+      "area": "Dhanmondi",
+      "phone": "01700000001",
+      "working_hours": "10:00 AM - 9:00 PM",
+      "offday": "Friday",
+      "map_link": "https://maps.google.com/?q=...",
+      "image_url": "https://herlan.com/wp-content/uploads/store-dh001.jpg"
+    }
+  }
+}</code></pre>
+<h4>Error codes</h4>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>HTTP</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>herlan_store_not_found</code></td>
+<td>404</td>
+<td>No published store exists with the given ID</td>
+</tr>
+<tr>
+<td><code>herlan_store_db_error</code></td>
+<td>500</td>
+<td>Database error while fetching the store</td>
+</tr>
+</tbody>
+</table>
+<h4>Example</h4>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/stores/1"</code></pre>
+<hr />
+<h3 id="get-store-locations"><code>GET /store-locations</code></h3>
+<p>Returns all districts (cities) along with the areas available within each district, for published stores only. Use this to populate district and area dropdowns in the store locator UI.</p>
+<h4>Request parameters</h4>
+<p>None.</p>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "districts": [
+      {
+        "district": "Chattogram",
+        "areas": ["Agrabad", "GEC Circle", "Nasirabad"]
+      },
+      {
+        "district": "Dhaka",
+        "areas": ["Banani", "Dhanmondi", "Gulshan", "Mirpur", "Uttara"]
+      }
+    ]
+  }
+}</code></pre>
+<p>Districts are ordered alphabetically. Areas within each district are also ordered alphabetically.</p>
+<h4>Example</h4>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/store-locations"</code></pre>
+<hr />
 <h2 id="protected-endpoints">Protected endpoints</h2>
 <h3 id="post-auth-logout"><code>POST /auth/logout</code></h3>
 <p>Revokes the current token.</p>
@@ -3297,6 +3754,12 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 </tr>
 <tr>
 <td><code>GET</code></td>
+<td><code>/search</code></td>
+<td>No</td>
+<td><strong>Product search (JSON, same engine as website autocomplete)</strong></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
 <td><code>/group/products</code></td>
 <td>No</td>
 <td><strong>Product listing with filters</strong></td>
@@ -3336,6 +3799,24 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 <td><code>/products/{id}</code></td>
 <td>No</td>
 <td>Product detail</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/stores</code></td>
+<td>No</td>
+<td>Store list with district/area/search filters</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/stores/{id}</code></td>
+<td>No</td>
+<td>Single store detail</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/store-locations</code></td>
+<td>No</td>
+<td>All districts with their nested areas</td>
 </tr>
 <tr>
 <td><code>GET</code></td>

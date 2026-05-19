@@ -1338,6 +1338,130 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 
 ---
 
+## Search API
+
+### `GET /search`
+
+Product search endpoint powered by the same engine as the live autocomplete on the website (Ajax Search for WooCommerce / FiboSearch). Returns clean JSON product cards — no HTML rendering. Use this for the mobile search results screen.
+
+#### Request parameters
+
+| Parameter | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `s` | string | **Yes** | — | Search phrase (minimum 2 characters) |
+| `per_page` | integer | No | `10` | Results per page (max `50`) |
+| `page` | integer | No | `1` | Page number |
+
+#### Response shape
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "query": "cav",
+    "products": [],
+    "pagination": {
+      "page": 1,
+      "per_page": 10,
+      "total": 5,
+      "total_pages": 1,
+      "has_more": false
+    }
+  }
+}
+```
+
+#### `data.products[]`
+
+Each item is a lightweight product card (same structure as `GET /group/products`):
+
+```json
+{
+  "id": 123,
+  "name": "Caviar Night Cream",
+  "slug": "caviar-night-cream",
+  "type": "simple",
+  "permalink": "https://herlan.com/product/caviar-night-cream/",
+  "sku": "CAV-001",
+  "price": "1200",
+  "regular_price": "1500",
+  "sale_price": "1200",
+  "price_html": "<del>৳1,500</del> ৳1,200",
+  "on_sale": true,
+  "stock_status": "instock",
+  "in_stock": true,
+  "average_rating": "4.5",
+  "rating_count": 12,
+  "image": {
+    "id": 456,
+    "src": "https://herlan.com/wp-content/uploads/product.jpg",
+    "width": 300,
+    "height": 300,
+    "alt": "Caviar Night Cream"
+  },
+  "categories": [
+    { "id": 7, "name": "Skincare", "slug": "skincare" }
+  ]
+}
+```
+
+Product card fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | WooCommerce product ID |
+| `name` | string | Product name |
+| `slug` | string | URL slug |
+| `type` | string | `simple`, `variable`, etc. |
+| `permalink` | string | Full product URL |
+| `sku` | string | SKU |
+| `price` | string | Current active price |
+| `regular_price` | string | Regular (non-sale) price |
+| `sale_price` | string | Sale price if set, otherwise empty string |
+| `price_html` | string | WooCommerce formatted price HTML |
+| `on_sale` | boolean | `true` if currently on sale |
+| `stock_status` | string | `instock`, `outofstock`, `onbackorder` |
+| `in_stock` | boolean | `true` if purchasable stock exists |
+| `average_rating` | string | Decimal string e.g. `"4.5"` |
+| `rating_count` | integer | Number of ratings |
+| `image` | object\|null | Main product image (`id`, `src`, `width`, `height`, `alt`) |
+| `categories` | array | Assigned `product_cat` terms (`id`, `name`, `slug`) |
+
+Notes:
+
+- Queries shorter than 2 characters return an empty `products` array immediately (no search is performed).
+- Search results match those of the website autocomplete. If the FiboSearch plugin is unavailable the endpoint falls back to native WooCommerce search.
+- For full product detail (description, gallery, variations, etc.) call `GET /products/{id}` using the returned `id`.
+
+#### Example requests
+
+**Basic search:**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/search?s=cav"
+```
+
+**Search with pagination:**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/search?s=lipstick&per_page=20&page=1"
+```
+
+**Search page 2:**
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/search?s=lipstick&per_page=10&page=2"
+```
+
+#### Error codes
+
+| Code | HTTP | Description |
+| --- | --- | --- |
+| `herlan_woocommerce_unavailable` | 500 | WooCommerce is not active |
+
+---
+
 ## Store Locator endpoints
 
 ### `GET /stores`
@@ -2062,6 +2186,7 @@ Protected endpoints may return:
 | `GET` | `/user/coupons` | Yes | Coupon list |
 | `GET` | `/orders` | Yes | Order history |
 | `GET` | `/orders/{id}` | Yes | Order detail |
+| `GET` | `/search` | No | **Product search (JSON, same engine as website autocomplete)** |
 | `GET` | `/group/products` | No | **Product listing with filters** |
 | `GET` | `/taxonomies` | No | **All filterable taxonomies and terms** |
 | `GET` | `/filter-config` | No | **Filter UI configuration** |
