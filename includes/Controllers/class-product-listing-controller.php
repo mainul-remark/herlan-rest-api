@@ -281,20 +281,155 @@ final class ProductListingController extends Controller
 
     public function filter_form(WP_REST_Request $request)
     {
-        $form_id = absint($request->get_param('id'));
+        $form_id          = absint($request->get_param('id'));
+        $context_taxonomy = sanitize_key((string) ($request->get_param('context_taxonomy') ?? ''));
+        $context_term     = sanitize_title((string) ($request->get_param('context_term') ?? ''));
 
-        $wcapf_post_types = apply_filters('herlan_wcapf_form_post_types', ['wcapf-form', 'wcapf_form']);
-        $form_post        = get_post($form_id);
+        $form_post = get_post($form_id);
 
-        if (! $form_post || ! in_array($form_post->post_type, $wcapf_post_types, true)) {
+        if (! $form_post || $form_post->post_type !== 'wcapf-form') {
             return new WP_Error('herlan_wcapf_form_not_found', __('Filter form not found.', 'herlan-rest-api'), ['status' => 404]);
         }
 
-        return Response::success([
-            'id'    => $form_id,
-            'title' => $form_post->post_title,
-            'slug'  => $form_post->post_name,
+        $filter_posts = get_posts([
+            'post_type'   => 'wcapf-filter',
+            'post_status' => 'publish',
+            'post_parent' => $form_id,
+            'nopaging'    => true,
+            'orderby'     => 'menu_order',
+            'order'       => 'ASC',
         ]);
+
+        $context_tax_query = $this->build_context_tax_query($context_taxonomy, $context_term);
+
+        // Compute pool once — reused for all taxonomy term counts.
+        $pool_ids = $this->pool_product_ids_raw($context_tax_query);
+
+        $filters = [];
+
+        foreach ($filter_posts as $filter_post) {
+            $filter_key    = $filter_post->post_name;
+            $excerpt_parts = explode('>', (string) $filter_post->post_excerpt);
+            $type          = $excerpt_parts[0] ?? '';
+            $property      = $excerpt_parts[1] ?? '';
+
+            // Skip UI-only components (active-filters, reset-button, etc.)
+            if ('component' === $type || '' === $type) {
+                continue;
+            }
+
+            $settings = maybe_unserialize($filter_post->post_content);
+            if (! is_array($settings)) {
+                $settings = [];
+            }
+
+            $label = sanitize_text_field($settings['title'] ?? $filter_post->post_title);
+
+            $entry = [
+                'id'         => $filter_post->ID,
+                'type'       => $type,
+                'label'      => $label,
+                'filter_key' => $filter_key,
+            ];
+
+            if ('taxonomy' === $type) {
+                $taxonomy     = $property;
+                $tax_object   = get_taxonomy($taxonomy);
+                $display_type = $settings['display_type'] ?? 'checkbox';
+                $query_type   = $settings['query_type'] ?? 'or';
+                $multiple     = in_array($display_type, ['checkbox', 'multi-select'], true);
+
+                $entry['taxonomy']     = $taxonomy;
+                $entry['api_param']    = 'filter_' . $taxonomy;
+                $entry['display_type'] = $display_type;
+                $entry['multiple']     = $multiple;
+                $entry['operator']     = 'and' === $query_type ? 'and' : 'in';
+                $entry['hierarchical'] = $tax_object ? (bool) $tax_object->hierarchical : false;
+                $entry['terms']        = $this->terms_for_filter($taxonomy, $pool_ids, $settings);
+                $entry['terms_endpoint'] = rest_url(
+                    $this->namespace . '/filter-terms?taxonomy=' . $taxonomy
+                    . ($context_taxonomy ? '&context_taxonomy=' . $context_taxonomy : '')
+                    . ($context_term ? '&context_term=' . $context_term : '')
+                );
+
+            } elseif ('price' === $type) {
+                $entry['api_param_min'] = 'min_price';
+                $entry['api_param_max'] = 'max_price';
+                $entry['range']         = $this->price_range_for_ids($pool_ids);
+
+            } elseif ('sort-by' === $type) {
+                $entry['api_param'] = 'orderby';
+                $entry['options']   = $this->sort_options_block('menu_order')['options'];
+
+            } elseif ('product-status' === $type) {
+                $entry['api_param'] = 'on_sale or stock_status';
+                $entry['note']      = 'Pass on_sale=1 for on-sale products, stock_status=instock|outofstock|onbackorder for stock filtering.';
+
+            } elseif ('keyword' === $type) {
+                $entry['api_param'] = 'search';
+
+            } elseif ('rating' === $type) {
+                $entry['note'] = 'Rating filter is not yet supported by /group/products.';
+            }
+
+            $filters[] = $entry;
+        }
+
+        return Response::success([
+            'form' => [
+                'id'    => $form_id,
+                'title' => $form_post->post_title,
+                'slug'  => $form_post->post_name,
+            ],
+            'context' => [
+                'taxonomy' => $context_taxonomy ?: null,
+                'term'     => $context_term ?: null,
+            ],
+            'filters'          => $filters,
+            'products_endpoint' => rest_url($this->namespace . '/group/products'),
+        ]);
+    }
+
+    private function terms_for_filter(string $taxonomy, array $pool_ids, array $settings): array
+    {
+        $counts    = $this->count_terms_by_product_ids($taxonomy, $pool_ids);
+        $all_terms = get_terms(['taxonomy' => $taxonomy, 'hide_empty' => true, 'number' => 0]);
+
+        if (is_wp_error($all_terms)) {
+            return [];
+        }
+
+        $items = [];
+
+        foreach ($all_terms as $term) {
+            if (! $term instanceof WP_Term) {
+                continue;
+            }
+
+            $count = $counts[$term->slug] ?? 0;
+
+            if ($count < 1) {
+                continue;
+            }
+
+            $item = [
+                'id'     => $term->term_id,
+                'name'   => $term->name,
+                'slug'   => $term->slug,
+                'count'  => $count,
+                'parent' => $term->parent,
+                'image'  => $this->term_image($term),
+            ];
+
+            $color = (string) get_term_meta($term->term_id, 'wpcvs_color', true);
+            if ($color) {
+                $item['color'] = $color;
+            }
+
+            $items[] = $item;
+        }
+
+        return $items;
     }
 
     // ─── Parameter normalization ───────────────────────────────────────────

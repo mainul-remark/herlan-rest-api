@@ -34,6 +34,71 @@ final class TaxonomyController extends Controller
                 'order_by'        => ['required' => false, 'type' => 'string', 'default' => 'name', 'enum' => array_keys(self::ORDER_BY_MAP)],
             ],
         ]);
+
+        register_rest_route($this->namespace, '/taxonomies', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [$this, 'all_taxonomies'],
+            'permission_callback' => '__return_true',
+            'args'                => [
+                'hide_empty' => ['required' => false, 'type' => 'boolean', 'default' => true],
+            ],
+        ]);
+    }
+
+    public function all_taxonomies(WP_REST_Request $request)
+    {
+        $hide_empty = rest_sanitize_boolean($request->get_param('hide_empty'));
+        $taxonomies = $this->get_filterable_taxonomies();
+        $result     = [];
+
+        foreach ($taxonomies as $taxonomy => $tax_object) {
+            $terms = get_terms([
+                'taxonomy'   => $taxonomy,
+                'hide_empty' => $hide_empty,
+                'number'     => 0,
+                'orderby'    => 'name',
+                'order'      => 'ASC',
+            ]);
+
+            if (is_wp_error($terms) || empty($terms)) {
+                continue;
+            }
+
+            $term_items = [];
+
+            foreach ($terms as $term) {
+                if (! $term instanceof WP_Term) {
+                    continue;
+                }
+
+                $item = [
+                    'id'     => $term->term_id,
+                    'name'   => $term->name,
+                    'slug'   => $term->slug,
+                    'count'  => (int) $term->count,
+                    'parent' => $term->parent,
+                    'image'  => $this->term_image($term->term_id, 'thumbnail_id')
+                                 ?? $this->term_image($term->term_id, 'wpcvs_image'),
+                ];
+
+                $color = (string) get_term_meta($term->term_id, 'wpcvs_color', true);
+                if ($color) {
+                    $item['color'] = $color;
+                }
+
+                $term_items[] = $item;
+            }
+
+            $result[] = [
+                'taxonomy'     => $taxonomy,
+                'label'        => $tax_object->label,
+                'filter_key'   => 'filter_' . $taxonomy,
+                'hierarchical' => (bool) $tax_object->hierarchical,
+                'terms'        => $term_items,
+            ];
+        }
+
+        return Response::success(['taxonomies' => $result]);
     }
 
     public function index(WP_REST_Request $request)
@@ -138,6 +203,32 @@ final class TaxonomyController extends Controller
         }
 
         return $tree;
+    }
+
+    private function get_filterable_taxonomies(): array
+    {
+        $excluded  = ['product_type', 'product_visibility', 'product_shipping_class', 'pos_product_visibility'];
+        $preferred = ['product_cat', 'brand', 'product_tag', 'keywords', 'skin-type', 'age-range'];
+        $all       = get_object_taxonomies('product', 'objects');
+        $result    = [];
+
+        foreach ($preferred as $taxonomy) {
+            if (isset($all[$taxonomy]) && ! in_array($taxonomy, $excluded, true)) {
+                $result[$taxonomy] = $all[$taxonomy];
+            }
+        }
+
+        foreach ($all as $taxonomy => $object) {
+            if (isset($result[$taxonomy]) || in_array($taxonomy, $excluded, true)) {
+                continue;
+            }
+
+            if ($object->public || str_starts_with($taxonomy, 'pa_')) {
+                $result[$taxonomy] = $object;
+            }
+        }
+
+        return apply_filters('herlan_rest_api_filterable_taxonomies', $result);
     }
 
     private function term_image(int $term_id, string $meta_key): ?array

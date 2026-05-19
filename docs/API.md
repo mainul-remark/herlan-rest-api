@@ -734,13 +734,32 @@ curl "https://herlan.com/wp-json/herlan/v1/filter-terms?taxonomy=pa_colors&conte
 
 ### `GET /filter-forms/{id}`
 
-Returns the configuration of a specific WooCommerce Ajax Product Filter form by ID.
+Returns the full filter configuration of a WooCommerce Ajax Product Filter (wcapf) form. This is the primary endpoint for driving the mobile filter drawer — it tells the app exactly which filters exist, how to display them, what terms are available, and which API parameter to send to `GET /group/products` when the user makes a selection.
+
+#### How it connects to `/group/products`
+
+Each filter in the response includes an `api_param` field. When the user selects a filter option in the app, use that param name when calling `/group/products`.
+
+Example flow:
+1. Call `GET /filter-forms/20537?context_taxonomy=brand&context_term=siodil`
+2. Response includes a `skin-type` filter with `"api_param": "filter_skin-type"` and terms like `{ "slug": "combination-skin", ... }`
+3. User selects "Combination Skin"
+4. Call `GET /group/products?context_taxonomy=brand&context_term=siodil&filter_skin-type=combination-skin`
 
 #### Path parameters
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `id` | integer | Yes | The wcapf form post ID |
+| `id` | integer | Yes | The wcapf form post ID (e.g. `20537`) |
+
+#### Query parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `context_taxonomy` | string | No | Archive taxonomy slug — scopes term counts to this context |
+| `context_term` | string | No | Archive term slug — scopes term counts to this context |
+
+Passing context is strongly recommended. Without it, term counts reflect the entire catalog. With it, counts reflect only products in the current archive (e.g. the Siodil brand page).
 
 #### Response shape
 
@@ -749,11 +768,160 @@ Returns the configuration of a specific WooCommerce Ajax Product Filter form by 
   "success": true,
   "message": "",
   "data": {
-    "id": 20537,
-    "title": "Sample form",
-    "slug": "sample-form"
+    "form": {
+      "id": 20537,
+      "title": "Sample form",
+      "slug": "sample-form"
+    },
+    "context": {
+      "taxonomy": "brand",
+      "term": "siodil"
+    },
+    "filters": [...],
+    "products_endpoint": "https://herlan.com/wp-json/herlan/v1/group/products"
   }
 }
+```
+
+#### `filters[]` — filter types
+
+Each filter in the array is one panel in the filter drawer. The `type` field determines what kind of filter it is.
+
+**Taxonomy filter** (`type: "taxonomy"`) — a list of selectable terms:
+
+```json
+{
+  "id": 1001,
+  "type": "taxonomy",
+  "label": "Brand",
+  "filter_key": "_brand",
+  "taxonomy": "brand",
+  "api_param": "filter_brand",
+  "display_type": "checkbox",
+  "multiple": true,
+  "operator": "in",
+  "hierarchical": false,
+  "terms": [
+    {
+      "id": 12,
+      "name": "Siodil",
+      "slug": "siodil",
+      "count": 18,
+      "parent": 0,
+      "image": null
+    }
+  ],
+  "terms_endpoint": "https://herlan.com/wp-json/herlan/v1/filter-terms?taxonomy=brand&context_taxonomy=brand&context_term=siodil"
+}
+```
+
+Taxonomy filter fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `filter_key` | string | The URL param used on the website (legacy). Use `api_param` instead when calling `/group/products` |
+| `api_param` | string | The parameter to send to `/group/products` when user selects a term. Format: `filter_{taxonomy}` |
+| `display_type` | string | How wcapf displays this filter: `checkbox`, `radio`, `select`, `multi-select`, `label` |
+| `multiple` | boolean | Whether multiple terms can be selected at once |
+| `operator` | string | `in` (any selected term matches) or `and` (all selected terms must match). Pass as `filter_operator_{taxonomy}` to `/group/products` |
+| `hierarchical` | boolean | Whether terms have a parent/child hierarchy |
+| `terms` | array | Available terms with product counts in the current context |
+| `terms_endpoint` | string | URL to load terms with pagination — use for large taxonomies like `pa_colors` (217 terms) |
+
+Term fields inside `terms[]`:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | Term ID |
+| `name` | string | Display name |
+| `slug` | string | Use this value in the API call: `filter_brand=siodil` |
+| `count` | integer | Products matching this term in the current context |
+| `parent` | integer | Parent term ID, `0` for root |
+| `image` | string\|null | Swatch image URL if configured |
+| `color` | string | Swatch hex color if configured (only present when set) |
+
+**Price filter** (`type: "price"`) — a range slider:
+
+```json
+{
+  "id": 1002,
+  "type": "price",
+  "label": "Price",
+  "filter_key": "price",
+  "api_param_min": "min_price",
+  "api_param_max": "max_price",
+  "range": {
+    "min": 150,
+    "max": 2500
+  }
+}
+```
+
+`range` shows the actual min/max price of products in the current context. Use `api_param_min` and `api_param_max` as parameter names when calling `/group/products`.
+
+**Sort-by filter** (`type: "sort-by"`):
+
+```json
+{
+  "id": 1003,
+  "type": "sort-by",
+  "label": "Sort By",
+  "filter_key": "sort-by",
+  "api_param": "orderby",
+  "options": [
+    { "key": "menu_order", "label": "Default sorting" },
+    { "key": "popularity", "label": "Sort by popularity" },
+    { "key": "date",       "label": "Sort by latest" },
+    { "key": "price",      "label": "Sort by price: low to high" },
+    { "key": "price-desc", "label": "Sort by price: high to low" }
+  ]
+}
+```
+
+**Product status filter** (`type: "product-status"`):
+
+```json
+{
+  "id": 1004,
+  "type": "product-status",
+  "label": "Availability",
+  "filter_key": "product-status",
+  "api_param": "on_sale or stock_status",
+  "note": "Pass on_sale=1 for on-sale products, stock_status=instock|outofstock|onbackorder for stock filtering."
+}
+```
+
+**Keyword / search filter** (`type: "keyword"`):
+
+```json
+{
+  "id": 1005,
+  "type": "keyword",
+  "label": "Search",
+  "filter_key": "s",
+  "api_param": "search"
+}
+```
+
+#### Full example
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/filter-forms/20537?context_taxonomy=brand&context_term=siodil"
+```
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/filter-forms/20537?context_taxonomy=product_cat&context_term=liquid-lipstick"
+```
+
+#### How to build a filter request from this response
+
+```
+# User is on /brand/d32/ and selects Electric Toothbrush category + In Stock
+GET /group/products
+  ?context_taxonomy=brand
+  &context_term=d32
+  &filter_product_cat=electric-toothbrush   ← api_param from category filter
+  &stock_status=instock                      ← from product-status filter
 ```
 
 Error codes:
@@ -1058,6 +1226,115 @@ Image object:
 | `id` | integer | Attachment ID |
 | `src` | string | Image URL |
 | `alt` | string | Alt text |
+
+---
+
+### `GET /taxonomies`
+
+Returns all filterable product taxonomies and their terms in a single call. Use this to populate filter UI (dropdowns, checkboxes, chips) and to know which `filter_*` parameter to send to `GET /group/products` when the user picks a term.
+
+Query parameters:
+
+| Parameter | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `hide_empty` | boolean | `true` | Exclude terms with no published products |
+
+Example:
+
+```bash
+curl "https://herlan.com/wp-json/herlan/v1/taxonomies"
+curl "https://herlan.com/wp-json/herlan/v1/taxonomies?hide_empty=false"
+```
+
+Response shape:
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "taxonomies": [
+      {
+        "taxonomy": "product_cat",
+        "label": "Product categories",
+        "filter_key": "filter_product_cat",
+        "hierarchical": true,
+        "terms": [
+          { "id": 12, "name": "Skin Care", "slug": "skin-care", "count": 34, "parent": 0, "image": null },
+          { "id": 15, "name": "Cleanser",  "slug": "cleanser",  "count":  8, "parent": 12, "image": null }
+        ]
+      },
+      {
+        "taxonomy": "brand",
+        "label": "Brands",
+        "filter_key": "filter_brand",
+        "hierarchical": false,
+        "terms": [
+          { "id": 42, "name": "Nior", "slug": "nior", "count": 22, "parent": 0, "image": { "id": 100, "src": "...", "alt": "Nior" } }
+        ]
+      },
+      {
+        "taxonomy": "pa_colors",
+        "label": "Product Colors",
+        "filter_key": "filter_pa_colors",
+        "hierarchical": false,
+        "terms": [
+          { "id": 88, "name": "Classic Red", "slug": "classic-red", "count": 5, "parent": 0, "image": null, "color": "#cc0000" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Taxonomy response fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `taxonomy` | string | Internal taxonomy slug |
+| `label` | string | Human-readable taxonomy label |
+| `filter_key` | string | Query param name to use with `GET /group/products` |
+| `hierarchical` | boolean | Whether terms have parent/child relationships |
+| `terms` | array | Terms for this taxonomy |
+
+Term fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | Term ID |
+| `name` | string | Display name |
+| `slug` | string | URL slug — use this value when filtering |
+| `count` | integer | Number of published products |
+| `parent` | integer | Parent term ID (0 = top-level) |
+| `image` | object\|null | Term image (thumbnail or swatch image) |
+| `color` | string | (only present when set) Hex color code for swatch terms |
+
+#### How to use with `GET /group/products`
+
+The `filter_key` field tells you exactly which query parameter to append to `/group/products`. Pass one or more slugs (comma-separated) as the value.
+
+```
+GET /group/products?{filter_key}={slug1},{slug2}
+```
+
+Examples:
+
+```bash
+# Filter by product category
+curl "https://herlan.com/wp-json/herlan/v1/group/products?filter_product_cat=skin-care"
+
+# Filter by brand
+curl "https://herlan.com/wp-json/herlan/v1/group/products?filter_brand=nior"
+
+# Filter by skin type + age range (combined)
+curl "https://herlan.com/wp-json/herlan/v1/group/products?filter_skin-type=oily-skin&filter_age-range=25-35"
+
+# Filter by color attribute
+curl "https://herlan.com/wp-json/herlan/v1/group/products?filter_pa_colors=classic-red,cherry"
+
+# Context + filter: brand archive filtered by skin type
+curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand&context_term=nior&filter_skin-type=oily-skin"
+```
 
 ---
 
@@ -1601,6 +1878,7 @@ Protected endpoints may return:
 | `GET` | `/orders` | Yes | Order history |
 | `GET` | `/orders/{id}` | Yes | Order detail |
 | `GET` | `/group/products` | No | **Product listing with filters** |
+| `GET` | `/taxonomies` | No | **All filterable taxonomies and terms** |
 | `GET` | `/filter-config` | No | **Filter UI configuration** |
 | `GET` | `/filter-terms` | No | **Filter term list with counts** |
 | `GET` | `/filter-forms/{id}` | No | **wcapf form inspection** |
