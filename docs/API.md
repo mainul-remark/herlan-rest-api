@@ -1020,6 +1020,7 @@ Top-level response fields:
 | `custom_tags` | object | Custom tag cards |
 | `product_sliders` | array | Configured product slider definitions |
 | `home_video` | object\|null | Home video block |
+| `brands` | object | All published brands (`total` + `items[]`) |
 
 Key nested shapes:
 
@@ -1033,6 +1034,27 @@ Key nested shapes:
 - `custom_tags.items[]`: `name`, `url`, `image`
 - `product_sliders[]`: `title`, `product_type`, `taxonomy_type`, `term_slug`, `url`, `background_image`
 - `home_video`: `video_desktop`, `video_mobile`, `poster`, `link_url`
+- `brands`: `total` (integer), `items[]` — see shape below
+
+`brands.items[]` shape (identical to `GET /drawer-brands-categories` brand items):
+
+```json
+{
+  "id": 42,
+  "name": "Nior",
+  "slug": "nior",
+  "description": "",
+  "count": 22,
+  "link": "https://herlan.com/brand/nior/",
+  "image": {
+    "id": 100,
+    "src": "https://herlan.com/wp-content/uploads/nior-logo.jpg",
+    "alt": "Nior"
+  }
+}
+```
+
+Brands are ordered alphabetically. Only brands with at least one published product are included (`hide_empty: true`). `image` is `null` when no logo has been uploaded for the brand.
 
 ### `POST /auth/login`
 

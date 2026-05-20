@@ -33,6 +33,7 @@ final class HomeController extends Controller
             'custom_tags'        => $this->custom_tags(),
             'product_sliders'    => $this->product_sliders(),
             'home_video'         => $this->home_video(),
+            'brands'             => $this->brands(),
         ]);
     }
 
@@ -230,6 +231,55 @@ final class HomeController extends Controller
             'video_mobile'  => $video['video_mobile'] ?? null,
             'poster'        => $video['poster'] ?? null,
             'link_url'      => $video['link_url'] ?? null,
+        ];
+    }
+
+    private function brands(): array
+    {
+        if (! taxonomy_exists('brand')) {
+            return ['total' => 0, 'items' => []];
+        }
+
+        $terms = get_terms([
+            'taxonomy'   => 'brand',
+            'hide_empty' => true,
+            'orderby'    => 'name',
+            'order'      => 'ASC',
+            'number'     => 0,
+        ]);
+
+        if (is_wp_error($terms) || empty($terms)) {
+            return ['total' => 0, 'items' => []];
+        }
+
+        $items = array_map(function (\WP_Term $term): array {
+            $link = get_term_link($term);
+            return [
+                'id'          => $term->term_id,
+                'name'        => $term->name,
+                'slug'        => $term->slug,
+                'description' => $term->description,
+                'count'       => (int) $term->count,
+                'link'        => is_wp_error($link) ? null : $link,
+                'image'       => $this->brand_image($term->term_id),
+            ];
+        }, $terms);
+
+        return ['total' => count($items), 'items' => $items];
+    }
+
+    private function brand_image(int $term_id): ?array
+    {
+        $image_id = absint(get_term_meta($term_id, 'logo', true));
+
+        if (! $image_id) {
+            return null;
+        }
+
+        return [
+            'id'  => $image_id,
+            'src' => wp_get_attachment_url($image_id),
+            'alt' => (string) get_post_meta($image_id, '_wp_attachment_image_alt', true),
         ];
     }
 
