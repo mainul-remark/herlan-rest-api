@@ -1014,13 +1014,14 @@ Top-level response fields:
 | `hero_slider` | object | Slider items and autoplay duration |
 | `promotional_block` | object | Promotional post cards |
 | `campaign_shortcuts` | object | Shortcut tags/buttons |
-| `product_groups` | object | Product group tabs/tags |
+| `product_groups` | object | Product group tabs/tags with up to 4 products per group |
 | `campaigns` | array | Active campaign sections |
 | `categories_block` | object | Category block enabled flag |
 | `custom_tags` | object | Custom tag cards |
 | `product_sliders` | array | Configured product slider definitions |
 | `home_video` | object\|null | Home video block |
 | `brands` | object | All published brands (`total` + `items[]`) |
+| `shop_by_category` | object | Featured home categories (`taxonomy`, `total`, `terms[]`) |
 
 Key nested shapes:
 
@@ -1029,12 +1030,13 @@ Key nested shapes:
   - video slide: `type`, `url`, `video_url`
 - `promotional_block.posts[]`: `id`, `title`, `subtitle`, `image`, `url`
 - `campaign_shortcuts.items[]`: `name`, `url`
-- `product_groups.groups[]`: `title`, `product_tag`, `featured_tag`
+- `product_groups.groups[]`: `title`, `taxonomy`, `term`, `link`, `product_tag`, `featured_tag`, `products[]` — see shape below
 - `campaigns[]`: `title`, `product_tag`, `tag_url`, `see_all_text`, `background_image`
 - `custom_tags.items[]`: `name`, `url`, `image`
 - `product_sliders[]`: `title`, `product_type`, `taxonomy_type`, `term_slug`, `url`, `background_image`
 - `home_video`: `video_desktop`, `video_mobile`, `poster`, `link_url`
 - `brands`: `total` (integer), `items[]` — see shape below
+- `shop_by_category`: `taxonomy`, `total` (integer), `terms[]` — see shape below
 
 `brands.items[]` shape (identical to `GET /drawer-brands-categories` brand items):
 
@@ -1055,6 +1057,103 @@ Key nested shapes:
 ```
 
 Brands are ordered alphabetically. Only brands with at least one published product are included (`hide_empty: true`). `image` is `null` when no logo has been uploaded for the brand.
+
+`shop_by_category` shape:
+
+```json
+{
+  "taxonomy": "product_cat",
+  "total": 8,
+  "terms": [
+    {
+      "id": 12,
+      "name": "Skin Care",
+      "slug": "skin-care",
+      "count": 34,
+      "link": "https://herlan.com/product-category/skin-care/",
+      "image": {
+        "id": 301,
+        "src": "https://herlan.com/wp-content/uploads/skincare.jpg",
+        "width": 800,
+        "height": 800,
+        "alt": "Skin Care"
+      }
+    }
+  ]
+}
+```
+
+`shop_by_category.terms[]` fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | Term ID |
+| `name` | string | Category display name |
+| `slug` | string | URL slug |
+| `count` | integer | Number of products in this category |
+| `link` | string\|null | Category archive URL |
+| `image` | object\|null | Category thumbnail (`id`, `src`, `width`, `height`, `alt`) |
+
+Only categories with `herlan_featured = 1` term meta are included. Order follows the manually configured `product_cat_custom_order` term meta — matching the website's "Shop by Category" swiper. `image` is `null` when no thumbnail has been set for the category.
+
+`product_groups` shape:
+
+```json
+{
+  "enabled": true,
+  "section_title": "Shop by Group",
+  "groups": [
+    {
+      "title": "Best Sellers",
+      "taxonomy": "product_tag",
+      "term": {
+        "id": 55,
+        "name": "Best Sellers",
+        "slug": "best-sellers",
+        "link": "https://herlan.com/product-tag/best-sellers/"
+      },
+      "link": "https://herlan.com/product-tag/best-sellers/",
+      "product_tag": "best-sellers",
+      "featured_tag": "featured-best-sellers",
+      "products": [
+        {
+          "id": 101,
+          "name": "Caviar Night Cream",
+          "image": {
+            "id": 301,
+            "src": "https://herlan.com/wp-content/uploads/product.jpg",
+            "width": 800,
+            "height": 800,
+            "alt": "Caviar Night Cream"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+`product_groups.groups[]` fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `title` | string | Group display title (falls back to term name if not set) |
+| `taxonomy` | string | Always `product_tag` |
+| `term` | object\|null | The `product_tag` term for this group (`id`, `name`, `slug`, `link`) |
+| `link` | string\|null | Term archive URL — use this for the "See all" button |
+| `product_tag` | string | Main tag slug used to fetch products |
+| `featured_tag` | string\|null | Optional priority tag slug — products from this tag are shown first |
+| `products` | array | Up to 4 product cards for this group |
+
+`products[]` fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | integer | WooCommerce product ID |
+| `name` | string | Product name |
+| `image` | object\|null | Product thumbnail (`id`, `src`, `width`, `height`, `alt`) |
+
+Product fetching mirrors the website's home page group cards: up to 4 in-stock products are returned, prioritising `featured_tag` items first, then backfilling from `product_tag`. Groups with no `product_tag` configured are omitted entirely.
 
 ### `POST /auth/login`
 

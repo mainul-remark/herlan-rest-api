@@ -34,6 +34,7 @@ final class HomeController extends Controller
             'product_sliders'    => $this->product_sliders(),
             'home_video'         => $this->home_video(),
             'brands'             => $this->brands(),
+            'shop_by_category'   => $this->shop_by_category(),
         ]);
     }
 
@@ -128,17 +129,125 @@ final class HomeController extends Controller
         $groups        = get_field('product_groups', 'option') ?: [];
         $section_title = (string) (get_field('product_groups_section_title', 'option') ?: '');
 
-        $items = array_map(fn(array $g): array => [
-            'title'        => $g['group_title'] ?? '',
-            'product_tag'  => $g['group_product_tag'] ?? null,
-            'featured_tag' => $g['group_featured_tag'] ?? null,
-        ], $groups);
+        $items = [];
+
+        foreach ($groups as $g) {
+            $tag_slug      = $g['group_product_tag'] ?? '';
+            $featured_slug = $g['group_featured_tag'] ?? '';
+            $title         = $g['group_title'] ?? '';
+
+            if (empty($tag_slug)) {
+                continue;
+            }
+
+            $term      = get_term_by('slug', $tag_slug, 'product_tag');
+            $term_data = null;
+            $link      = null;
+
+            if ($term && ! is_wp_error($term)) {
+                $term_link = get_term_link($term);
+                $link      = is_wp_error($term_link) ? null : $term_link;
+                $term_data = [
+                    'id'   => $term->term_id,
+                    'name' => $term->name,
+                    'slug' => $term->slug,
+                    'link' => $link,
+                ];
+                if (empty($title)) {
+                    $title = $term->name;
+                }
+            }
+
+            $product_ids = $this->fetch_group_product_ids($tag_slug, $featured_slug);
+
+            $items[] = [
+                'title'        => $title,
+                'taxonomy'     => 'product_tag',
+                'term'         => $term_data,
+                'link'         => $link,
+                'product_tag'  => $tag_slug,
+                'featured_tag' => $featured_slug ?: null,
+                'products'     => $this->format_group_products($product_ids),
+            ];
+        }
 
         return [
-            'enabled'       => ! empty($groups),
+            'enabled'       => ! empty($items),
             'section_title' => $section_title,
             'groups'        => $items,
         ];
+    }
+
+    private function fetch_group_product_ids(string $tag_slug, string $featured_slug): array
+    {
+        $target     = 4;
+        $base_args  = [
+            'post_type'      => 'product',
+            'post_status'    => 'publish',
+            'fields'         => 'ids',
+            'posts_per_page' => $target,
+            'meta_query'     => [
+                [
+                    'key'     => '_stock_status',
+                    'value'   => 'outofstock',
+                    'compare' => '!=',
+                ],
+            ],
+        ];
+
+        $ids = [];
+
+        // 1. Featured tag first
+        if (! empty($featured_slug)) {
+            $q = new \WP_Query(array_merge($base_args, [
+                'tax_query' => [[
+                    'taxonomy' => 'product_tag',
+                    'field'    => 'slug',
+                    'terms'    => $featured_slug,
+                ]],
+            ]));
+            $ids = array_map('intval', $q->posts);
+        }
+
+        // 2. Backfill from main tag if needed
+        if (count($ids) < $target) {
+            $needed = $target - count($ids);
+            $args   = array_merge($base_args, [
+                'posts_per_page' => $needed,
+                'post__not_in'   => $ids,
+                'tax_query'      => [[
+                    'taxonomy' => 'product_tag',
+                    'field'    => 'slug',
+                    'terms'    => $tag_slug,
+                ]],
+            ]);
+            $q    = new \WP_Query($args);
+            $ids  = array_merge($ids, array_map('intval', $q->posts));
+        }
+
+        return $ids;
+    }
+
+    private function format_group_products(array $product_ids): array
+    {
+        $products = [];
+
+        foreach ($product_ids as $id) {
+            $product = wc_get_product($id);
+            if (! $product instanceof \WC_Product) {
+                continue;
+            }
+
+            $image_id = (int) $product->get_image_id();
+
+            $products[] = [
+                'id'    => $id,
+                'name'  => $product->get_name(),
+                'image' => $image_id ? $this->attachment_data($image_id) : null,
+            ];
+        }
+
+        return $products;
     }
 
     private function campaigns(): array
@@ -280,6 +389,48 @@ final class HomeController extends Controller
             'id'  => $image_id,
             'src' => wp_get_attachment_url($image_id),
             'alt' => (string) get_post_meta($image_id, '_wp_attachment_image_alt', true),
+        ];
+    }
+
+    private function shop_by_category(): array
+    {
+        $terms = get_terms([
+            'taxonomy'   => 'product_cat',
+            'hide_empty' => false,
+            'meta_query' => [
+                [
+                    'key'     => 'herlan_featured',
+                    'value'   => '1',
+                    'compare' => '=',
+                ],
+            ],
+            'meta_key' => 'product_cat_custom_order',
+            'orderby'  => 'meta_value_num',
+            'order'    => 'ASC',
+        ]);
+
+        if (is_wp_error($terms) || empty($terms)) {
+            return ['taxonomy' => 'product_cat', 'total' => 0, 'items' => []];
+        }
+
+        $items = array_map(function (\WP_Term $term): array {
+            $image_id = absint(get_term_meta($term->term_id, 'thumbnail_id', true));
+            $link     = get_term_link($term);
+
+            return [
+                'id'    => $term->term_id,
+                'name'  => $term->name,
+                'slug'  => $term->slug,
+                'count' => (int) $term->count,
+                'link'  => is_wp_error($link) ? null : $link,
+                'image' => $image_id ? $this->attachment_data($image_id) : null,
+            ];
+        }, $terms);
+
+        return [
+            'taxonomy' => 'product_cat',
+            'total'    => count($items),
+            'terms'    => $items,
         ];
     }
 
