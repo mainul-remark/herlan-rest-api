@@ -30,6 +30,7 @@ require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-loyalty-controll
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-coupon-controller.php';
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-wishlist-controller.php';
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-cart-controller.php';
+require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-checkout-controller.php';
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-taxonomy-controller.php';
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-search-controller.php';
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-store-controller.php';

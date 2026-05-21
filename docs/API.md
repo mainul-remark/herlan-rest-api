@@ -2419,37 +2419,205 @@ Errors:
 
 ---
 
-### `GET /payments/methods`
+---
 
-Placeholder endpoint.
+## Checkout endpoints
 
-Current response:
+All checkout endpoints require a Bearer token. The cart must already be populated (items, coupons, Herlan Cash, etc.) before calling `POST /checkout`.
+
+Plugin discounts — Woo Discount Rules, Smart Coupons Pro, BOGO free gifts, Herlan Cash redemption, and Easy Product Bundles — are all applied automatically from the cart when the order is created. Nothing extra is needed from the mobile side.
+
+---
+
+### `GET /checkout/payment-methods`
+
+Returns the payment gateways currently enabled in WooCommerce. Call this to populate the payment method selector on the checkout screen.
+
+Example:
+
+```bash
+curl "https://your-domain.com/wp-json/herlan/v1/checkout/payment-methods" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+Response:
 
 ```json
 {
   "success": true,
-  "message": "No mobile payment methods have been configured yet.",
+  "message": "",
   "data": {
-    "methods": []
+    "payment_methods": [
+      {
+        "id": "sslcommerz",
+        "title": "Pay Online (Card / Mobile Banking / Net Banking)",
+        "description": "Pay securely via SSLCommerz."
+      },
+      {
+        "id": "cod",
+        "title": "Cash on Delivery",
+        "description": "Pay when your order arrives."
+      }
+    ]
   }
 }
 ```
+
+Payment method fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | string | Gateway ID — pass this as `payment_method` when placing an order |
+| `title` | string | Human-readable label to display in the app |
+| `description` | string | Optional description text |
+
+---
+
+### `POST /checkout`
+
+Places an order from the authenticated user's current cart. Returns an order ID and a `payment_url` the mobile app should open in a WebView to complete payment.
+
+**The recommended flow:**
+
+1. Build the cart (`POST /cart/add-to-cart`, apply coupons, set Herlan Cash, etc.)
+2. Fetch available payment methods (`GET /checkout/payment-methods`)
+3. Show checkout form — collect billing/shipping details and payment method choice
+4. Submit `POST /checkout`
+5. On success, open `payment_url` in a WebView for gateway-based payments (SSLCommerz), or navigate to the order confirmation screen for COD
+
+#### Request body
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `payment_method` | string | **Yes** | Gateway ID from `GET /checkout/payment-methods` |
+| `billing_first_name` | string | **Yes** | |
+| `billing_last_name` | string | **Yes** | |
+| `billing_email` | string | **Yes** | Valid email address |
+| `billing_phone` | string | **Yes** | |
+| `billing_address_1` | string | **Yes** | |
+| `billing_city` | string | **Yes** | |
+| `billing_address_2` | string | No | Defaults to `""` |
+| `billing_state` | string | No | Defaults to `""` |
+| `billing_postcode` | string | No | Defaults to `""` |
+| `billing_country` | string | No | ISO 3166-1 alpha-2. Defaults to `"BD"` |
+| `billing_company` | string | No | Defaults to `""` |
+| `ship_to_different_address` | boolean | No | `false` — copies billing address to shipping. Set `true` to provide separate shipping fields |
+| `shipping_first_name` | string | Conditional | Required when `ship_to_different_address: true` |
+| `shipping_last_name` | string | Conditional | Required when `ship_to_different_address: true` |
+| `shipping_address_1` | string | Conditional | Required when `ship_to_different_address: true` |
+| `shipping_city` | string | Conditional | Required when `ship_to_different_address: true` |
+| `shipping_address_2` | string | No | |
+| `shipping_state` | string | No | |
+| `shipping_postcode` | string | No | |
+| `shipping_country` | string | No | |
+| `shipping_company` | string | No | |
+| `customer_note` | string | No | Order note visible to the store |
+
+#### Example — SSLCommerz payment
+
+```bash
+curl -X POST "https://your-domain.com/wp-json/herlan/v1/checkout" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "payment_method": "sslcommerz",
+    "billing_first_name": "Rahim",
+    "billing_last_name": "Uddin",
+    "billing_email": "rahim@example.com",
+    "billing_phone": "01712345678",
+    "billing_address_1": "House 12, Road 4, Dhanmondi",
+    "billing_city": "Dhaka",
+    "billing_postcode": "1205",
+    "billing_country": "BD",
+    "customer_note": "Please deliver after 5 PM"
+  }'
+```
+
+#### Example — COD with separate shipping address
+
+```bash
+curl -X POST "https://your-domain.com/wp-json/herlan/v1/checkout" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "payment_method": "cod",
+    "billing_first_name": "Rahim",
+    "billing_last_name": "Uddin",
+    "billing_email": "rahim@example.com",
+    "billing_phone": "01712345678",
+    "billing_address_1": "House 12, Road 4, Dhanmondi",
+    "billing_city": "Dhaka",
+    "billing_country": "BD",
+    "ship_to_different_address": true,
+    "shipping_first_name": "Karim",
+    "shipping_last_name": "Uddin",
+    "shipping_address_1": "Flat 3B, Tower 5, Bashundhara RA",
+    "shipping_city": "Dhaka",
+    "shipping_country": "BD"
+  }'
+```
+
+#### Success response (`201`)
+
+```json
+{
+  "success": true,
+  "message": "Order placed successfully.",
+  "data": {
+    "order_id": 12345,
+    "order_number": "12345",
+    "status": "pending",
+    "total": "1350.00",
+    "currency": "BDT",
+    "payment_url": "https://your-domain.com/checkout/order-pay/12345/?pay_for_order=true&key=wc_order_abc123",
+    "thank_you_url": "https://your-domain.com/checkout/order-received/12345/?key=wc_order_abc123"
+  }
+}
+```
+
+Response fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `order_id` | integer | WooCommerce order ID |
+| `order_number` | string | Displayed order number |
+| `status` | string | Initial order status — usually `"pending"` for SSLCommerz, `"processing"` for COD |
+| `total` | string | Grand total (decimal string) |
+| `currency` | string | Currency code, e.g. `"BDT"` |
+| `payment_url` | string | Open this URL in a WebView to complete payment. For SSLCommerz this shows the pay button that redirects to the gateway. For COD it leads to the order received page |
+| `thank_you_url` | string | Order received / thank-you page URL — navigate here after the WebView detects payment completion |
+
+#### WebView flow (SSLCommerz)
+
+1. Open `payment_url` in a WebView.
+2. The user taps "Pay via SSLCommerz" — the WebView redirects to the SSLCommerz hosted payment page.
+3. After payment, SSLCommerz redirects back to the site's configured success or fail page.
+4. Monitor the WebView URL: when it contains `order-received` or `thank_you_url`, close the WebView and show the in-app order confirmation screen.
+5. Optionally call `GET /orders/{order_id}` to retrieve the final order status.
+
+#### Error codes
+
+| Code | HTTP | Description |
+| --- | --- | --- |
+| `herlan_cart_empty` | 422 | No items in cart |
+| `herlan_invalid_payment_method` | 422 | `payment_method` is not a valid enabled gateway |
+| `herlan_missing_field` | 422 | A required billing field is empty |
+| `herlan_invalid_email` | 422 | `billing_email` is not a valid email address |
+| `herlan_order_create_failed` | 500 | WooCommerce could not create the order |
+| `herlan_payment_failed` | 500/502 | Payment gateway returned an error |
+| `herlan_woocommerce_unavailable` | 500 | WooCommerce is not active |
+| `herlan_cart_unavailable` | 500 | Cart could not be initialized |
+| `herlan_rate_limit` | 429 | More than 10 checkout attempts in one hour |
+
+---
+
+### `GET /payments/methods`
+
+Placeholder endpoint (no active gateway configuration).
 
 ### `POST /payments/create`
 
-Placeholder endpoint.
-
-Current response:
-
-```json
-{
-  "success": true,
-  "message": "Payment gateway integration is pending.",
-  "data": {
-    "payment": null
-  }
-}
-```
+Placeholder endpoint (pending gateway integration).
 
 ## Common auth errors
 
@@ -2499,5 +2667,7 @@ Protected endpoints may return:
 | `DELETE` | `/cart/clear` | Yes | Empty the cart |
 | `POST` | `/cart/herlan-cash/toggle` | Yes | Enable or disable Herlan Cash redemption |
 | `POST` | `/cart/herlan-cash/set-amount` | Yes | Set a specific Herlan Cash redemption amount |
+| `GET` | `/checkout/payment-methods` | Yes | Available payment gateways |
+| `POST` | `/checkout` | Yes | **Place order from cart — returns payment URL** |
 | `GET` | `/payments/methods` | Yes | Payment method placeholder |
 | `POST` | `/payments/create` | Yes | Payment creation placeholder |

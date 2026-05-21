@@ -15,6 +15,7 @@ use HerlanRestApi\Controllers\UserController;
 use HerlanRestApi\Controllers\TaxonomyController;
 use HerlanRestApi\Controllers\HomeController;
 use HerlanRestApi\Controllers\CartController;
+use HerlanRestApi\Controllers\CheckoutController;
 use HerlanRestApi\Controllers\SearchController;
 use HerlanRestApi\Controllers\StoreController;
 use HerlanRestApi\Controllers\WishlistController;
@@ -80,6 +81,7 @@ final class Plugin
         (new TaxonomyController())->register_routes();
         (new WishlistController($auth))->register_routes();
         (new CartController($auth))->register_routes();
+        (new CheckoutController($auth))->register_routes();
         (new PaymentController($auth))->register_routes();
         (new SearchController())->register_routes();
         (new StoreController())->register_routes();
