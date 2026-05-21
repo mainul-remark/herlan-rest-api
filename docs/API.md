@@ -2101,13 +2101,31 @@ Every cart response includes the full `cart` object in `data`:
           "quantity": 1,
           "price": "450.00",
           "subtotal": "450.00",
-          "image": "https://your-domain.com/wp-content/uploads/.../thumbnail.jpg"
+          "image": "https://your-domain.com/wp-content/uploads/.../thumbnail.jpg",
+          "is_free_gift": false
         }
       ],
       "item_count": 1,
       "subtotal": "450.00",
-      "total": "450.00",
-      "currency": "BDT"
+      "total": "400.00",
+      "currency": "BDT",
+      "bogo": { "enabled": false },
+      "free_shipping": {
+        "available": true,
+        "min_amount": "500.00",
+        "requires": "min_amount",
+        "remaining": "50.00",
+        "qualified": false
+      },
+      "herlan_cash": {
+        "available": true,
+        "available_cash": "150.00",
+        "max_redeemable": "150.00",
+        "enabled": true,
+        "redeemed_amount": "50.00",
+        "next_expiring_amount": "50.00",
+        "next_expiring_date": "2026-06-15"
+      }
     }
   }
 }
@@ -2123,9 +2141,51 @@ Every cart response includes the full `cart` object in `data`:
 | `name` | string | Product name |
 | `sku` | string | Product SKU |
 | `quantity` | integer | Quantity in cart |
-| `price` | string | Unit price (decimal string) |
-| `subtotal` | string | `price × quantity` |
+| `price` | string | Unit price (decimal string). `"0.00"` for free-gift items |
+| `subtotal` | string | `price × quantity`. `"0.00"` for free-gift items |
 | `image` | string\|null | Thumbnail image URL |
+| `is_free_gift` | boolean | `true` when added by a BOGO promotion |
+
+`cart.herlan_cash` fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `available` | boolean | `false` when loyalty plugin is inactive or user has no billing phone — **hide the Herlan Cash UI entirely when `false`** |
+| `available_cash` | string | Total usable Herlan Cash balance (decimal string) |
+| `max_redeemable` | string | Maximum amount the user can redeem for this cart order (floored to nearest ৳10, capped at cart subtotal minus coupons) |
+| `enabled` | boolean | Whether the user has turned on Herlan Cash for this order — use this to set the toggle switch state |
+| `redeemed_amount` | string | Amount currently being deducted from the cart total (decimal string) |
+| `next_expiring_amount` | string | Next cash amount due to expire (decimal string) |
+| `next_expiring_date` | string | Expiry date of the next expiring cash (`"YYYY-MM-DD"` or empty string) |
+
+**How `available` vs `enabled` differ:**
+
+- `available: false` → loyalty plugin is off or no phone linked → **hide the Herlan Cash section entirely**
+- `available: true, enabled: false` → user has cash but the toggle is OFF → **show toggle in off state**
+- `available: true, enabled: true` → toggle is ON, `redeemed_amount` is being deducted from `total`
+
+`cart.bogo` fields (when `enabled: true`):
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `enabled` | boolean | `false` when no BOGO products are configured |
+| `cart_subtotal` | string | Subtotal used for tier evaluation (excludes free gifts and bundle children) |
+| `current_tier` | integer | Tier the cart has qualified for (`0` = none) |
+| `current_gift_id` | integer | Product ID of the currently earned free gift |
+| `next_tier` | integer | Next tier the cart is working toward |
+| `next_gift_id` | integer | Product ID of the next free gift |
+| `remaining_for_next_tier` | string | Amount still needed to reach the next tier |
+| `tiers` | array | All configured tiers (`tier`, `threshold`, `product_id`, `qualified`) |
+
+`cart.free_shipping` fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `available` | boolean | `false` when no free shipping method is configured |
+| `min_amount` | string | Minimum order subtotal for free shipping |
+| `requires` | string | WooCommerce `requires` setting (e.g. `"min_amount"`) |
+| `remaining` | string | How much more needs to be added to qualify |
+| `qualified` | boolean | `true` when cart already meets the free shipping threshold |
 
 ---
 
@@ -2249,6 +2309,116 @@ curl -X DELETE "https://your-domain.com/wp-json/herlan/v1/cart/clear" \
 
 ---
 
+### `POST /cart/herlan-cash/toggle`
+
+Enables or disables Herlan Cash redemption for the current cart order.
+
+- When **enabling** (`enabled: true`): fetches the user's available cash balance and automatically sets `redeemed_amount` to the maximum redeemable amount (floored to nearest ৳10).
+- When **disabling** (`enabled: false`): clears the redemption — `redeemed_amount` becomes `0` and `total` is restored.
+
+The returned `cart.total` immediately reflects the change.
+
+Request body:
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `enabled` | boolean | Yes | `true` to enable, `false` to disable |
+
+Example — enable:
+
+```bash
+curl -X POST "https://your-domain.com/wp-json/herlan/v1/cart/herlan-cash/toggle" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": true}'
+```
+
+Example — disable:
+
+```bash
+curl -X POST "https://your-domain.com/wp-json/herlan/v1/cart/herlan-cash/toggle" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+```
+
+Success response (`200`) — returns the updated full cart:
+
+```json
+{
+  "success": true,
+  "message": "Herlan Cash enabled.",
+  "data": {
+    "cart": {
+      "subtotal": "450.00",
+      "total": "400.00",
+      "herlan_cash": {
+        "available": true,
+        "available_cash": "150.00",
+        "max_redeemable": "150.00",
+        "enabled": true,
+        "redeemed_amount": "50.00",
+        "next_expiring_amount": "50.00",
+        "next_expiring_date": "2026-06-15"
+      }
+    }
+  }
+}
+```
+
+Errors:
+
+| Code | HTTP | Description |
+| --- | --- | --- |
+| `herlan_loyalty_unavailable` | 503 | Loyalty plugin is not active |
+| `herlan_loyalty_no_phone` | 422 | Authenticated user has no billing phone number linked |
+
+---
+
+### `POST /cart/herlan-cash/set-amount`
+
+Sets a specific Herlan Cash redemption amount for the current order.
+
+- The amount is clamped down to the nearest multiple of ৳10 (e.g. `55` → `50`).
+- The amount must not exceed `cart.herlan_cash.max_redeemable`.
+- Passing `amount: 0` disables Herlan Cash entirely (same as `toggle` with `enabled: false`).
+
+Request body:
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `amount` | integer | Yes | Redemption amount in BDT. Must be `≥ 0`. |
+
+Example — set ৳100:
+
+```bash
+curl -X POST "https://your-domain.com/wp-json/herlan/v1/cart/herlan-cash/set-amount" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 100}'
+```
+
+Example — remove (set to 0):
+
+```bash
+curl -X POST "https://your-domain.com/wp-json/herlan/v1/cart/herlan-cash/set-amount" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 0}'
+```
+
+Success response (`200`) — returns the updated full cart with `herlan_cash.redeemed_amount` reflecting the clamped value.
+
+Errors:
+
+| Code | HTTP | Description |
+| --- | --- | --- |
+| `herlan_loyalty_unavailable` | 503 | Loyalty plugin is not active |
+| `herlan_loyalty_no_phone` | 422 | Authenticated user has no billing phone number linked |
+| `herlan_cash_exceeds_limit` | 422 | `amount` is greater than `max_redeemable` — response message includes the allowed maximum |
+
+---
+
 ### `GET /payments/methods`
 
 Placeholder endpoint.
@@ -2327,5 +2497,7 @@ Protected endpoints may return:
 | `POST` | `/cart/update-item` | Yes | Update item quantity |
 | `DELETE` | `/cart/remove-item/{key}` | Yes | Remove one item |
 | `DELETE` | `/cart/clear` | Yes | Empty the cart |
+| `POST` | `/cart/herlan-cash/toggle` | Yes | Enable or disable Herlan Cash redemption |
+| `POST` | `/cart/herlan-cash/set-amount` | Yes | Set a specific Herlan Cash redemption amount |
 | `GET` | `/payments/methods` | Yes | Payment method placeholder |
 | `POST` | `/payments/create` | Yes | Payment creation placeholder |

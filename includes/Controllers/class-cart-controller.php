@@ -5,6 +5,8 @@ namespace HerlanRestApi\Controllers;
 use HerlanRestApi\Controller;
 use HerlanRestApi\Support\Response;
 use WC_Product;
+use WC_Shipping_Zone;
+use WC_Shipping_Zones;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Server;
@@ -55,6 +57,24 @@ final class CartController extends Controller
             'methods'             => WP_REST_Server::DELETABLE,
             'callback'            => [$this, 'clear_cart'],
             'permission_callback' => [$this, 'can_access'],
+        ]);
+
+        register_rest_route($this->namespace, '/cart/herlan-cash/toggle', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'toggle_herlan_cash'],
+            'permission_callback' => [$this, 'can_access'],
+            'args'                => [
+                'enabled' => ['required' => true, 'type' => 'boolean'],
+            ],
+        ]);
+
+        register_rest_route($this->namespace, '/cart/herlan-cash/set-amount', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'set_herlan_cash_amount'],
+            'permission_callback' => [$this, 'can_access'],
+            'args'                => [
+                'amount' => ['required' => true, 'type' => 'integer', 'minimum' => 0],
+            ],
         ]);
     }
 
@@ -204,6 +224,116 @@ final class CartController extends Controller
         );
     }
 
+    public function toggle_herlan_cash(WP_REST_Request $request)
+    {
+        $user = $this->current_user($request);
+        if (! $user) {
+            return new WP_Error('herlan_user_missing', __('Authentication required.', 'herlan-rest-api'), ['status' => 401]);
+        }
+
+        if (! defined('HERLAN_API_BASE_URL')) {
+            return new WP_Error('herlan_loyalty_unavailable', __('Loyalty program is not available.', 'herlan-rest-api'), ['status' => 503]);
+        }
+
+        $boot = $this->boot_cart();
+        if (is_wp_error($boot)) {
+            return $boot;
+        }
+
+        $enabled = (bool) $request->get_param('enabled');
+
+        WC()->session->set('herlan_cash_enabled', $enabled);
+
+        if (! $enabled) {
+            WC()->session->set('herlan_redeemed_amount', 0);
+
+            return Response::success(
+                ['cart' => $this->format_cart()],
+                200,
+                __('Herlan Cash disabled.', 'herlan-rest-api')
+            );
+        }
+
+        $phone = (string) get_user_meta($user->ID, 'billing_phone', true);
+        if (! $phone) {
+            return new WP_Error('herlan_loyalty_no_phone', __('No phone number linked to this account.', 'herlan-rest-api'), ['status' => 422]);
+        }
+
+        $available_cash = $this->get_herlan_cash_balance($user->ID, $phone);
+        $cart           = WC()->cart;
+        $ceiling        = max(0.0, (float) $cart->get_subtotal() - (float) $cart->get_discount_total());
+        $max_redeemable = (int) (floor(min($available_cash, $ceiling) / 10) * 10);
+
+        WC()->session->set('herlan_redeemed_amount', $max_redeemable);
+
+        return Response::success(
+            ['cart' => $this->format_cart()],
+            200,
+            __('Herlan Cash enabled.', 'herlan-rest-api')
+        );
+    }
+
+    public function set_herlan_cash_amount(WP_REST_Request $request)
+    {
+        $user = $this->current_user($request);
+        if (! $user) {
+            return new WP_Error('herlan_user_missing', __('Authentication required.', 'herlan-rest-api'), ['status' => 401]);
+        }
+
+        if (! defined('HERLAN_API_BASE_URL')) {
+            return new WP_Error('herlan_loyalty_unavailable', __('Loyalty program is not available.', 'herlan-rest-api'), ['status' => 503]);
+        }
+
+        $boot = $this->boot_cart();
+        if (is_wp_error($boot)) {
+            return $boot;
+        }
+
+        $amount = (int) $request->get_param('amount');
+
+        if ($amount === 0) {
+            WC()->session->set('herlan_redeemed_amount', 0);
+            WC()->session->set('herlan_cash_enabled', false);
+
+            return Response::success(
+                ['cart' => $this->format_cart()],
+                200,
+                __('Herlan Cash removed.', 'herlan-rest-api')
+            );
+        }
+
+        $phone = (string) get_user_meta($user->ID, 'billing_phone', true);
+        if (! $phone) {
+            return new WP_Error('herlan_loyalty_no_phone', __('No phone number linked to this account.', 'herlan-rest-api'), ['status' => 422]);
+        }
+
+        $available_cash = $this->get_herlan_cash_balance($user->ID, $phone);
+        $cart           = WC()->cart;
+        $ceiling        = max(0.0, (float) $cart->get_subtotal() - (float) $cart->get_discount_total());
+        $max_redeemable = (int) (floor(min($available_cash, $ceiling) / 10) * 10);
+
+        if ($amount > $max_redeemable) {
+            return new WP_Error(
+                'herlan_cash_exceeds_limit',
+                /* translators: %s: maximum redeemable amount */
+                sprintf(__('Amount exceeds maximum redeemable cash of %s.', 'herlan-rest-api'), wc_format_decimal($max_redeemable, 2)),
+                ['status' => 422]
+            );
+        }
+
+        // Clamp to nearest step of 10.
+        $clamped = (int) (floor($amount / 10) * 10);
+
+        WC()->session->set('herlan_cash_enabled', true);
+        WC()->session->set('herlan_redeemed_amount', $clamped);
+
+        return Response::success(
+            ['cart' => $this->format_cart()],
+            200,
+            __('Herlan Cash amount set.', 'herlan-rest-api')
+        );
+    }
+
     /* ── Helpers ───────────────────────────────────────────────────── */
 
     /**
@@ -235,7 +365,8 @@ final class CartController extends Controller
         $items = [];
 
         foreach ($cart->get_cart() as $key => $item) {
-            $product = $item['data'] instanceof WC_Product ? $item['data'] : wc_get_product($item['product_id']);
+            $product      = $item['data'] instanceof WC_Product ? $item['data'] : wc_get_product($item['product_id']);
+            $is_free_gift = ! empty($item['free_gift']);
 
             $image = null;
             if ($product) {
@@ -253,20 +384,281 @@ final class CartController extends Controller
                 'name'         => $product ? wp_strip_all_tags($product->get_name()) : '',
                 'sku'          => $product ? $product->get_sku() : '',
                 'quantity'     => (int) $item['quantity'],
-                'price'        => $product ? wc_format_decimal(wc_get_price_to_display($product), 2) : '0.00',
-                'subtotal'     => wc_format_decimal($item['line_subtotal'] ?? 0, 2),
+                'price'        => $is_free_gift ? '0.00' : ($product ? wc_format_decimal(wc_get_price_to_display($product), 2) : '0.00'),
+                'subtotal'     => $is_free_gift ? '0.00' : wc_format_decimal($item['line_subtotal'] ?? 0, 2),
                 'image'        => $image,
+                'is_free_gift' => $is_free_gift,
             ];
         }
 
         $cart->calculate_totals();
 
         return [
-            'items'      => $items,
-            'item_count' => $cart->get_cart_contents_count(),
-            'subtotal'   => wc_format_decimal($cart->get_subtotal(), 2),
-            'total'      => wc_format_decimal($cart->get_total('edit'), 2),
-            'currency'   => get_woocommerce_currency(),
+            'items'         => $items,
+            'item_count'    => $cart->get_cart_contents_count(),
+            'subtotal'      => wc_format_decimal($cart->get_subtotal(), 2),
+            'total'         => wc_format_decimal($cart->get_total('edit'), 2),
+            'currency'      => get_woocommerce_currency(),
+            'bogo'          => $this->get_bogo_info($cart),
+            'free_shipping' => $this->get_free_shipping_info($cart),
+            'herlan_cash'   => $this->get_herlan_cash_info($cart),
+        ];
+    }
+
+    private function get_bogo_info($cart): array
+    {
+        $free_product_1_id = (int) get_option('cft_free_product_1_id', 0);
+        $free_product_2_id = (int) get_option('cft_free_product_2_id', 0);
+
+        if (! $free_product_1_id && ! $free_product_2_id) {
+            return ['enabled' => false];
+        }
+
+        $tier1_threshold = 500.0;
+        $tier2_threshold = 1000.0;
+
+        // Subtotal excluding free-gift items and bundle children (mirrors BOGO plugin logic)
+        $subtotal = 0.0;
+        foreach ($cart->get_cart() as $item) {
+            if (! empty($item['free_gift'])) {
+                continue;
+            }
+            if (! empty($item['bundled_by']) || ! empty($item['woosb_parent_id'])) {
+                continue;
+            }
+            $subtotal += floatval($item['data']->get_price()) * intval($item['quantity']);
+        }
+
+        $current_tier    = 0;
+        $current_gift_id = 0;
+        $next_tier       = 0;
+        $next_gift_id    = 0;
+        $remaining       = 0.0;
+
+        if ($subtotal >= $tier2_threshold && $free_product_2_id > 0) {
+            $current_tier    = 2;
+            $current_gift_id = $free_product_2_id;
+        } elseif ($subtotal >= $tier1_threshold && $free_product_1_id > 0) {
+            $current_tier    = 1;
+            $current_gift_id = $free_product_1_id;
+            if ($free_product_2_id > 0) {
+                $next_tier    = 2;
+                $next_gift_id = $free_product_2_id;
+                $remaining    = max(0.0, $tier2_threshold - $subtotal);
+            }
+        } else {
+            if ($free_product_1_id > 0) {
+                $next_tier    = 1;
+                $next_gift_id = $free_product_1_id;
+                $remaining    = max(0.0, $tier1_threshold - $subtotal);
+            }
+        }
+
+        $tiers = [];
+        if ($free_product_1_id > 0) {
+            $tiers[] = [
+                'tier'      => 1,
+                'threshold' => wc_format_decimal($tier1_threshold, 2),
+                'product_id' => $free_product_1_id,
+                'qualified' => $subtotal >= $tier1_threshold,
+            ];
+        }
+        if ($free_product_2_id > 0) {
+            $tiers[] = [
+                'tier'      => 2,
+                'threshold' => wc_format_decimal($tier2_threshold, 2),
+                'product_id' => $free_product_2_id,
+                'qualified' => $subtotal >= $tier2_threshold,
+            ];
+        }
+
+        return [
+            'enabled'                => true,
+            'cart_subtotal'          => wc_format_decimal($subtotal, 2),
+            'current_tier'           => $current_tier,
+            'current_gift_id'        => $current_gift_id,
+            'next_tier'              => $next_tier,
+            'next_gift_id'           => $next_gift_id,
+            'remaining_for_next_tier' => wc_format_decimal($remaining, 2),
+            'tiers'                  => $tiers,
+        ];
+    }
+
+    private function get_herlan_cash_info($cart): array
+    {
+        if (! defined('HERLAN_API_BASE_URL') || ! WC()->session) {
+            return ['available' => false];
+        }
+
+        $user_id = get_current_user_id();
+        if (! $user_id) {
+            return ['available' => false];
+        }
+
+        $phone = (string) get_user_meta($user_id, 'billing_phone', true);
+        if (! $phone) {
+            return ['available' => false];
+        }
+
+        $available_cash  = (float) (WC()->session->get('herlan_cached_available_cash_v2') ?? 0);
+        $cache_expiry    = WC()->session->get('herlan_cached_cash_expiry_v2');
+        $cache_valid     = $cache_expiry && time() < (int) $cache_expiry;
+
+        if (! $cache_valid) {
+            $available_cash = $this->get_herlan_cash_balance($user_id, $phone);
+        }
+
+        $enabled         = (bool) WC()->session->get('herlan_cash_enabled', false);
+        $redeemed_amount = (int) WC()->session->get('herlan_redeemed_amount', 0);
+
+        $ceiling        = max(0.0, (float) $cart->get_subtotal() - (float) $cart->get_discount_total());
+        $max_redeemable = (int) (floor(min($available_cash, $ceiling) / 10) * 10);
+
+        // Clamp stored amount to current max (subtotal may have changed).
+        if ($redeemed_amount > $max_redeemable) {
+            $redeemed_amount = $max_redeemable;
+            WC()->session->set('herlan_redeemed_amount', $redeemed_amount);
+        }
+
+        $next_expiring_amount = (float) (WC()->session->get('herlan_cached_next_expiring_cash_amount_v2') ?? 0);
+        $next_expiring_date   = (string) (WC()->session->get('herlan_cached_next_expiring_cash_date_v2') ?? '');
+
+        return [
+            'available'            => true,
+            'available_cash'       => wc_format_decimal($available_cash, 2),
+            'max_redeemable'       => wc_format_decimal($max_redeemable, 2),
+            'enabled'              => $enabled,
+            'redeemed_amount'      => wc_format_decimal($redeemed_amount, 2),
+            'next_expiring_amount' => wc_format_decimal($next_expiring_amount, 2),
+            'next_expiring_date'   => $next_expiring_date,
+        ];
+    }
+
+    /**
+     * Fetch Herlan Cash balance for a user, using WC session cache when available.
+     * Falls back to calling the loyalty API directly.
+     */
+    private function get_herlan_cash_balance(int $user_id, string $phone): float
+    {
+        // Try the transient cache set by LoyaltyController first.
+        $transient = get_transient('herlan_mobile_loyalty_' . $user_id);
+        if (is_array($transient) && isset($transient['available_cash'])) {
+            return (float) $transient['available_cash'];
+        }
+
+        // Call the loyalty API: login then get summary.
+        $login = wp_remote_post(HERLAN_API_BASE_URL . 'login', [
+            'body'        => wp_json_encode(['phone' => $phone]),
+            'headers'     => ['Content-Type' => 'application/json'],
+            'timeout'     => 10,
+            'data_format' => 'body',
+        ]);
+
+        if (is_wp_error($login)) {
+            return 0.0;
+        }
+
+        $login_data = json_decode(wp_remote_retrieve_body($login), true);
+        if (! is_array($login_data) || empty($login_data['data']['access_token'])) {
+            return 0.0;
+        }
+
+        $token   = (string) $login_data['data']['access_token'];
+        $summary = wp_remote_get(HERLAN_API_BASE_URL . 'summary', [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $token,
+                'Content-Type'  => 'application/json',
+            ],
+            'timeout' => 10,
+        ]);
+
+        if (is_wp_error($summary)) {
+            return 0.0;
+        }
+
+        $summary_data = json_decode(wp_remote_retrieve_body($summary), true);
+        if (! is_array($summary_data)) {
+            return 0.0;
+        }
+
+        $balance = 0.0;
+        foreach ([
+            $summary_data['data']['summary']['total_usable_cash'] ?? null,
+            $summary_data['summary']['total_usable_cash'] ?? null,
+            $summary_data['data']['total_usable_cash'] ?? null,
+            $summary_data['total_usable_cash'] ?? null,
+        ] as $candidate) {
+            if (is_numeric($candidate)) {
+                $balance = (float) $candidate;
+                break;
+            }
+        }
+
+        $next_expiring_amount = 0.0;
+        $next_expiring_date   = '';
+        $expiring_node        = $summary_data['data']['summary']['next_expiring_cash']
+            ?? $summary_data['summary']['next_expiring_cash']
+            ?? $summary_data['data']['next_expiring_cash']
+            ?? $summary_data['next_expiring_cash']
+            ?? [];
+
+        if (is_array($expiring_node)) {
+            $next_expiring_amount = (float) ($expiring_node['amount'] ?? $expiring_node['cash_amount'] ?? 0);
+            $next_expiring_date   = (string) (
+                $expiring_node['expires_at']
+                ?? $expiring_node['expiration_date']
+                ?? $expiring_node['expire_date']
+                ?? $expiring_node['expiry_date']
+                ?? $expiring_node['expires_on']
+                ?? ''
+            );
+        }
+
+        // Populate the session cache so subsequent calls within the same request are free.
+        if (WC()->session) {
+            WC()->session->set('herlan_cached_available_cash_v2', $balance);
+            WC()->session->set('herlan_cached_next_expiring_cash_amount_v2', $next_expiring_amount);
+            WC()->session->set('herlan_cached_next_expiring_cash_date_v2', $next_expiring_date);
+            WC()->session->set('herlan_cached_cash_expiry_v2', time() + 120);
+        }
+
+        return $balance;
+    }
+
+    private function get_free_shipping_info($cart): array
+    {
+        $min_amount = null;
+        $requires   = null;
+
+        $all_zones = WC_Shipping_Zones::get_zones();
+        $all_zones[] = ['shipping_methods' => (new WC_Shipping_Zone(0))->get_shipping_methods()];
+
+        foreach ($all_zones as $zone_data) {
+            foreach ($zone_data['shipping_methods'] as $method) {
+                if ($method->id !== 'free_shipping' || $method->enabled !== 'yes') {
+                    continue;
+                }
+                $threshold = floatval($method->min_amount);
+                if ($threshold > 0 && ($min_amount === null || $threshold < $min_amount)) {
+                    $min_amount = $threshold;
+                    $requires   = $method->requires;
+                }
+            }
+        }
+
+        if ($min_amount === null) {
+            return ['available' => false];
+        }
+
+        $cart_subtotal = floatval($cart->get_subtotal());
+        $remaining     = max(0.0, $min_amount - $cart_subtotal);
+
+        return [
+            'available'  => true,
+            'min_amount' => wc_format_decimal($min_amount, 2),
+            'requires'   => $requires,
+            'remaining'  => wc_format_decimal($remaining, 2),
+            'qualified'  => $remaining === 0.0,
         ];
     }
 }
