@@ -43,6 +43,7 @@ final class Plugin
     {
         add_filter('determine_current_user', [$this, 'bypass_jwt_auth_for_herlan_routes'], 1);
         add_filter('rest_pre_dispatch', [$this, 'bypass_jwt_auth_pre_dispatch_for_herlan_routes'], 1, 3);
+        add_filter('rest_authentication_errors', [$this, 'bypass_auth_errors_for_herlan_routes'], PHP_INT_MAX);
         add_action('rest_api_init', [$this, 'register_routes']);
     }
 
@@ -59,6 +60,15 @@ final class Plugin
     {
         if ($request instanceof \WP_REST_Request && str_starts_with($request->get_route(), '/' . self::REST_NAMESPACE . '/')) {
             $this->remove_jwt_auth_filters();
+        }
+
+        return $result;
+    }
+
+    public function bypass_auth_errors_for_herlan_routes($result)
+    {
+        if (is_wp_error($result) && $this->is_herlan_rest_request()) {
+            return null;
         }
 
         return $result;

@@ -42,15 +42,16 @@ final class HomeController extends Controller
     {
         $raw_items        = get_field('slider_v2_items', 'option') ?: [];
         $autoplay_duration = (int) (get_field('slider_v2_duration', 'option') ?: 5000);
-
         $items = array_map(function (array $item): array {
             $type = $item['type'] ?? 'image';
+            $url  = $item['url'] ?? null;
 
             if ($type === 'video') {
                 return [
                     'type'      => 'video',
-                    'url'       => $item['url'] ?? null,
+                    'url'       => $url,
                     'video_url' => $item['video_file'] ?? null,
+                    'term'      => $this->resolve_term_from_url($url),
                 ];
             }
 
@@ -59,9 +60,10 @@ final class HomeController extends Controller
 
             return [
                 'type'         => 'image',
-                'url'          => $item['url'] ?? null,
+                'url'          => $url,
                 'image'        => $this->attachment_data($image_id),
                 'mobile_image' => $this->attachment_data($mobile_image_id),
+                'term'         => $this->resolve_term_from_url($url),
             ];
         }, $raw_items);
 
@@ -69,6 +71,67 @@ final class HomeController extends Controller
             'autoplay_duration' => $autoplay_duration,
             'items'             => $items,
         ];
+    }
+
+    private function resolve_term_from_url(?string $url): ?array
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        $path = trim(wp_parse_url($url, PHP_URL_PATH) ?? '', '/');
+
+        if (empty($path)) {
+            return null;
+        }
+
+        // Strip WordPress subdirectory install prefix (e.g. "herlan.com/")
+        $home_path = trim(wp_parse_url(home_url(), PHP_URL_PATH) ?? '', '/');
+        if ($home_path !== '' && strpos($path, $home_path . '/') === 0) {
+            $path = trim(substr($path, strlen($home_path) + 1), '/');
+        }
+
+        if (empty($path)) {
+            return null;
+        }
+
+        // Map URL base slugs to registered taxonomy names
+        $taxonomy_bases = [
+            'product-category' => 'product_cat',
+            'product-tag'      => 'product_tag',
+            'brand'            => 'brand',
+        ];
+
+        foreach ($taxonomy_bases as $base => $taxonomy) {
+            if (strpos($path, $base . '/') !== 0) {
+                continue;
+            }
+
+            // Take the last path segment to support nested categories
+            $slug = basename(rtrim(substr($path, strlen($base) + 1), '/'));
+
+            if (empty($slug)) {
+                continue;
+            }
+
+            $term = get_term_by('slug', $slug, $taxonomy);
+
+            if (! $term || is_wp_error($term)) {
+                continue;
+            }
+
+            $link = get_term_link($term);
+
+            return [
+                'taxonomy' => $taxonomy,
+                'term_id'  => $term->term_id,
+                'name'     => $term->name,
+                'slug'     => $term->slug,
+                'link'     => is_wp_error($link) ? null : $link,
+            ];
+        }
+
+        return null;
     }
 
     private function promotional_block(): array
