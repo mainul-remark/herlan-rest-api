@@ -122,12 +122,19 @@ final class HomeController extends Controller
 
             $link = get_term_link($term);
 
+            $params = [];
+            $query  = wp_parse_url($url, PHP_URL_QUERY);
+            if ($query) {
+                parse_str($query, $params);
+            }
+
             return [
-                'taxonomy' => $taxonomy,
-                'term_id'  => $term->term_id,
-                'name'     => $term->name,
-                'slug'     => $term->slug,
-                'link'     => is_wp_error($link) ? null : $link,
+                'taxonomy'   => $taxonomy,
+                'term_id'    => $term->term_id,
+                'name'       => $term->name,
+                'slug'       => $term->slug,
+                'link'       => is_wp_error($link) ? null : $link,
+                'url_params' => $params ?: null,
             ];
         }
 
