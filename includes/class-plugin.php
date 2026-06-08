@@ -19,6 +19,7 @@ use HerlanRestApi\Controllers\CheckoutController;
 use HerlanRestApi\Controllers\SearchController;
 use HerlanRestApi\Controllers\StoreController;
 use HerlanRestApi\Controllers\WishlistController;
+use HerlanRestApi\Controllers\BlogController;
 
 if (! defined('ABSPATH')) {
     exit;
@@ -95,6 +96,7 @@ final class Plugin
         (new PaymentController($auth))->register_routes();
         (new SearchController())->register_routes();
         (new StoreController())->register_routes();
+        (new BlogController())->register_routes();
     }
 
     private function is_herlan_rest_request(): bool

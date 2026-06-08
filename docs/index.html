@@ -74,6 +74,11 @@
 <a class="level-3" href="#get-stores">GET /stores</a>
 <a class="level-3" href="#get-stores-id">GET /stores/{id}</a>
 <a class="level-3" href="#get-store-locations">GET /store-locations</a>
+<a href="#blog-api">Blog / Posts API</a>
+<a class="level-3" href="#get-posts">GET /posts</a>
+<a class="level-3" href="#get-posts-categories">GET /posts/categories</a>
+<a class="level-3" href="#get-posts-id">GET /posts/{id}</a>
+<a class="level-3" href="#get-posts-slug-slug">GET /posts/slug/{slug}</a>
 <a href="#protected-endpoints">Protected endpoints</a>
 <a class="level-3" href="#post-auth-logout">POST /auth/logout</a>
 <a class="level-3" href="#get-user-me">GET /user/me</a>
@@ -2717,6 +2722,289 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 <h4>Example</h4>
 <pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/store-locations"</code></pre>
 <hr />
+<h2 id="blog-api">Blog / Posts API</h2>
+<p>Four public endpoints for reading WordPress blog posts. No authentication required.</p>
+<h3 id="get-posts"><code>GET /posts</code></h3>
+<p>Returns a paginated list of published posts ordered newest first. Maps to the website's <code>/blog</code> archive page.</p>
+<h4>Request parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>category</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Filter by category term ID (e.g. <code>?category=797</code>). Maps to <code>/blog/?category=797</code></td>
+</tr>
+<tr>
+<td><code>tag</code></td>
+<td>integer</td>
+<td>—</td>
+<td>Filter by post tag term ID</td>
+</tr>
+<tr>
+<td><code>page</code></td>
+<td>integer</td>
+<td><code>1</code></td>
+<td>Page number</td>
+</tr>
+<tr>
+<td><code>per_page</code></td>
+<td>integer</td>
+<td><code>10</code></td>
+<td>Posts per page (max <code>50</code>)</td>
+</tr>
+</tbody>
+</table>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "posts": [],
+    "pagination": {
+      "page": 1,
+      "per_page": 10,
+      "total": 42,
+      "total_pages": 5,
+      "has_more": true
+    }
+  }
+}</code></pre>
+<h4><code>data.posts[]</code> — post card fields</h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>WordPress post ID</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>string</td>
+<td>Post title</td>
+</tr>
+<tr>
+<td><code>slug</code></td>
+<td>string</td>
+<td>URL slug — use with <code>GET /posts/slug/{slug}</code></td>
+</tr>
+<tr>
+<td><code>excerpt</code></td>
+<td>string</td>
+<td>Manual excerpt if set, otherwise first 25 words of content</td>
+</tr>
+<tr>
+<td><code>date</code></td>
+<td>string</td>
+<td>Publish date in ISO 8601 format</td>
+</tr>
+<tr>
+<td><code>date_modified</code></td>
+<td>string</td>
+<td>Last modified date in ISO 8601 format</td>
+</tr>
+<tr>
+<td><code>permalink</code></td>
+<td>string</td>
+<td>Full post URL</td>
+</tr>
+<tr>
+<td><code>reading_time</code></td>
+<td>integer</td>
+<td>Estimated reading time in minutes (based on ~200 wpm)</td>
+</tr>
+<tr>
+<td><code>featured_image</code></td>
+<td>object|null</td>
+<td>Post thumbnail (<code>id</code>, <code>src</code>, <code>width</code>, <code>height</code>, <code>alt</code>)</td>
+</tr>
+<tr>
+<td><code>author</code></td>
+<td>object</td>
+<td>Author object (<code>id</code>, <code>name</code>)</td>
+</tr>
+<tr>
+<td><code>categories</code></td>
+<td>array</td>
+<td>Assigned blog categories (<code>id</code>, <code>name</code>, <code>slug</code>, <code>link</code>)</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td>array</td>
+<td>Assigned post tags (<code>id</code>, <code>name</code>, <code>slug</code>, <code>link</code>)</td>
+</tr>
+</tbody>
+</table>
+<h4>Example requests</h4>
+<p><strong>All posts (maps to <code>/blog</code>):</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/posts"</code></pre>
+<p><strong>Filter by category (maps to <code>/blog/?category=797</code>):</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/posts?category=797"</code></pre>
+<p><strong>Paginated:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/posts?page=2&amp;per_page=10"</code></pre>
+<hr />
+<h3 id="get-posts-categories"><code>GET /posts/categories</code></h3>
+<p>Returns all non-empty blog categories ordered alphabetically. Use this to populate the category filter/tab bar.</p>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "categories": [
+      {
+        "id": 797,
+        "name": "Skin Care Tips",
+        "slug": "skin-care-tips",
+        "description": "",
+        "count": 14,
+        "parent": 0,
+        "link": "https://herlan.com/blog/category/skin-care-tips/"
+      }
+    ]
+  }
+}</code></pre>
+<p>Category fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Term ID — pass to <code>GET /posts?category={id}</code></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Category display name</td>
+</tr>
+<tr>
+<td><code>slug</code></td>
+<td>string</td>
+<td>Category slug</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>Category description</td>
+</tr>
+<tr>
+<td><code>count</code></td>
+<td>integer</td>
+<td>Number of published posts in this category</td>
+</tr>
+<tr>
+<td><code>parent</code></td>
+<td>integer</td>
+<td>Parent term ID (<code>0</code> = root)</td>
+</tr>
+<tr>
+<td><code>link</code></td>
+<td>string|null</td>
+<td>Category archive URL</td>
+</tr>
+</tbody>
+</table>
+<h4>Example</h4>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/posts/categories"</code></pre>
+<hr />
+<h3 id="get-posts-id"><code>GET /posts/{id}</code></h3>
+<p>Returns a single published post by its WordPress post ID.</p>
+<h4>Path parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>WordPress post ID</td>
+</tr>
+</tbody>
+</table>
+<h4>Response</h4>
+<p>Returns the post card fields (same as <code>GET /posts</code>) plus two additional fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>content</code></td>
+<td>string</td>
+<td>Full rendered post content HTML (run through <code>the_content</code> filter)</td>
+</tr>
+<tr>
+<td><code>custom_fields</code></td>
+<td>object</td>
+<td>ACF fields attached to the post (empty object if ACF not active)</td>
+</tr>
+</tbody>
+</table>
+<h4>Error codes</h4>
+<ul>
+<li><code>404 herlan_post_not_found</code></li>
+</ul>
+<h4>Example</h4>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/posts/1234"</code></pre>
+<hr />
+<h3 id="get-posts-slug-slug"><code>GET /posts/slug/{slug}</code></h3>
+<p>Returns a single published post by its URL slug. Use this to look up a post from a website URL like <code>/top-5-must-have-products-for-acne-prone-skin</code>.</p>
+<h4>Path parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>slug</code></td>
+<td>string</td>
+<td>Post URL slug (alphanumeric, hyphens, underscores)</td>
+</tr>
+</tbody>
+</table>
+<h4>Response</h4>
+<p>Same as <code>GET /posts/{id}</code> — post card fields plus <code>content</code> and <code>custom_fields</code>.</p>
+<h4>Error codes</h4>
+<ul>
+<li><code>404 herlan_post_not_found</code></li>
+</ul>
+<h4>Example</h4>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/posts/slug/top-5-must-have-products-for-acne-prone-skin"</code></pre>
+<hr />
 <h2 id="protected-endpoints">Protected endpoints</h2>
 <h3 id="post-auth-logout"><code>POST /auth/logout</code></h3>
 <p>Revokes the current token.</p>
@@ -4241,6 +4529,30 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 <td><code>/payments/create</code></td>
 <td>Yes</td>
 <td>Payment creation placeholder</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/posts</code></td>
+<td>No</td>
+<td>Blog post list — filterable by <code>category</code> / <code>tag</code> term ID, paginated</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/posts/categories</code></td>
+<td>No</td>
+<td>All blog categories</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/posts/{id}</code></td>
+<td>No</td>
+<td>Single post by ID — includes full content and ACF fields</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/posts/slug/{slug}</code></td>
+<td>No</td>
+<td>Single post by URL slug (e.g. <code>/posts/slug/top-5-must-have-products-for-acne-prone-skin</code>)</td>
 </tr>
 </tbody>
 </table>
