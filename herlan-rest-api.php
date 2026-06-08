@@ -34,6 +34,7 @@ require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-checkout-control
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-taxonomy-controller.php';
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-search-controller.php';
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-store-controller.php';
+require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-blog-controller.php';
 require_once HERLAN_REST_API_PATH . 'includes/class-plugin.php';
 
 add_action('plugins_loaded', static function () {
