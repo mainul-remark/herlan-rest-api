@@ -4,6 +4,7 @@ namespace HerlanRestApi\Controllers;
 
 use HerlanRestApi\Controller;
 use HerlanRestApi\Support\Response;
+use WC_Product;
 use WP_Error;
 use WP_Post;
 use WP_REST_Request;
@@ -226,9 +227,10 @@ final class BlogController extends Controller
 
     private function format_post(WP_Post $post): array
     {
-        $data                  = $this->format_post_card($post);
-        $data['content']       = apply_filters('the_content', $post->post_content);
-        $data['custom_fields'] = $this->custom_fields($post->ID);
+        $data                      = $this->format_post_card($post);
+        $data['content']           = apply_filters('the_content', $post->post_content);
+        $data['custom_fields']     = $this->custom_fields($post->ID);
+        $data['relevant_products'] = $this->relevant_products($post->ID);
 
         return $data;
     }
@@ -276,6 +278,58 @@ final class BlogController extends Controller
             'height' => (int) $src[2],
             'alt'    => (string) get_post_meta($id, '_wp_attachment_image_alt', true),
         ];
+    }
+
+    private function relevant_products(int $post_id): array
+    {
+        if (! function_exists('wc_get_product')) {
+            return [];
+        }
+
+        $ids = function_exists('get_field') ? get_field('relevant_products', $post_id) : get_post_meta($post_id, 'relevant_products', true);
+
+        if (! is_array($ids) || empty($ids)) {
+            return [];
+        }
+
+        $products = [];
+
+        foreach ($ids as $product_id) {
+            $product = wc_get_product(absint($product_id));
+
+            if (! $product instanceof WC_Product || $product->get_status() !== 'publish') {
+                continue;
+            }
+
+            $image_id  = $product->get_image_id();
+            $image_src = $image_id ? wp_get_attachment_image_src($image_id, 'full') : null;
+
+            $products[] = [
+                'id'             => $product->get_id(),
+                'name'           => $product->get_name(),
+                'slug'           => $product->get_slug(),
+                'type'           => $product->get_type(),
+                'permalink'      => $product->get_permalink(),
+                'sku'            => $product->get_sku(),
+                'price'          => $product->get_price(),
+                'regular_price'  => $product->get_regular_price(),
+                'sale_price'     => $product->get_sale_price(),
+                'price_html'     => $product->get_price_html(),
+                'on_sale'        => $product->is_on_sale(),
+                'stock_status'   => $product->get_stock_status(),
+                'average_rating' => $product->get_average_rating(),
+                'rating_count'   => $product->get_rating_count(),
+                'image'          => $image_src ? [
+                    'id'     => $image_id,
+                    'src'    => $image_src[0],
+                    'width'  => (int) $image_src[1],
+                    'height' => (int) $image_src[2],
+                    'alt'    => (string) get_post_meta($image_id, '_wp_attachment_image_alt', true),
+                ] : null,
+            ];
+        }
+
+        return $products;
     }
 
     private function custom_fields(int $post_id): array
