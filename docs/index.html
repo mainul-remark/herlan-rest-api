@@ -2948,7 +2948,7 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 </tbody>
 </table>
 <h4>Response</h4>
-<p>Returns the post card fields (same as <code>GET /posts</code>) plus two additional fields:</p>
+<p>Returns the post card fields (same as <code>GET /posts</code>) plus three additional fields:</p>
 <table>
 <thead>
 <tr>
@@ -2967,6 +2967,98 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 <td><code>custom_fields</code></td>
 <td>object</td>
 <td>ACF fields attached to the post (empty object if ACF not active)</td>
+</tr>
+<tr>
+<td><code>relevant_products</code></td>
+<td>array</td>
+<td>WooCommerce products editorially linked to this post via the <code>relevant_products</code> ACF field. Empty array when no products are assigned or WooCommerce is inactive. Unpublished products are silently excluded.</td>
+</tr>
+</tbody>
+</table>
+<h4><code>relevant_products[]</code> — product card fields</h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>WooCommerce product ID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Product name</td>
+</tr>
+<tr>
+<td><code>slug</code></td>
+<td>string</td>
+<td>URL slug</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td><code>simple</code>, <code>variable</code>, etc.</td>
+</tr>
+<tr>
+<td><code>permalink</code></td>
+<td>string</td>
+<td>Full product URL</td>
+</tr>
+<tr>
+<td><code>sku</code></td>
+<td>string</td>
+<td>SKU</td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>string</td>
+<td>Current active price</td>
+</tr>
+<tr>
+<td><code>regular_price</code></td>
+<td>string</td>
+<td>Regular (non-sale) price</td>
+</tr>
+<tr>
+<td><code>sale_price</code></td>
+<td>string</td>
+<td>Sale price if set, otherwise empty string</td>
+</tr>
+<tr>
+<td><code>price_html</code></td>
+<td>string</td>
+<td>WooCommerce formatted price HTML</td>
+</tr>
+<tr>
+<td><code>on_sale</code></td>
+<td>boolean</td>
+<td><code>true</code> if currently on sale</td>
+</tr>
+<tr>
+<td><code>stock_status</code></td>
+<td>string</td>
+<td><code>instock</code>, <code>outofstock</code>, <code>onbackorder</code></td>
+</tr>
+<tr>
+<td><code>average_rating</code></td>
+<td>string</td>
+<td>Decimal string e.g. <code>"4.5"</code></td>
+</tr>
+<tr>
+<td><code>rating_count</code></td>
+<td>integer</td>
+<td>Number of ratings</td>
+</tr>
+<tr>
+<td><code>image</code></td>
+<td>object|null</td>
+<td>Main product image (<code>id</code>, <code>src</code>, <code>width</code>, <code>height</code>, <code>alt</code>)</td>
 </tr>
 </tbody>
 </table>
@@ -2997,7 +3089,7 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 </tbody>
 </table>
 <h4>Response</h4>
-<p>Same as <code>GET /posts/{id}</code> — post card fields plus <code>content</code> and <code>custom_fields</code>.</p>
+<p>Same as <code>GET /posts/{id}</code> — post card fields plus <code>content</code>, <code>custom_fields</code>, and <code>relevant_products</code>.</p>
 <h4>Error codes</h4>
 <ul>
 <li><code>404 herlan_post_not_found</code></li>

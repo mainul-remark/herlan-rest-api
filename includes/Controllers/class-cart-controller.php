@@ -22,13 +22,13 @@ final class CartController extends Controller
         register_rest_route($this->namespace, '/cart', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [$this, 'get_cart'],
-            'permission_callback' => [$this, 'can_access'],
+            'permission_callback' => '__return_true',
         ]);
 
         register_rest_route($this->namespace, '/cart/add-to-cart', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [$this, 'add_item'],
-            'permission_callback' => [$this, 'can_access'],
+            'permission_callback' => '__return_true',
             'args'                => [
                 'product_id'   => ['required' => true,  'type' => 'integer', 'minimum' => 1],
                 'quantity'     => ['required' => false, 'type' => 'integer', 'minimum' => 1, 'default' => 1],
@@ -40,7 +40,7 @@ final class CartController extends Controller
         register_rest_route($this->namespace, '/cart/update-item', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [$this, 'update_item'],
-            'permission_callback' => [$this, 'can_access'],
+            'permission_callback' => '__return_true',
             'args'                => [
                 'cart_item_key' => ['required' => true, 'type' => 'string'],
                 'quantity'      => ['required' => true, 'type' => 'integer', 'minimum' => 0],
@@ -50,13 +50,13 @@ final class CartController extends Controller
         register_rest_route($this->namespace, '/cart/remove-item/(?P<cart_item_key>[a-f0-9]{32})', [
             'methods'             => WP_REST_Server::DELETABLE,
             'callback'            => [$this, 'remove_item'],
-            'permission_callback' => [$this, 'can_access'],
+            'permission_callback' => '__return_true',
         ]);
 
         register_rest_route($this->namespace, '/cart/clear', [
             'methods'             => WP_REST_Server::DELETABLE,
             'callback'            => [$this, 'clear_cart'],
-            'permission_callback' => [$this, 'can_access'],
+            'permission_callback' => '__return_true',
         ]);
 
         register_rest_route($this->namespace, '/cart/herlan-cash/toggle', [
@@ -82,11 +82,6 @@ final class CartController extends Controller
 
     public function get_cart(WP_REST_Request $request)
     {
-        $user = $this->current_user($request);
-        if (! $user) {
-            return new WP_Error('herlan_user_missing', __('Authentication required.', 'herlan-rest-api'), ['status' => 401]);
-        }
-
         $boot = $this->boot_cart();
         if (is_wp_error($boot)) {
             return $boot;
@@ -97,11 +92,6 @@ final class CartController extends Controller
 
     public function add_item(WP_REST_Request $request)
     {
-        $user = $this->current_user($request);
-        if (! $user) {
-            return new WP_Error('herlan_user_missing', __('Authentication required.', 'herlan-rest-api'), ['status' => 401]);
-        }
-
         $boot = $this->boot_cart();
         if (is_wp_error($boot)) {
             return $boot;
@@ -146,11 +136,6 @@ final class CartController extends Controller
 
     public function update_item(WP_REST_Request $request)
     {
-        $user = $this->current_user($request);
-        if (! $user) {
-            return new WP_Error('herlan_user_missing', __('Authentication required.', 'herlan-rest-api'), ['status' => 401]);
-        }
-
         $boot = $this->boot_cart();
         if (is_wp_error($boot)) {
             return $boot;
@@ -178,11 +163,6 @@ final class CartController extends Controller
 
     public function remove_item(WP_REST_Request $request)
     {
-        $user = $this->current_user($request);
-        if (! $user) {
-            return new WP_Error('herlan_user_missing', __('Authentication required.', 'herlan-rest-api'), ['status' => 401]);
-        }
-
         $boot = $this->boot_cart();
         if (is_wp_error($boot)) {
             return $boot;
@@ -205,11 +185,6 @@ final class CartController extends Controller
 
     public function clear_cart(WP_REST_Request $request)
     {
-        $user = $this->current_user($request);
-        if (! $user) {
-            return new WP_Error('herlan_user_missing', __('Authentication required.', 'herlan-rest-api'), ['status' => 401]);
-        }
-
         $boot = $this->boot_cart();
         if (is_wp_error($boot)) {
             return $boot;
