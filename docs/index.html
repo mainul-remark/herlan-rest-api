@@ -3823,7 +3823,9 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
           "quantity": 1,
           "price": "450.00",
           "subtotal": "450.00",
-          "image": "https://your-domain.com/wp-content/uploads/.../thumbnail.jpg"
+          "image": "https://your-domain.com/wp-content/uploads/.../thumbnail.jpg",
+          "is_free_gift": false,
+          "is_editable": true
         }
       ],
       "item_count": 1,
@@ -3887,6 +3889,16 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 <td><code>image</code></td>
 <td>string|null</td>
 <td>Thumbnail image URL</td>
+</tr>
+<tr>
+<td><code>is_free_gift</code></td>
+<td>boolean</td>
+<td><code>true</code> when the item was added as a BOGO free gift &mdash; price and subtotal will be <code>"0.00"</code></td>
+</tr>
+<tr>
+<td><code>is_editable</code></td>
+<td>boolean</td>
+<td><code>true</code> when the item has selectable variants: either WPClever WPCLV linked products (e.g. colour swatches) or WooCommerce variation attributes. Show an edit button only when this is <code>true</code>, then call <code>GET /cart/item-editor/{key}</code> to load the editor data.</td>
 </tr>
 </tbody>
 </table>

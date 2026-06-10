@@ -516,6 +516,7 @@ final class CartController extends Controller
                 'subtotal'     => $is_free_gift ? '0.00' : wc_format_decimal($item['line_subtotal'] ?? 0, 2),
                 'image'        => $image,
                 'is_free_gift' => $is_free_gift,
+                'is_editable'  => $this->item_is_editable($item),
             ];
         }
 
@@ -788,6 +789,29 @@ final class CartController extends Controller
             'remaining'  => wc_format_decimal($remaining, 2),
             'qualified'  => $remaining === 0.0,
         ];
+    }
+
+    private function item_is_editable(array $item): bool
+    {
+        // $item['product_id'] is always the parent/simple product ID (even for variations)
+        $source = wc_get_product((int) $item['product_id']);
+
+        if (! $source instanceof WC_Product) {
+            return false;
+        }
+
+        if ($source->get_type() === 'variable') {
+            return true;
+        }
+
+        if (class_exists('WPCleverWpclv')) {
+            $link_data = \WPCleverWpclv::get_linked_data($source, 'cart');
+            if (! empty($link_data) && ! empty(\WPCleverWpclv::get_linked_products($link_data, 'cart'))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function get_editor_linked_products(WC_Product $source_product, array $cart_item): array
