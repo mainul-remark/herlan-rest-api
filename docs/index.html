@@ -99,6 +99,9 @@
 <a class="level-3" href="#delete-cart-clear">DELETE /cart/clear</a>
 <a class="level-3" href="#post-cart-herlan-cash-toggle">POST /cart/herlan-cash/toggle</a>
 <a class="level-3" href="#post-cart-herlan-cash-set-amount">POST /cart/herlan-cash/set-amount</a>
+<a class="level-3" href="#get-cart-item-editor">GET /cart/item-editor/{cart_item_key}</a>
+<a class="level-3" href="#post-cart-replace-item">POST /cart/replace-item</a>
+<a class="level-3" href="#cart-api-calling-order">Cart API calling order</a>
 <a href="#checkout-endpoints">Checkout endpoints</a>
 <a class="level-3" href="#get-checkout-payment-methods">GET /checkout/payment-methods</a>
 <a class="level-3" href="#post-checkout">POST /checkout</a>
@@ -4154,6 +4157,300 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 </tbody>
 </table>
 <hr />
+<h3 id="get-cart-item-editor"><code>GET /cart/item-editor/{cart_item_key}</code></h3>
+<p>Returns all the data needed to render a cart item editor on mobile: the active product details, WPCLV linked-product swatches (e.g. colour variants stored as separate products), and WooCommerce variation attributes + all available variations (for variable products). Call this <strong>after</strong> the user taps on an editable cart item.</p>
+<p>No authentication required &mdash; cart is identified by the WooCommerce session cookie.</p>
+<p>Path parameter:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cart_item_key</code></td>
+<td>string (32-char hex)</td>
+<td>Key from <code>cart.items[].key</code></td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<pre><code class="language-bash">curl "https://your-domain.com/wp-json/herlan/v1/cart/item-editor/a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"</code></pre>
+<p>Success response (<code>200</code>):</p>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "cart_item_key": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+    "quantity": 1,
+    "product": {
+      "id": 456,
+      "parent_id": 123,
+      "name": "Herlan Face Cream &mdash; Red",
+      "sku": "HFC-RED",
+      "price": "450.00",
+      "price_html": "&lt;span class=\"woocommerce-Price-amount\"&gt;&#2547;450.00&lt;/span&gt;",
+      "in_stock": true,
+      "images": [
+        { "id": 99, "src": "https://your-domain.com/wp-content/uploads/cream-red.jpg", "alt": "Red variant" }
+      ]
+    },
+    "linked_products": [
+      {
+        "attribute_id": 7,
+        "attribute_name": "Color",
+        "attribute_slug": "pa_color",
+        "label": "Color",
+        "display": "swatches",
+        "terms": [
+          {
+            "product_id": 123,
+            "term_id": 31,
+            "name": "Blue",
+            "slug": "blue",
+            "is_active": false,
+            "in_stock": true,
+            "price": "450.00",
+            "image": "https://your-domain.com/wp-content/uploads/cream-blue-thumb.jpg",
+            "color": "#0000FF"
+          },
+          {
+            "product_id": 456,
+            "term_id": 32,
+            "name": "Red",
+            "slug": "red",
+            "is_active": true,
+            "in_stock": true,
+            "price": "450.00",
+            "image": "https://your-domain.com/wp-content/uploads/cream-red-thumb.jpg",
+            "color": "#FF0000"
+          }
+        ]
+      }
+    ],
+    "attributes": [
+      {
+        "name": "pa_size",
+        "label": "Size",
+        "options": [
+          { "value": "small",  "label": "Small",  "is_selected": false, "color": null, "image": null },
+          { "value": "medium", "label": "Medium", "is_selected": true,  "color": null, "image": null },
+          { "value": "large",  "label": "Large",  "is_selected": false, "color": null, "image": null }
+        ]
+      }
+    ],
+    "variations": [
+      {
+        "variation_id": 457,
+        "sku": "HFC-RED-S",
+        "price": "420.00",
+        "price_html": "&lt;span&gt;&#2547;420.00&lt;/span&gt;",
+        "in_stock": true,
+        "attributes": { "attribute_pa_size": "small" },
+        "image": "https://your-domain.com/wp-content/uploads/cream-red-thumb.jpg"
+      },
+      {
+        "variation_id": 458,
+        "sku": "HFC-RED-M",
+        "price": "450.00",
+        "price_html": "&lt;span&gt;&#2547;450.00&lt;/span&gt;",
+        "in_stock": true,
+        "attributes": { "attribute_pa_size": "medium" },
+        "image": "https://your-domain.com/wp-content/uploads/cream-red-thumb.jpg"
+      }
+    ]
+  }
+}</code></pre>
+<p>Notes on the response fields:</p>
+<ul>
+<li><code>linked_products</code> &mdash; present when the product belongs to a WPClever WPCLV link group (separate products representing colour/flavour variants). Each term has <code>is_active: true</code> for the currently-in-cart product. <code>display</code> is one of <code>button</code>, <code>swatches</code>, <code>image</code>, <code>dropdown</code>.</li>
+<li><code>attributes</code> &mdash; present when the parent product is a WooCommerce variable product. Use the options list to build an attribute picker; <code>is_selected</code> reflects the currently selected value. <code>color</code> / <code>image</code> are non-null only when WPClever WPC Variation Swatches (WPCVS) term meta is configured.</li>
+<li><code>variations</code> &mdash; full list of available variations from the parent variable product. Match the user&rsquo;s attribute selections against <code>variation.attributes</code> to find the target <code>variation_id</code> before calling <code>POST /cart/replace-item</code>.</li>
+<li>Both <code>linked_products</code> and <code>attributes</code>/<code>variations</code> can be non-empty at the same time (e.g. a WPCLV colour group where each colour also has size variations).</li>
+</ul>
+<p>Errors:</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>HTTP</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>herlan_cart_item_not_found</code></td>
+<td>404</td>
+<td><code>cart_item_key</code> does not exist in the current session cart</td>
+</tr>
+<tr>
+<td><code>herlan_product_not_found</code></td>
+<td>404</td>
+<td>The product attached to the cart item could not be loaded</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="post-cart-replace-item"><code>POST /cart/replace-item</code></h3>
+<p>Replaces one cart item with a different product or variation. The old item is removed and the new product is added in a single operation. Returns the updated full cart on success. Use this after the user selects a different colour swatch (linked product) or changes a variation attribute in the item editor.</p>
+<p>No authentication required &mdash; cart is identified by the WooCommerce session cookie.</p>
+<p>Request body:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cart_item_key</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Key of the item to replace (from <code>cart.items[].key</code>)</td>
+</tr>
+<tr>
+<td><code>product_id</code></td>
+<td>integer</td>
+<td>Yes</td>
+<td>ID of the new product to add. For a linked-product swap this is the ID of the selected linked product. For a variation change this is the parent variable product&rsquo;s ID.</td>
+</tr>
+<tr>
+<td><code>variation_id</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Variation ID when <code>product_id</code> is a variable product. Defaults to <code>0</code>.</td>
+</tr>
+<tr>
+<td><code>quantity</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Quantity for the new item. Defaults to the original item&rsquo;s quantity if omitted.</td>
+</tr>
+<tr>
+<td><code>variation</code></td>
+<td>object</td>
+<td>No</td>
+<td>Variation attribute key/value pairs (e.g. <code>{"attribute_pa_size":"medium"}</code>). Required when <code>variation_id</code> is set and the variation has attributes.</td>
+</tr>
+</tbody>
+</table>
+<p>Example &mdash; swap to a linked product (different colour):</p>
+<pre><code class="language-bash">curl -X POST "https://your-domain.com/wp-json/herlan/v1/cart/replace-item" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cart_item_key": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+    "product_id": 123
+  }'</code></pre>
+<p>Example &mdash; change variation (different size):</p>
+<pre><code class="language-bash">curl -X POST "https://your-domain.com/wp-json/herlan/v1/cart/replace-item" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cart_item_key": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+    "product_id": 456,
+    "variation_id": 457,
+    "variation": { "attribute_pa_size": "small" }
+  }'</code></pre>
+<p>Success response (<code>200</code>):</p>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "Cart updated with \"Herlan Face Cream &mdash; Red\".",
+  "data": {
+    "cart_item_key": "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5",
+    "cart": { "...full cart object..." }
+  }
+}</code></pre>
+<p>The <code>cart_item_key</code> in the response is the <strong>new</strong> key assigned to the replacement item. Update your local cart state accordingly.</p>
+<p>Errors:</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>HTTP</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>herlan_cart_item_not_found</code></td>
+<td>404</td>
+<td><code>cart_item_key</code> does not exist in the current session cart</td>
+</tr>
+<tr>
+<td><code>herlan_product_not_found</code></td>
+<td>404</td>
+<td>New <code>product_id</code> not found or not purchasable</td>
+</tr>
+<tr>
+<td><code>herlan_out_of_stock</code></td>
+<td>422</td>
+<td>New product is out of stock</td>
+</tr>
+<tr>
+<td><code>herlan_cart_replace_failed</code></td>
+<td>422</td>
+<td>WooCommerce rejected the add-to-cart (e.g. invalid variation). Original item is automatically restored.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cart-api-calling-order">Cart API calling order</h3>
+<p>The table below shows the recommended call sequence for the full cart editing flow on mobile.</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Endpoint</th>
+<th>When to call</th>
+<th>What you get</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>GET /cart</code></td>
+<td>On cart screen load, or after any cart mutation</td>
+<td>Full cart: items list with <code>key</code>, <code>product_id</code>, <code>variation_id</code>, prices, totals, BOGO &amp; free-shipping progress</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>GET /cart/item-editor/{cart_item_key}</code></td>
+<td>User taps an editable cart item to open the item editor</td>
+<td>Editor data: active product images, WPCLV linked-product swatches, variation attribute options, full variation list with per-variation prices</td>
+</tr>
+<tr>
+<td>3a</td>
+<td><code>POST /cart/replace-item</code></td>
+<td>User confirms a different linked product or variation selection</td>
+<td>Updated cart (same shape as <code>GET /cart</code>) + the new <code>cart_item_key</code> for the replacement item</td>
+</tr>
+<tr>
+<td>3b</td>
+<td><code>POST /cart/update-item</code></td>
+<td>User changes the quantity of an existing item (no product change)</td>
+<td>Updated cart</td>
+</tr>
+<tr>
+<td>3c</td>
+<td><code>DELETE /cart/remove-item/{cart_item_key}</code></td>
+<td>User removes an item entirely</td>
+<td>Updated cart</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>GET /cart</code></td>
+<td>Optional: re-fetch after step 3 if you do not use the cart object already returned in the response</td>
+<td>Updated cart (all step-3 endpoints already return the full cart, so this extra call is usually not needed)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Important:</strong> After a successful <code>POST /cart/replace-item</code>, the old <code>cart_item_key</code> is no longer valid. Always use the <code>cart_item_key</code> returned in the response data for subsequent operations on that item.</p>
+<hr />
 <h2 id="checkout-endpoints">Checkout endpoints</h2>
 <p>All checkout endpoints require a Bearer token. The cart must already be populated (items, coupons, Herlan Cash, etc.) before calling <code>POST /checkout</code>.</p>
 <p>Plugin discounts &mdash; Woo Discount Rules, Smart Coupons Pro, BOGO free gifts, Herlan Cash redemption, and Easy Product Bundles &mdash; are all applied automatically from the cart when the order is created. Nothing extra is needed from the mobile side.</p>
@@ -4597,6 +4894,18 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 <td><code>/cart/herlan-cash/set-amount</code></td>
 <td>Yes</td>
 <td>Set a specific Herlan Cash redemption amount</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/cart/item-editor/{cart_item_key}</code></td>
+<td>Yes</td>
+<td>Load linked products &amp; variation options for a cart item editor</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/cart/replace-item</code></td>
+<td>Yes</td>
+<td>Replace a cart item with a different product or variation</td>
 </tr>
 <tr>
 <td><code>GET</code></td>

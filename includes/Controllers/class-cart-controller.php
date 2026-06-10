@@ -59,6 +59,25 @@ final class CartController extends Controller
             'permission_callback' => '__return_true',
         ]);
 
+        register_rest_route($this->namespace, '/cart/item-editor/(?P<cart_item_key>[a-f0-9]{32})', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [$this, 'get_item_editor'],
+            'permission_callback' => '__return_true',
+        ]);
+
+        register_rest_route($this->namespace, '/cart/replace-item', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'replace_item'],
+            'permission_callback' => '__return_true',
+            'args'                => [
+                'cart_item_key' => ['required' => true,  'type' => 'string'],
+                'product_id'    => ['required' => true,  'type' => 'integer', 'minimum' => 1],
+                'variation_id'  => ['required' => false, 'type' => 'integer', 'default' => 0],
+                'quantity'      => ['required' => false, 'type' => 'integer', 'minimum' => 1],
+                'variation'     => ['required' => false, 'type' => 'object',  'default' => []],
+            ],
+        ]);
+
         register_rest_route($this->namespace, '/cart/herlan-cash/toggle', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [$this, 'toggle_herlan_cash'],
@@ -196,6 +215,140 @@ final class CartController extends Controller
             ['cart' => $this->format_cart()],
             200,
             __('Cart cleared.', 'herlan-rest-api')
+        );
+    }
+
+    public function get_item_editor(WP_REST_Request $request)
+    {
+        $boot = $this->boot_cart();
+        if (is_wp_error($boot)) {
+            return $boot;
+        }
+
+        $key       = sanitize_text_field((string) $request->get_param('cart_item_key'));
+        $cart_data = WC()->cart->get_cart();
+
+        if (! array_key_exists($key, $cart_data)) {
+            return new WP_Error('herlan_cart_item_not_found', __('Cart item not found.', 'herlan-rest-api'), ['status' => 404]);
+        }
+
+        $cart_item    = $cart_data[$key];
+        $product_id   = (int) $cart_item['product_id'];
+        $variation_id = (int) ($cart_item['variation_id'] ?? 0);
+        $quantity     = (int) $cart_item['quantity'];
+
+        // Active product: variation object if present, else simple/variable product
+        $active_product = $variation_id > 0 ? wc_get_product($variation_id) : wc_get_product($product_id);
+
+        if (! $active_product instanceof WC_Product) {
+            return new WP_Error('herlan_product_not_found', __('Product not found.', 'herlan-rest-api'), ['status' => 404]);
+        }
+
+        // Source product for WPCLV lookups: parent variable product if cart item is a variation
+        $source_product = $variation_id > 0 ? wc_get_product($product_id) : $active_product;
+        if (! $source_product instanceof WC_Product) {
+            $source_product = $active_product;
+        }
+
+        $image_id = $active_product->get_image_id();
+        $images   = [];
+        if ($image_id) {
+            $images[] = [
+                'id'  => (int) $image_id,
+                'src' => wp_get_attachment_url($image_id),
+                'alt' => (string) get_post_meta($image_id, '_wp_attachment_image_alt', true),
+            ];
+        }
+        foreach ($active_product->get_gallery_image_ids() as $gid) {
+            $images[] = [
+                'id'  => (int) $gid,
+                'src' => wp_get_attachment_url($gid),
+                'alt' => (string) get_post_meta($gid, '_wp_attachment_image_alt', true),
+            ];
+        }
+
+        $parent_variable = ($variation_id > 0 && $source_product->get_type() === 'variable')
+            ? $source_product
+            : null;
+
+        return Response::success([
+            'cart_item_key'   => $key,
+            'quantity'        => $quantity,
+            'product'         => [
+                'id'         => $active_product->get_id(),
+                'parent_id'  => $product_id,
+                'name'       => wp_strip_all_tags($active_product->get_name()),
+                'sku'        => $active_product->get_sku(),
+                'price'      => wc_format_decimal(wc_get_price_to_display($active_product), 2),
+                'price_html' => $active_product->get_price_html(),
+                'in_stock'   => $active_product->is_in_stock(),
+                'images'     => $images,
+            ],
+            'linked_products' => $this->get_editor_linked_products($source_product, $cart_item),
+            'attributes'      => $parent_variable ? $this->get_editor_attributes($parent_variable, $cart_item) : [],
+            'variations'      => $parent_variable ? $this->get_editor_variations($parent_variable) : [],
+        ]);
+    }
+
+    public function replace_item(WP_REST_Request $request)
+    {
+        $boot = $this->boot_cart();
+        if (is_wp_error($boot)) {
+            return $boot;
+        }
+
+        $key          = sanitize_text_field((string) $request->get_param('cart_item_key'));
+        $product_id   = (int) $request->get_param('product_id');
+        $variation_id = (int) ($request->get_param('variation_id') ?? 0);
+        $variation    = (array) ($request->get_param('variation') ?? []);
+        $cart_data    = WC()->cart->get_cart();
+
+        if (! array_key_exists($key, $cart_data)) {
+            return new WP_Error('herlan_cart_item_not_found', __('Cart item not found.', 'herlan-rest-api'), ['status' => 404]);
+        }
+
+        $old_item = $cart_data[$key];
+        $quantity = $request->get_param('quantity') !== null
+            ? max(1, (int) $request->get_param('quantity'))
+            : max(1, (int) $old_item['quantity']);
+
+        $new_product = wc_get_product($product_id);
+        if (! $new_product || ! $new_product->is_purchasable()) {
+            return new WP_Error('herlan_product_not_found', __('Product not found or is not available for purchase.', 'herlan-rest-api'), ['status' => 404]);
+        }
+
+        if (! $new_product->is_in_stock()) {
+            return new WP_Error('herlan_out_of_stock', __('This product is currently out of stock.', 'herlan-rest-api'), ['status' => 422]);
+        }
+
+        WC()->cart->remove_cart_item($key);
+
+        wc_clear_notices();
+        $new_key = WC()->cart->add_to_cart($product_id, $quantity, $variation_id, $variation);
+
+        if ($new_key === false) {
+            // Restore original item
+            WC()->cart->add_to_cart(
+                (int) $old_item['product_id'],
+                (int) $old_item['quantity'],
+                (int) ($old_item['variation_id'] ?? 0),
+                (array) ($old_item['variation'] ?? [])
+            );
+
+            $notices = wc_get_notices('error');
+            $message = ! empty($notices)
+                ? wp_strip_all_tags($notices[0]['notice'])
+                : __('Could not replace the cart item.', 'herlan-rest-api');
+            wc_clear_notices();
+
+            return new WP_Error('herlan_cart_replace_failed', $message, ['status' => 422]);
+        }
+
+        return Response::success(
+            ['cart_item_key' => $new_key, 'cart' => $this->format_cart()],
+            200,
+            /* translators: %s: product name */
+            sprintf(__('Cart updated with "%s".', 'herlan-rest-api'), $new_product->get_name())
         );
     }
 
@@ -635,5 +788,235 @@ final class CartController extends Controller
             'remaining'  => wc_format_decimal($remaining, 2),
             'qualified'  => $remaining === 0.0,
         ];
+    }
+
+    private function get_editor_linked_products(WC_Product $source_product, array $cart_item): array
+    {
+        if (! class_exists('WPCleverWpclv')) {
+            return [];
+        }
+
+        $current_product_id = (int) $cart_item['product_id'];
+        $link_data          = \WPCleverWpclv::get_linked_data($source_product, 'cart');
+
+        if (empty($link_data)) {
+            return [];
+        }
+
+        $link_product_ids  = \WPCleverWpclv::get_linked_products($link_data, 'cart');
+        $link_product_ids  = apply_filters('wpclv_linked_products', array_map('absint', $link_product_ids), $source_product->get_id());
+        $link_attributes   = $link_data['attributes'] ?? [];
+        $link_images       = $link_data['images'] ?? [];
+        $link_swatches     = $link_data['swatches'] ?? [];
+        $link_dropdown     = $link_data['dropdown'] ?? [];
+        $link_attr_ids     = array_map(static fn ($v) => (int) filter_var((string) $v, FILTER_SANITIZE_NUMBER_INT), $link_attributes);
+
+        $product_attributes = [];
+        foreach (array_keys($source_product->get_attributes()) as $attr) {
+            $product_attributes[$attr] = wc_get_product_terms($source_product->get_id(), $attr, ['fields' => 'ids']);
+        }
+
+        $result = [];
+
+        foreach ($link_attributes as $link_attribute) {
+            $attribute_id = (int) filter_var((string) $link_attribute, FILTER_SANITIZE_NUMBER_INT);
+            $attribute    = wc_get_attribute($attribute_id);
+
+            if (! $attribute) {
+                continue;
+            }
+
+            $terms         = get_terms(['taxonomy' => $attribute->slug, 'hide_empty' => false]);
+            $current_terms = wc_get_product_terms($current_product_id, $attribute->slug, ['fields' => 'slugs']);
+
+            if (empty($terms) || empty($current_terms) || is_wp_error($terms)) {
+                continue;
+            }
+
+            $display  = $this->editor_linked_attribute_display($link_attribute, $link_images, $link_swatches, $link_dropdown);
+            $used_ids = [];
+            $items    = [];
+
+            foreach ($terms as $term) {
+                if (! $term instanceof \WP_Term) {
+                    continue;
+                }
+
+                $is_active = in_array($term->slug, $current_terms, true);
+                $linked_id = $is_active
+                    ? $current_product_id
+                    : $this->editor_linked_product_id_for_term($term, $product_attributes, $link_attr_ids, $link_product_ids, $used_ids);
+
+                if (! $linked_id && \WPCleverWpclv::get_setting('hide_empty', 'yes') !== 'no') {
+                    continue;
+                }
+
+                if ($linked_id && ! $is_active) {
+                    $used_ids[] = $linked_id;
+                }
+
+                $linked_product = $linked_id ? wc_get_product($linked_id) : null;
+                $img_id         = $linked_product instanceof WC_Product ? $linked_product->get_image_id() : 0;
+                $color_val      = (string) get_term_meta($term->term_id, 'wpcvs_color', true);
+
+                $items[] = [
+                    'product_id' => $linked_id ?: null,
+                    'term_id'    => (int) $term->term_id,
+                    'name'       => $term->name,
+                    'slug'       => $term->slug,
+                    'is_active'  => $is_active,
+                    'in_stock'   => $linked_product instanceof WC_Product ? $linked_product->is_in_stock() : false,
+                    'price'      => $linked_product instanceof WC_Product ? wc_format_decimal($linked_product->get_price(), 2) : null,
+                    'image'      => $img_id ? wp_get_attachment_image_url($img_id, 'woocommerce_thumbnail') : null,
+                    'color'      => $color_val !== '' ? $color_val : null,
+                ];
+            }
+
+            if (! empty($items)) {
+                $result[] = [
+                    'attribute_id'   => $attribute_id,
+                    'attribute_name' => $attribute->name,
+                    'attribute_slug' => $attribute->slug,
+                    'label'          => wc_attribute_label($attribute->name),
+                    'display'        => $display,
+                    'terms'          => $items,
+                ];
+            }
+        }
+
+        return $result;
+    }
+
+    private function editor_linked_attribute_display(string $link_attribute, array $images, array $swatches, array $dropdown): string
+    {
+        if (in_array($link_attribute, $images, true)) {
+            return 'image';
+        }
+        if (in_array($link_attribute, $swatches, true) && class_exists('WPCleverWpcvs')) {
+            return 'swatches';
+        }
+        if (in_array($link_attribute, $dropdown, true)) {
+            return 'dropdown';
+        }
+        return 'button';
+    }
+
+    private function editor_linked_product_id_for_term(\WP_Term $term, array $product_attributes, array $link_attr_ids, array $link_product_ids, array $used_ids): int
+    {
+        $tax_query  = [];
+        $term_query = ['taxonomy' => $term->taxonomy, 'term' => $term->slug];
+
+        foreach ($product_attributes as $attr_key => $attr_value) {
+            $attr_id = wc_attribute_taxonomy_id_by_name($attr_key);
+            if (! in_array($attr_id, $link_attr_ids, true) || $term->taxonomy === $attr_key) {
+                continue;
+            }
+            $tax_query[] = ['taxonomy' => $attr_key, 'term' => $attr_value];
+        }
+
+        $tax_query[] = $term_query;
+        $linked_id   = \WPCleverWpclv::get_linked_product_id($tax_query, $link_product_ids, $used_ids);
+
+        if (! $linked_id && apply_filters('wpclv_get_imperfect_product', true)) {
+            $linked_id = \WPCleverWpclv::get_linked_product_id([$term_query], $link_product_ids, $used_ids);
+        }
+
+        return absint($linked_id);
+    }
+
+    private function get_editor_attributes(WC_Product $parent, array $cart_item): array
+    {
+        if (! $parent instanceof \WC_Product_Variable) {
+            return [];
+        }
+
+        $selected_attrs = [];
+        $variation_id   = (int) ($cart_item['variation_id'] ?? 0);
+
+        if ($variation_id > 0) {
+            $variation = wc_get_product($variation_id);
+            if ($variation instanceof \WC_Product_Variation) {
+                foreach ($variation->get_variation_attributes() as $key => $value) {
+                    $selected_attrs[str_replace('attribute_', '', $key)] = $value;
+                }
+            }
+        }
+
+        $result = [];
+
+        foreach ($parent->get_variation_attributes() as $attr_name => $options) {
+            $taxonomy    = wc_attribute_taxonomy_name($attr_name);
+            $is_taxonomy = taxonomy_exists($taxonomy);
+            $attr_key    = $is_taxonomy ? $taxonomy : sanitize_title($attr_name);
+            $selected    = $selected_attrs[$attr_key] ?? $selected_attrs[sanitize_title($attr_name)] ?? '';
+
+            $option_items = [];
+            foreach ($options as $option) {
+                $term  = $is_taxonomy ? get_term_by('name', $option, $taxonomy) : null;
+                $slug  = $term instanceof \WP_Term ? $term->slug : sanitize_title($option);
+                $label = $term instanceof \WP_Term ? $term->name : $option;
+                $color = null;
+                $image = null;
+
+                if ($term instanceof \WP_Term) {
+                    $color_val = (string) get_term_meta($term->term_id, 'wpcvs_color', true);
+                    $color     = $color_val !== '' ? $color_val : null;
+                    $img_id    = absint(get_term_meta($term->term_id, 'wpcvs_image', true));
+                    $image     = $img_id ? wp_get_attachment_image_url($img_id, 'woocommerce_thumbnail') : null;
+                }
+
+                $option_items[] = [
+                    'value'       => $slug,
+                    'label'       => $label,
+                    'is_selected' => $selected === $slug,
+                    'color'       => $color,
+                    'image'       => $image,
+                ];
+            }
+
+            $result[] = [
+                'name'    => $attr_name,
+                'label'   => wc_attribute_label($attr_name),
+                'options' => $option_items,
+            ];
+        }
+
+        return $result;
+    }
+
+    private function get_editor_variations(WC_Product $parent): array
+    {
+        if (! $parent instanceof \WC_Product_Variable) {
+            return [];
+        }
+
+        $result = [];
+
+        foreach ($parent->get_available_variations() as $vdata) {
+            $variation_id = (int) ($vdata['variation_id'] ?? 0);
+            if (! $variation_id) {
+                continue;
+            }
+
+            $variation = wc_get_product($variation_id);
+            $image     = null;
+
+            if ($variation instanceof WC_Product) {
+                $img_id = $variation->get_image_id() ?: $parent->get_image_id();
+                $image  = $img_id ? wp_get_attachment_image_url($img_id, 'woocommerce_thumbnail') : null;
+            }
+
+            $result[] = [
+                'variation_id' => $variation_id,
+                'sku'          => $variation instanceof WC_Product ? $variation->get_sku() : '',
+                'price'        => $variation instanceof WC_Product ? wc_format_decimal(wc_get_price_to_display($variation), 2) : null,
+                'price_html'   => $variation instanceof WC_Product ? $variation->get_price_html() : '',
+                'in_stock'     => (bool) ($vdata['is_in_stock'] ?? false),
+                'attributes'   => $vdata['attributes'] ?? [],
+                'image'        => $image,
+            ];
+        }
+
+        return $result;
     }
 }
