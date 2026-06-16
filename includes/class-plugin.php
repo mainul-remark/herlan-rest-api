@@ -88,7 +88,7 @@ final class Plugin
         (new LoyaltyController($auth))->register_routes();
         (new CouponController($auth))->register_routes();
         (new ProductListingController())->register_routes();
-        (new ProductController())->register_routes();
+        (new ProductController($auth))->register_routes();
         (new TaxonomyController())->register_routes();
         (new WishlistController($auth))->register_routes();
         (new CartController($auth))->register_routes();

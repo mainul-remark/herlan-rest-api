@@ -5,6 +5,7 @@ namespace HerlanRestApi\Controllers;
 use HerlanRestApi\Controller;
 use HerlanRestApi\Support\Response;
 use WC_Product;
+use WP_Comment;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Server;
@@ -37,6 +38,76 @@ final class ProductController extends Controller
                     'required' => false,
                     'type' => 'boolean',
                     'default' => true,
+                ],
+            ],
+        ]);
+
+        register_rest_route($this->namespace, '/products/(?P<id>\d+)/reviews', [
+            [
+                'methods' => WP_REST_Server::READABLE,
+                'callback' => [$this, 'reviews_index'],
+                'permission_callback' => '__return_true',
+                'args' => [
+                    'id' => [
+                        'required' => true,
+                        'validate_callback' => static fn ($v) => is_numeric($v) && absint($v) > 0,
+                    ],
+                    'page' => ['required' => false, 'type' => 'integer', 'default' => 1, 'minimum' => 1],
+                    'per_page' => ['required' => false, 'type' => 'integer', 'default' => 10, 'minimum' => 1, 'maximum' => 50],
+                ],
+            ],
+            [
+                'methods' => WP_REST_Server::CREATABLE,
+                'callback' => [$this, 'create_review'],
+                'permission_callback' => [$this, 'can_access'],
+                'args' => [
+                    'id' => [
+                        'required' => true,
+                        'validate_callback' => static fn ($v) => is_numeric($v) && absint($v) > 0,
+                    ],
+                    'rating' => [
+                        'required' => true,
+                        'type' => 'integer',
+                        'minimum' => 1,
+                        'maximum' => 5,
+                    ],
+                    'content' => [
+                        'required' => true,
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ],
+                ],
+            ],
+        ]);
+
+        register_rest_route($this->namespace, '/products/(?P<id>\d+)/questions', [
+            [
+                'methods' => WP_REST_Server::READABLE,
+                'callback' => [$this, 'questions_index'],
+                'permission_callback' => '__return_true',
+                'args' => [
+                    'id' => [
+                        'required' => true,
+                        'validate_callback' => static fn ($v) => is_numeric($v) && absint($v) > 0,
+                    ],
+                    'page' => ['required' => false, 'type' => 'integer', 'default' => 1, 'minimum' => 1],
+                    'per_page' => ['required' => false, 'type' => 'integer', 'default' => 10, 'minimum' => 1, 'maximum' => 50],
+                ],
+            ],
+            [
+                'methods' => WP_REST_Server::CREATABLE,
+                'callback' => [$this, 'create_question'],
+                'permission_callback' => [$this, 'can_access'],
+                'args' => [
+                    'id' => [
+                        'required' => true,
+                        'validate_callback' => static fn ($v) => is_numeric($v) && absint($v) > 0,
+                    ],
+                    'question' => [
+                        'required' => true,
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ],
                 ],
             ],
         ]);
@@ -106,10 +177,221 @@ final class ProductController extends Controller
         return Response::success($this->format_product($product));
     }
 
+    public function reviews_index(WP_REST_Request $request)
+    {
+        if (! function_exists('wc_get_product')) {
+            return new WP_Error('herlan_woocommerce_unavailable', __('WooCommerce is not available.', 'herlan-rest-api'), ['status' => 500]);
+        }
+
+        $product_id = absint($request->get_param('id'));
+        $product = wc_get_product($product_id);
+
+        if (! $product instanceof WC_Product || $product->get_status() !== 'publish') {
+            return new WP_Error('herlan_product_not_found', __('Product not found.', 'herlan-rest-api'), ['status' => 404]);
+        }
+
+        $page = max(1, (int) $request->get_param('page'));
+        $per_page = min(50, max(1, (int) $request->get_param('per_page')));
+        $offset = ($page - 1) * $per_page;
+
+        $total = (int) get_comments([
+            'post_id' => $product_id,
+            'type' => 'review',
+            'status' => 'approve',
+            'parent' => 0,
+            'count' => true,
+        ]);
+
+        $comments = get_comments([
+            'post_id' => $product_id,
+            'type' => 'review',
+            'status' => 'approve',
+            'parent' => 0,
+            'number' => $per_page,
+            'offset' => $offset,
+            'orderby' => 'comment_date',
+            'order' => 'DESC',
+        ]);
+
+        return Response::success([
+            'items' => array_values(array_map([$this, 'format_review'], is_array($comments) ? $comments : [])),
+            'pagination' => [
+                'page' => $page,
+                'per_page' => $per_page,
+                'total' => $total,
+                'total_pages' => $per_page > 0 ? (int) ceil($total / $per_page) : 1,
+            ],
+        ]);
+    }
+
+    public function questions_index(WP_REST_Request $request)
+    {
+        if (! function_exists('wc_get_product')) {
+            return new WP_Error('herlan_woocommerce_unavailable', __('WooCommerce is not available.', 'herlan-rest-api'), ['status' => 500]);
+        }
+
+        $product_id = absint($request->get_param('id'));
+        $product = wc_get_product($product_id);
+
+        if (! $product instanceof WC_Product || $product->get_status() !== 'publish') {
+            return new WP_Error('herlan_product_not_found', __('Product not found.', 'herlan-rest-api'), ['status' => 404]);
+        }
+
+        $page = max(1, (int) $request->get_param('page'));
+        $per_page = min(50, max(1, (int) $request->get_param('per_page')));
+        $offset = ($page - 1) * $per_page;
+
+        $total = (int) get_comments([
+            'post_id' => $product_id,
+            'type' => 'cr_qna',
+            'status' => 'approve',
+            'parent' => 0,
+            'count' => true,
+        ]);
+
+        $comments = get_comments([
+            'post_id' => $product_id,
+            'type' => 'cr_qna',
+            'status' => 'approve',
+            'parent' => 0,
+            'number' => $per_page,
+            'offset' => $offset,
+            'orderby' => 'comment_date',
+            'order' => 'DESC',
+        ]);
+
+        return Response::success([
+            'items' => array_values(array_map([$this, 'format_question'], is_array($comments) ? $comments : [])),
+            'pagination' => [
+                'page' => $page,
+                'per_page' => $per_page,
+                'total' => $total,
+                'total_pages' => $per_page > 0 ? (int) ceil($total / $per_page) : 1,
+            ],
+        ]);
+    }
+
+    public function create_review(WP_REST_Request $request)
+    {
+        if (! function_exists('wc_get_product')) {
+            return new WP_Error('herlan_woocommerce_unavailable', __('WooCommerce is not available.', 'herlan-rest-api'), ['status' => 500]);
+        }
+
+        $product_id = absint($request->get_param('id'));
+        $product = wc_get_product($product_id);
+
+        if (! $product instanceof WC_Product || $product->get_status() !== 'publish') {
+            return new WP_Error('herlan_product_not_found', __('Product not found.', 'herlan-rest-api'), ['status' => 404]);
+        }
+
+        $user = $this->current_user($request);
+        $rating = (int) $request->get_param('rating');
+        $content = (string) $request->get_param('content');
+
+        $existing = (int) get_comments([
+            'post_id' => $product_id,
+            'user_id' => $user->ID,
+            'type' => 'review',
+            'count' => true,
+        ]);
+
+        if ($existing > 0) {
+            return new WP_Error(
+                'herlan_review_duplicate',
+                __('You have already submitted a review for this product.', 'herlan-rest-api'),
+                ['status' => 409]
+            );
+        }
+
+        $is_manager = user_can($user, 'manage_woocommerce');
+        $is_verified = function_exists('wc_customer_bought_product')
+            && wc_customer_bought_product($user->user_email, $user->ID, $product_id);
+
+        if (! $is_manager && ! $is_verified) {
+            return new WP_Error(
+                'herlan_review_not_purchased',
+                __('Only verified purchasers can submit a review for this product.', 'herlan-rest-api'),
+                ['status' => 403]
+            );
+        }
+
+        $comment_id = wp_insert_comment([
+            'comment_post_ID' => $product_id,
+            'comment_author' => $user->display_name,
+            'comment_author_email' => $user->user_email,
+            'comment_author_url' => '',
+            'comment_content' => $content,
+            'comment_type' => 'review',
+            'comment_parent' => 0,
+            'user_id' => $user->ID,
+            'comment_approved' => 1,
+            'comment_date' => current_time('mysql'),
+            'comment_date_gmt' => current_time('mysql', 1),
+        ]);
+
+        if (! $comment_id) {
+            return new WP_Error('herlan_review_failed', __('Could not submit review.', 'herlan-rest-api'), ['status' => 500]);
+        }
+
+        update_comment_meta($comment_id, 'rating', $rating);
+        update_comment_meta($comment_id, 'verified', (int) $is_verified);
+
+        if (function_exists('herlan_recalculate_product_rating')) {
+            herlan_recalculate_product_rating($product_id);
+        }
+
+        return Response::success([], 201, __('Review submitted successfully.', 'herlan-rest-api'));
+    }
+
+    public function create_question(WP_REST_Request $request)
+    {
+        if (! function_exists('wc_get_product')) {
+            return new WP_Error('herlan_woocommerce_unavailable', __('WooCommerce is not available.', 'herlan-rest-api'), ['status' => 500]);
+        }
+
+        $product_id = absint($request->get_param('id'));
+        $product = wc_get_product($product_id);
+
+        if (! $product instanceof WC_Product || $product->get_status() !== 'publish') {
+            return new WP_Error('herlan_product_not_found', __('Product not found.', 'herlan-rest-api'), ['status' => 404]);
+        }
+
+        $user = $this->current_user($request);
+        $question_text = (string) $request->get_param('question');
+
+        $is_manager = user_can($user, 'manage_woocommerce');
+
+        $comment_id = wp_insert_comment([
+            'comment_post_ID' => $product_id,
+            'comment_author' => $user->display_name,
+            'comment_author_email' => $user->user_email,
+            'comment_author_url' => '',
+            'comment_content' => $question_text,
+            'comment_type' => 'cr_qna',
+            'comment_parent' => 0,
+            'user_id' => $user->ID,
+            'comment_approved' => $is_manager ? 1 : 0,
+            'comment_date' => current_time('mysql'),
+            'comment_date_gmt' => current_time('mysql', 1),
+        ]);
+
+        if (! $comment_id) {
+            return new WP_Error('herlan_question_failed', __('Could not submit question.', 'herlan-rest-api'), ['status' => 500]);
+        }
+
+        $message = $is_manager
+            ? __('Question submitted successfully.', 'herlan-rest-api')
+            : __('Question submitted and pending approval.', 'herlan-rest-api');
+
+        return Response::success([], 201, $message);
+    }
+
     private function format_product(WC_Product $product): array
     {
+        $product_id = $product->get_id();
+
         $data = [
-            'id' => $product->get_id(),
+            'id' => $product_id,
             'name' => $product->get_name(),
             'slug' => $product->get_slug(),
             'type' => $product->get_type(),
@@ -126,17 +408,23 @@ final class ProductController extends Controller
             'purchasable' => $product->is_purchasable(),
             'stock_status' => $product->get_stock_status(),
             'stock_quantity' => $product->get_stock_quantity(),
+            'total_sold' => (int) get_post_meta($product_id, 'total_sales', true),
             'average_rating' => $product->get_average_rating(),
             'rating_count' => $product->get_rating_count(),
-            'categories' => $this->terms($product->get_id(), 'product_cat'),
-            'tags' => $this->terms($product->get_id(), 'product_tag'),
-            'brand' => $this->first_term($product->get_id(), 'brand'),
-            'taxonomies' => $this->product_taxonomies($product->get_id()),
+            'review_count' => $product->get_review_count(),
+            'rating_distribution' => $this->rating_distribution($product_id),
+            'wishlist_count' => $this->wishlist_count($product_id),
+            'categories' => $this->terms($product_id, 'product_cat'),
+            'tags' => $this->terms($product_id, 'product_tag'),
+            'brand' => $this->first_term($product_id, 'brand'),
+            'taxonomies' => $this->product_taxonomies($product_id),
             'attributes' => $this->attributes($product),
             'images' => $this->images($product),
-            'custom_fields' => $this->custom_fields($product->get_id()),
+            'custom_fields' => $this->custom_fields($product_id),
             'linked_products' => $this->linked_products($product),
             'recommendations' => $this->recommendations($product),
+            'reviews' => $this->inline_reviews($product_id),
+            'questions' => $this->inline_questions($product_id),
         ];
 
         if ($product->is_type('variable')) {
@@ -892,5 +1180,155 @@ final class ProductController extends Controller
         $terms = $this->terms($product_id, $taxonomy);
 
         return $terms[0] ?? null;
+    }
+
+    private function rating_distribution(int $product_id): array
+    {
+        $stored = get_post_meta($product_id, '_wc_rating_counts', true);
+        $distribution = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0];
+
+        if (is_array($stored)) {
+            foreach ($stored as $star => $count) {
+                $star = (int) $star;
+                if ($star >= 1 && $star <= 5) {
+                    $distribution[$star] = (int) $count;
+                }
+            }
+        }
+
+        return $distribution;
+    }
+
+    private function wishlist_count(int $product_id): int
+    {
+        if (! class_exists('TInvWL_Wishlist')) {
+            return 0;
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'tinvwl_wishlist_product';
+        $count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(DISTINCT wishlist_id) FROM {$table} WHERE product_id = %d",
+            $product_id
+        ));
+
+        return (int) $count;
+    }
+
+    private function inline_reviews(int $product_id, int $limit = 5): array
+    {
+        $total = (int) get_comments([
+            'post_id' => $product_id,
+            'type' => 'review',
+            'status' => 'approve',
+            'parent' => 0,
+            'count' => true,
+        ]);
+
+        $comments = get_comments([
+            'post_id' => $product_id,
+            'type' => 'review',
+            'status' => 'approve',
+            'parent' => 0,
+            'number' => $limit,
+            'orderby' => 'comment_date',
+            'order' => 'DESC',
+        ]);
+
+        return [
+            'total' => $total,
+            'items' => array_values(array_map([$this, 'format_review'], is_array($comments) ? $comments : [])),
+        ];
+    }
+
+    private function inline_questions(int $product_id, int $limit = 5): array
+    {
+        $total = (int) get_comments([
+            'post_id' => $product_id,
+            'type' => 'cr_qna',
+            'status' => 'approve',
+            'parent' => 0,
+            'count' => true,
+        ]);
+
+        $comments = get_comments([
+            'post_id' => $product_id,
+            'type' => 'cr_qna',
+            'status' => 'approve',
+            'parent' => 0,
+            'number' => $limit,
+            'orderby' => 'comment_date',
+            'order' => 'DESC',
+        ]);
+
+        return [
+            'total' => $total,
+            'items' => array_values(array_map([$this, 'format_question'], is_array($comments) ? $comments : [])),
+        ];
+    }
+
+    private function format_review(WP_Comment $comment): array
+    {
+        $comment_id = (int) $comment->comment_ID;
+        $rating = (int) get_comment_meta($comment_id, 'rating', true);
+        $verified = (bool) get_comment_meta($comment_id, 'verified', true);
+
+        if (! $verified && $comment->user_id && function_exists('wc_customer_bought_product')) {
+            $verified = wc_customer_bought_product(
+                $comment->comment_author_email,
+                (int) $comment->user_id,
+                (int) $comment->comment_post_ID
+            );
+        }
+
+        return [
+            'id' => $comment_id,
+            'author' => $comment->comment_author,
+            'author_id' => (int) $comment->user_id ?: null,
+            'rating' => $rating,
+            'content' => $comment->comment_content,
+            'date' => $comment->comment_date,
+            'verified_purchase' => (bool) $verified,
+        ];
+    }
+
+    private function format_question(WP_Comment $question): array
+    {
+        $answers_raw = get_comments([
+            'parent' => $question->comment_ID,
+            'type' => 'cr_qna',
+            'status' => 'approve',
+            'orderby' => 'comment_date',
+            'order' => 'ASC',
+        ]);
+
+        $answers = [];
+
+        foreach ($answers_raw as $answer) {
+            $author_type = 0;
+
+            if ($answer->user_id && user_can((int) $answer->user_id, 'manage_woocommerce')) {
+                $author_type = 1;
+            }
+
+            $answers[] = [
+                'id' => (int) $answer->comment_ID,
+                'author' => $answer->comment_author,
+                'author_id' => (int) $answer->user_id ?: null,
+                'author_type' => $author_type,
+                'content' => $answer->comment_content,
+                'date' => $answer->comment_date,
+            ];
+        }
+
+        return [
+            'id' => (int) $question->comment_ID,
+            'author' => $question->comment_author,
+            'author_id' => (int) $question->user_id ?: null,
+            'question' => $question->comment_content,
+            'date' => $question->comment_date,
+            'answer_count' => count($answers),
+            'answers' => $answers,
+        ];
     }
 }

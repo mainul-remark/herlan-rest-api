@@ -506,17 +506,19 @@ final class CartController extends Controller
             }
 
             $items[] = [
-                'key'          => $key,
-                'product_id'   => (int) $item['product_id'],
-                'variation_id' => (int) ($item['variation_id'] ?? 0),
-                'name'         => $product ? wp_strip_all_tags($product->get_name()) : '',
-                'sku'          => $product ? $product->get_sku() : '',
-                'quantity'     => (int) $item['quantity'],
-                'price'        => $is_free_gift ? '0.00' : ($product ? wc_format_decimal(wc_get_price_to_display($product), 2) : '0.00'),
-                'subtotal'     => $is_free_gift ? '0.00' : wc_format_decimal($item['line_subtotal'] ?? 0, 2),
-                'image'        => $image,
-                'is_free_gift' => $is_free_gift,
-                'is_editable'  => $this->item_is_editable($item),
+                'key'                    => $key,
+                'product_id'             => (int) $item['product_id'],
+                'variation_id'           => (int) ($item['variation_id'] ?? 0),
+                'name'                   => $product ? wp_strip_all_tags($product->get_name()) : '',
+                'sku'                    => $product ? $product->get_sku() : '',
+                'quantity'               => (int) $item['quantity'],
+                'price'                  => $is_free_gift ? '0.00' : ($product ? wc_format_decimal(wc_get_price_to_display($product), 2) : '0.00'),
+                'subtotal'               => $is_free_gift ? '0.00' : wc_format_decimal($item['line_subtotal'] ?? 0, 2),
+                'image'                  => $image,
+                'is_free_gift'           => $is_free_gift,
+                'is_editable'            => $this->item_is_editable($item),
+                'selected_color'         => $this->get_item_color_swatch($item),
+                'selected_attribute_name' => $this->get_item_attribute_name($item),
             ];
         }
 
@@ -1042,5 +1044,276 @@ final class CartController extends Controller
         }
 
         return $result;
+    }
+
+    /* ── Color swatch helpers (mirrors selective-checkout-plugin logic) ── */
+
+    private function get_item_color_swatch(array $item): ?string
+    {
+        $variation = isset($item['variation']) && is_array($item['variation']) ? $item['variation'] : [];
+
+        // WC variable products: read directly from the stored variation attributes.
+        $color = $this->color_from_variation_attrs($variation, true);
+        if ($color !== '') {
+            return $color;
+        }
+
+        $color = $this->color_from_variation_attrs($variation, false);
+        if ($color !== '') {
+            return $color;
+        }
+
+        // WPClv simple products: use the linked-data attribute list to find the exact
+        // attribute rather than guessing from attribute name keywords.
+        if (class_exists('WPCleverWpclv')) {
+            $source    = wc_get_product((int) $item['product_id']);
+            $link_data = $source instanceof WC_Product ? \WPCleverWpclv::get_linked_data($source, 'cart') : [];
+
+            foreach ((array) ($link_data['attributes'] ?? []) as $link_attribute) {
+                $attribute_id = (int) filter_var((string) $link_attribute, FILTER_SANITIZE_NUMBER_INT);
+                $attribute    = $attribute_id ? wc_get_attribute($attribute_id) : null;
+
+                if (! $attribute) {
+                    continue;
+                }
+
+                $terms = wc_get_product_terms((int) $item['product_id'], $attribute->slug);
+                if (empty($terms) || is_wp_error($terms)) {
+                    continue;
+                }
+
+                $term  = reset($terms);
+                $color = $term instanceof \WP_Term ? (string) get_term_meta($term->term_id, 'wpcvs_color', true) : '';
+                if ($color !== '') {
+                    return $color;
+                }
+            }
+        }
+
+        // Generic fallback: scan product terms by attribute name keywords.
+        $source = $this->item_source_product($item);
+        if ($source instanceof WC_Product) {
+            $color = $this->color_from_product_terms($source, true);
+            if ($color !== '') {
+                return $color;
+            }
+
+            $color = $this->color_from_product_terms($source, false);
+            if ($color !== '') {
+                return $color;
+            }
+        }
+
+        return null;
+    }
+
+    private function get_item_attribute_name(array $item): ?string
+    {
+        $variation = isset($item['variation']) && is_array($item['variation']) ? $item['variation'] : [];
+
+        // For WooCommerce variations: resolve from the selected variation attribute.
+        foreach ($variation as $attr_key => $attr_value) {
+            $attr_key   = (string) $attr_key;
+            $attr_value = (string) $attr_value;
+
+            if (
+                stripos($attr_key, 'color') === false
+                && stripos($attr_key, 'colour') === false
+                && stripos($attr_key, 'shade') === false
+            ) {
+                continue;
+            }
+
+            $taxonomy = preg_replace('/^attribute_/', '', $attr_key);
+            if (! taxonomy_exists($taxonomy)) {
+                continue;
+            }
+
+            $term = get_term_by('slug', $attr_value, $taxonomy)
+                ?: get_term_by('name', $attr_value, $taxonomy);
+
+            if ($term instanceof \WP_Term) {
+                return $this->normalize_term_name($term->name);
+            }
+        }
+
+        // WPClv simple products: use the linked-data attribute list to find the exact attribute.
+        if (class_exists('WPCleverWpclv')) {
+            $source    = wc_get_product((int) $item['product_id']);
+            $link_data = $source instanceof WC_Product ? \WPCleverWpclv::get_linked_data($source, 'cart') : [];
+
+            foreach ((array) ($link_data['attributes'] ?? []) as $link_attribute) {
+                $attribute_id = (int) filter_var((string) $link_attribute, FILTER_SANITIZE_NUMBER_INT);
+                $attribute    = $attribute_id ? wc_get_attribute($attribute_id) : null;
+
+                if (! $attribute) {
+                    continue;
+                }
+
+                $terms = wc_get_product_terms((int) $item['product_id'], $attribute->slug);
+                if (empty($terms) || is_wp_error($terms)) {
+                    continue;
+                }
+
+                $term = reset($terms);
+                if ($term instanceof \WP_Term) {
+                    return $this->normalize_term_name($term->name);
+                }
+            }
+        }
+
+        // Generic fallback for WPClv or other simple products: scan attribute name keywords.
+        $source = $this->item_source_product($item);
+        if (! $source instanceof WC_Product) {
+            return null;
+        }
+
+        foreach ($source->get_attributes() as $attribute) {
+            if (! $attribute instanceof \WC_Product_Attribute || ! $attribute->is_taxonomy()) {
+                continue;
+            }
+
+            $taxonomy = $attribute->get_name();
+            if (
+                stripos($taxonomy, 'color') === false
+                && stripos($taxonomy, 'colour') === false
+                && stripos($taxonomy, 'shade') === false
+            ) {
+                continue;
+            }
+
+            $terms = wc_get_product_terms($source->get_id(), $taxonomy);
+            if (empty($terms) || is_wp_error($terms)) {
+                continue;
+            }
+
+            $term = reset($terms);
+            if ($term instanceof \WP_Term) {
+                return $this->normalize_term_name($term->name);
+            }
+        }
+
+        return null;
+    }
+
+    private function color_from_variation_attrs(array $variation, bool $color_named_only): string
+    {
+        foreach ($variation as $attr_key => $attr_value) {
+            $attr_key   = (string) $attr_key;
+            $attr_value = (string) $attr_value;
+
+            $is_color_named = stripos($attr_key, 'color') !== false || stripos($attr_key, 'colour') !== false;
+            if ($color_named_only && ! $is_color_named) {
+                continue;
+            }
+
+            $taxonomy = preg_replace('/^attribute_/', '', $attr_key);
+            if (! taxonomy_exists($taxonomy)) {
+                continue;
+            }
+
+            $term = get_term_by('slug', $attr_value, $taxonomy)
+                ?: get_term_by('name', $attr_value, $taxonomy);
+
+            if (! $term instanceof \WP_Term) {
+                continue;
+            }
+
+            $color = (string) get_term_meta($term->term_id, 'wpcvs_color', true);
+            if ($color !== '') {
+                return $color;
+            }
+        }
+
+        return '';
+    }
+
+    private function color_from_product_terms(WC_Product $product, bool $color_named_only): string
+    {
+        foreach ($product->get_attributes() as $attribute) {
+            if (! $attribute instanceof \WC_Product_Attribute || ! $attribute->is_taxonomy()) {
+                continue;
+            }
+
+            $taxonomy       = $attribute->get_name();
+            $is_color_named = stripos($taxonomy, 'color') !== false
+                || stripos($taxonomy, 'colour') !== false
+                || stripos($taxonomy, 'shade') !== false;
+
+            if ($color_named_only && ! $is_color_named) {
+                continue;
+            }
+
+            $terms = wc_get_product_terms($product->get_id(), $taxonomy);
+            if (empty($terms) || is_wp_error($terms)) {
+                continue;
+            }
+
+            $term = reset($terms);
+            if (! $term instanceof \WP_Term) {
+                continue;
+            }
+
+            $color = (string) get_term_meta($term->term_id, 'wpcvs_color', true);
+            if ($color !== '') {
+                return $color;
+            }
+        }
+
+        return '';
+    }
+
+    private function item_source_product(array $item): ?WC_Product
+    {
+        if ($item['data'] instanceof WC_Product) {
+            $product = $item['data'];
+            if ($product->get_type() === 'variation') {
+                $parent = wc_get_product($product->get_parent_id());
+                if ($parent instanceof WC_Product) {
+                    return $parent;
+                }
+            }
+            return $product;
+        }
+
+        // Fallback: load directly. For WC variable products product_id is the parent;
+        // for WPClv simple products it is the product itself.
+        $product = wc_get_product((int) $item['product_id']);
+        return $product instanceof WC_Product ? $product : null;
+    }
+
+    private function normalize_color(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        if (preg_match('/^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i', $value)) {
+            return $value;
+        }
+        if (preg_match('/^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}(?:\s*,\s*(?:0|1|0?\.\d+))?\s*\)$/i', $value)) {
+            return $value;
+        }
+        if (preg_match('/^hsla?\(\s*\d{1,3}(?:deg)?\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%(?:\s*,\s*(?:0|1|0?\.\d+))?\s*\)$/i', $value)) {
+            return $value;
+        }
+
+        return '';
+    }
+
+    private function normalize_term_name(string $name): string
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return '';
+        }
+
+        $parts = preg_split('/\s+-\s+/', $name);
+        if (is_array($parts) && count($parts) > 1) {
+            return trim((string) end($parts));
+        }
+
+        return $name;
     }
 }

@@ -66,6 +66,10 @@
 <a class="level-3" href="#post-auth-register">POST /auth/register</a>
 <a class="level-3" href="#get-products-filters">GET /products/filters</a>
 <a class="level-3" href="#get-products-id">GET /products/{id}</a>
+<a class="level-3" href="#get-products-id-reviews">GET /products/{id}/reviews</a>
+<a class="level-3" href="#post-products-id-reviews">POST /products/{id}/reviews</a>
+<a class="level-3" href="#get-products-id-questions">GET /products/{id}/questions</a>
+<a class="level-3" href="#post-products-id-questions">POST /products/{id}/questions</a>
 <a class="level-3" href="#get-drawer-brands-categories">GET /drawer-brands-categories</a>
 <a class="level-3" href="#get-taxonomies">GET /taxonomies</a>
 <a href="#search-api">Search API</a>
@@ -1832,14 +1836,44 @@ GET /group/products
 <td>Stock quantity</td>
 </tr>
 <tr>
+<td><code>total_sold</code></td>
+<td>integer</td>
+<td>Total units sold (WooCommerce <code>total_sales</code> meta)</td>
+</tr>
+<tr>
 <td><code>average_rating</code></td>
 <td>string</td>
-<td>Average rating</td>
+<td>Average rating decimal string e.g. <code>"4.5"</code></td>
 </tr>
 <tr>
 <td><code>rating_count</code></td>
 <td>integer</td>
-<td>Rating count</td>
+<td>Number of ratings</td>
+</tr>
+<tr>
+<td><code>review_count</code></td>
+<td>integer</td>
+<td>Number of approved text reviews</td>
+</tr>
+<tr>
+<td><code>rating_distribution</code></td>
+<td>object</td>
+<td>Per-star counts e.g. <code>{"1":0,"2":1,"3":4,"4":12,"5":30}</code></td>
+</tr>
+<tr>
+<td><code>wishlist_count</code></td>
+<td>integer</td>
+<td>Number of wishlists containing this product</td>
+</tr>
+<tr>
+<td><code>reviews</code></td>
+<td>object</td>
+<td>Inline preview — <code>{total, items[]}</code> with 5 most-recent approved reviews</td>
+</tr>
+<tr>
+<td><code>questions</code></td>
+<td>object</td>
+<td>Inline preview — <code>{total, items[]}</code> with 5 most-recent approved Q&amp;A questions</td>
 </tr>
 <tr>
 <td><code>categories</code></td>
@@ -1905,6 +1939,203 @@ GET /group/products
 <li><code>404 herlan_product_not_found</code></li>
 <li><code>500 herlan_woocommerce_unavailable</code></li>
 </ul>
+<h3 id="get-products-id-reviews"><code>GET /products/{id}/reviews</code></h3>
+<p>Returns a paginated list of approved customer reviews for the product. Public — no auth required.</p>
+<h4>Query parameters</h4>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>page</code></td><td>integer</td><td><code>1</code></td><td>Page number</td></tr>
+<tr><td><code>per_page</code></td><td>integer</td><td><code>10</code></td><td>Reviews per page (max <code>50</code>)</td></tr>
+</tbody>
+</table>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "items": [
+      {
+        "id": 501,
+        "author": "Rina Akter",
+        "author_id": 42,
+        "rating": 5,
+        "content": "Loved the product! Skin feels amazing.",
+        "date": "2026-05-10 14:23:00",
+        "verified_purchase": true
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "per_page": 10,
+      "total": 47,
+      "total_pages": 5
+    }
+  }
+}</code></pre>
+<h4>Review item fields</h4>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>integer</td><td>WordPress comment ID</td></tr>
+<tr><td><code>author</code></td><td>string</td><td>Reviewer display name</td></tr>
+<tr><td><code>author_id</code></td><td>integer|null</td><td>WordPress user ID, <code>null</code> for guests</td></tr>
+<tr><td><code>rating</code></td><td>integer</td><td>Star rating 1–5</td></tr>
+<tr><td><code>content</code></td><td>string</td><td>Review text</td></tr>
+<tr><td><code>date</code></td><td>string</td><td>Submission date (<code>Y-m-d H:i:s</code>)</td></tr>
+<tr><td><code>verified_purchase</code></td><td>boolean</td><td><code>true</code> if reviewer has purchased this product</td></tr>
+</tbody>
+</table>
+<h4>Errors</h4>
+<ul>
+<li><code>404 herlan_product_not_found</code></li>
+<li><code>500 herlan_woocommerce_unavailable</code></li>
+</ul>
+<h4>Example</h4>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/products/1234/reviews?page=1&amp;per_page=10"</code></pre>
+<hr />
+<h3 id="post-products-id-reviews"><code>POST /products/{id}/reviews</code></h3>
+<p>Submits a new review for the product. <strong>Requires a Bearer token.</strong> The reviewer must be a verified purchaser (or shop manager). One review per user per product is allowed.</p>
+<h4>Request body</h4>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>rating</code></td><td>integer</td><td><strong>Yes</strong></td><td>Star rating — must be <code>1</code> to <code>5</code></td></tr>
+<tr><td><code>content</code></td><td>string</td><td><strong>Yes</strong></td><td>Review text</td></tr>
+</tbody>
+</table>
+<h4>Example</h4>
+<pre><code class="language-bash">curl -X POST "https://herlan.com/wp-json/herlan/v1/products/1234/reviews" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 5, "content": "Excellent product, highly recommended!"}'</code></pre>
+<h4>Success response (<code>201</code>)</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "Review submitted successfully.",
+  "data": []
+}</code></pre>
+<h4>Error codes</h4>
+<table>
+<thead><tr><th>Code</th><th>HTTP</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>herlan_product_not_found</code></td><td>404</td><td>Product does not exist or is not published</td></tr>
+<tr><td><code>herlan_review_duplicate</code></td><td>409</td><td>User has already submitted a review for this product</td></tr>
+<tr><td><code>herlan_review_not_purchased</code></td><td>403</td><td>User has not purchased this product</td></tr>
+<tr><td><code>herlan_review_failed</code></td><td>500</td><td>Could not save the review</td></tr>
+<tr><td><code>herlan_missing_token</code></td><td>401</td><td>No Bearer token provided</td></tr>
+<tr><td><code>herlan_invalid_token</code></td><td>401</td><td>Token is invalid or expired</td></tr>
+</tbody>
+</table>
+<hr />
+<h3 id="get-products-id-questions"><code>GET /products/{id}/questions</code></h3>
+<p>Returns a paginated list of approved Q&amp;A questions for the product, each with their approved answers. Public — no auth required. Powered by the <code>customer-reviews-woocommerce</code> plugin (<code>cr_qna</code> comment type).</p>
+<h4>Query parameters</h4>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>page</code></td><td>integer</td><td><code>1</code></td><td>Page number</td></tr>
+<tr><td><code>per_page</code></td><td>integer</td><td><code>10</code></td><td>Questions per page (max <code>50</code>)</td></tr>
+</tbody>
+</table>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "items": [
+      {
+        "id": 602,
+        "author": "Rahim Uddin",
+        "author_id": 55,
+        "question": "Is this product suitable for oily skin?",
+        "date": "2026-04-18 10:05:00",
+        "answer_count": 1,
+        "answers": [
+          {
+            "id": 603,
+            "author": "Herlan Support",
+            "author_id": 1,
+            "author_type": 1,
+            "content": "Yes, it works great for oily skin types.",
+            "date": "2026-04-19 08:30:00"
+          }
+        ]
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "per_page": 10,
+      "total": 12,
+      "total_pages": 2
+    }
+  }
+}</code></pre>
+<h4>Question item fields</h4>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>integer</td><td>WordPress comment ID</td></tr>
+<tr><td><code>author</code></td><td>string</td><td>Questioner display name</td></tr>
+<tr><td><code>author_id</code></td><td>integer|null</td><td>WordPress user ID</td></tr>
+<tr><td><code>question</code></td><td>string</td><td>Question text</td></tr>
+<tr><td><code>date</code></td><td>string</td><td>Submission date</td></tr>
+<tr><td><code>answer_count</code></td><td>integer</td><td>Number of approved answers</td></tr>
+<tr><td><code>answers</code></td><td>array</td><td>Approved answers for this question</td></tr>
+</tbody>
+</table>
+<h4>Answer item fields</h4>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>integer</td><td>WordPress comment ID</td></tr>
+<tr><td><code>author</code></td><td>string</td><td>Answerer display name</td></tr>
+<tr><td><code>author_id</code></td><td>integer|null</td><td>WordPress user ID</td></tr>
+<tr><td><code>author_type</code></td><td>integer</td><td><code>0</code> = customer, <code>1</code> = store staff (shop manager or admin)</td></tr>
+<tr><td><code>content</code></td><td>string</td><td>Answer text</td></tr>
+<tr><td><code>date</code></td><td>string</td><td>Submission date</td></tr>
+</tbody>
+</table>
+<h4>Errors</h4>
+<ul>
+<li><code>404 herlan_product_not_found</code></li>
+<li><code>500 herlan_woocommerce_unavailable</code></li>
+</ul>
+<h4>Example</h4>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/products/1234/questions?page=1&amp;per_page=10"</code></pre>
+<hr />
+<h3 id="post-products-id-questions"><code>POST /products/{id}/questions</code></h3>
+<p>Submits a new question for the product. <strong>Requires a Bearer token.</strong> Questions from regular users are held for admin approval before appearing publicly. Questions from shop managers are auto-approved.</p>
+<h4>Request body</h4>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>question</code></td><td>string</td><td><strong>Yes</strong></td><td>The question text</td></tr>
+</tbody>
+</table>
+<h4>Example</h4>
+<pre><code class="language-bash">curl -X POST "https://herlan.com/wp-json/herlan/v1/products/1234/questions" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Does this come in a travel size?"}'</code></pre>
+<h4>Success response (<code>201</code>)</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "Question submitted and pending approval.",
+  "data": []
+}</code></pre>
+<p>Shop managers receive <code>"Question submitted successfully."</code> and the question is immediately visible.</p>
+<h4>Error codes</h4>
+<table>
+<thead><tr><th>Code</th><th>HTTP</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>herlan_product_not_found</code></td><td>404</td><td>Product does not exist or is not published</td></tr>
+<tr><td><code>herlan_question_failed</code></td><td>500</td><td>Could not save the question</td></tr>
+<tr><td><code>herlan_missing_token</code></td><td>401</td><td>No Bearer token provided</td></tr>
+<tr><td><code>herlan_invalid_token</code></td><td>401</td><td>Token is invalid or expired</td></tr>
+</tbody>
+</table>
+<hr />
 <h3 id="get-drawer-brands-categories"><code>GET /drawer-brands-categories</code></h3>
 <p>Returns product categories and brands for app navigation.</p>
 <p>Query parameters:</p>
@@ -3821,11 +4052,13 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
           "name": "BOS Mystique Island Body Mist 150 ml",
           "sku": "1400001233",
           "quantity": 1,
-          "price": "450.00",
-          "subtotal": "450.00",
+          "price": "998.00",
+          "subtotal": "998.00",
           "image": "https://your-domain.com/wp-content/uploads/.../thumbnail.jpg",
           "is_free_gift": false,
-          "is_editable": true
+          "is_editable": true,
+          "selected_color": null,
+          "selected_attribute_name": "Mystique Island"
         }
       ],
       "item_count": 1,
@@ -3898,7 +4131,17 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 <tr>
 <td><code>is_editable</code></td>
 <td>boolean</td>
-<td><code>true</code> when the item has selectable variants: either WPClever WPCLV linked products (e.g. colour swatches) or WooCommerce variation attributes. Show an edit button only when this is <code>true</code>, then call <code>GET /cart/item-editor/{key}</code> to load the editor data.</td>
+<td><code>true</code> when the item has selectable variants: either WPClever WPClv linked products (e.g. scent or colour swatches) or WooCommerce variable product attributes. Show an edit/swap button only when this is <code>true</code>, then call <code>GET /cart/item-editor/{key}</code> to load the editor data.</td>
+</tr>
+<tr>
+<td><code>selected_color</code></td>
+<td>string|null</td>
+<td>CSS color value of the currently selected swatch (e.g. <code>"#c0392b"</code>, <code>"rgba(192,57,43,1)"</code>). Sourced from the <code>wpcvs_color</code> term meta set in WPC Variation Swatches. For WPClv products the lookup uses the WPClv-configured attribute; for WooCommerce variable products it uses the selected variation attribute. <code>null</code> when the variant uses an image swatch instead of a color dot, or when no swatch color meta is configured.</td>
+</tr>
+<tr>
+<td><code>selected_attribute_name</code></td>
+<td>string|null</td>
+<td>Human-readable label of the selected variant term (e.g. <code>"Mystique Island"</code>, <code>"Red"</code>, <code>"Vintage Vibes"</code>). For WPClv linked products this is resolved from the WPClv-configured attribute (any attribute type, not limited to colour-named ones). For WooCommerce variable products it comes from the selected colour/shade-named variation attribute. Strips a leading <code> - </code> segment when present (e.g. <code>"Merah - Red"</code> → <code>"Red"</code>). <code>null</code> only when no attribute term can be resolved.</td>
 </tr>
 </tbody>
 </table>
@@ -4821,7 +5064,31 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 <td><code>GET</code></td>
 <td><code>/products/{id}</code></td>
 <td>No</td>
-<td>Product detail</td>
+<td>Product detail — includes inline reviews &amp; questions preview</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/products/{id}/reviews</code></td>
+<td>No</td>
+<td>Paginated product reviews</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/products/{id}/reviews</code></td>
+<td>Yes</td>
+<td>Submit a product review (verified purchasers only)</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/products/{id}/questions</code></td>
+<td>No</td>
+<td>Paginated product Q&amp;A questions with answers</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/products/{id}/questions</code></td>
+<td>Yes</td>
+<td>Submit a product question (pending approval)</td>
 </tr>
 <tr>
 <td><code>GET</code></td>
