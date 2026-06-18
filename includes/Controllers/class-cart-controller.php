@@ -78,6 +78,21 @@ final class CartController extends Controller
             ],
         ]);
 
+        register_rest_route($this->namespace, '/cart/apply-coupon', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'apply_coupon'],
+            'permission_callback' => '__return_true',
+            'args'                => [
+                'coupon_code' => ['required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field'],
+            ],
+        ]);
+
+        register_rest_route($this->namespace, '/cart/remove-coupon/(?P<code>[^/]+)', [
+            'methods'             => WP_REST_Server::DELETABLE,
+            'callback'            => [$this, 'remove_coupon'],
+            'permission_callback' => '__return_true',
+        ]);
+
         register_rest_route($this->namespace, '/cart/herlan-cash/toggle', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [$this, 'toggle_herlan_cash'],
@@ -215,6 +230,67 @@ final class CartController extends Controller
             ['cart' => $this->format_cart()],
             200,
             __('Cart cleared.', 'herlan-rest-api')
+        );
+    }
+
+    public function apply_coupon(WP_REST_Request $request)
+    {
+        $boot = $this->boot_cart();
+        if (is_wp_error($boot)) {
+            return $boot;
+        }
+
+        $code = wc_format_coupon_code((string) $request->get_param('coupon_code'));
+
+        if ($code === '') {
+            return new WP_Error('herlan_coupon_code_missing', __('Please enter a coupon code.', 'herlan-rest-api'), ['status' => 422]);
+        }
+
+        if (WC()->cart->has_discount($code)) {
+            return new WP_Error('herlan_coupon_already_applied', __('This coupon is already applied.', 'herlan-rest-api'), ['status' => 422]);
+        }
+
+        wc_clear_notices();
+        $applied = WC()->cart->apply_coupon($code);
+
+        if (! $applied) {
+            $notices = wc_get_notices('error');
+            $message = ! empty($notices)
+                ? wp_strip_all_tags($notices[0]['notice'])
+                : __('This coupon code is not valid.', 'herlan-rest-api');
+            wc_clear_notices();
+
+            return new WP_Error('herlan_coupon_invalid', $message, ['status' => 422]);
+        }
+
+        wc_clear_notices();
+
+        return Response::success(
+            ['cart' => $this->format_cart()],
+            200,
+            __('Coupon applied.', 'herlan-rest-api')
+        );
+    }
+
+    public function remove_coupon(WP_REST_Request $request)
+    {
+        $boot = $this->boot_cart();
+        if (is_wp_error($boot)) {
+            return $boot;
+        }
+
+        $code = wc_format_coupon_code((string) $request->get_param('code'));
+
+        if (! WC()->cart->has_discount($code)) {
+            return new WP_Error('herlan_coupon_not_applied', __('This coupon is not applied to your cart.', 'herlan-rest-api'), ['status' => 404]);
+        }
+
+        WC()->cart->remove_coupon($code);
+
+        return Response::success(
+            ['cart' => $this->format_cart()],
+            200,
+            __('Coupon removed.', 'herlan-rest-api')
         );
     }
 
@@ -533,7 +609,25 @@ final class CartController extends Controller
             'bogo'          => $this->get_bogo_info($cart),
             'free_shipping' => $this->get_free_shipping_info($cart),
             'herlan_cash'   => $this->get_herlan_cash_info($cart),
+            'coupons'       => $this->get_applied_coupons($cart),
         ];
+    }
+
+    private function get_applied_coupons($cart): array
+    {
+        $coupons = [];
+
+        foreach ($cart->get_applied_coupons() as $code) {
+            $coupon = new \WC_Coupon($code);
+
+            $coupons[] = [
+                'code'          => $code,
+                'discount'      => wc_format_decimal($cart->get_coupon_discount_amount($code), 2),
+                'free_shipping' => $coupon->get_free_shipping(),
+            ];
+        }
+
+        return $coupons;
     }
 
     private function get_bogo_info($cart): array

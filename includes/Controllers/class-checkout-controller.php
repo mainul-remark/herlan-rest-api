@@ -29,6 +29,12 @@ final class CheckoutController extends Controller
             'callback'            => [$this, 'payment_methods'],
             'permission_callback' => [$this, 'can_access'],
         ]);
+
+        register_rest_route($this->namespace, '/checkout', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [$this, 'checkout_summary'],
+            'permission_callback' => '__return_true',
+        ]);
     }
 
     /* ── Callbacks ─────────────────────────────────────────────────── */
@@ -40,18 +46,20 @@ final class CheckoutController extends Controller
             return $boot;
         }
 
-        $gateways = WC()->payment_gateways()->get_available_payment_gateways();
-        $methods  = [];
+        return Response::success(['payment_methods' => $this->get_payment_methods()]);
+    }
 
-        foreach ($gateways as $id => $gateway) {
-            $methods[] = [
-                'id'          => $id,
-                'title'       => wp_strip_all_tags($gateway->get_title()),
-                'description' => wp_strip_all_tags($gateway->get_description()),
-            ];
+    public function checkout_summary(WP_REST_Request $request)
+    {
+        $boot = $this->boot_cart();
+        if (is_wp_error($boot)) {
+            return $boot;
         }
 
-        return Response::success(['payment_methods' => $methods]);
+        return Response::success([
+            'payment_methods'  => $this->get_payment_methods(),
+            'shipping_methods' => $this->get_shipping_methods(),
+        ]);
     }
 
     public function place_order(WP_REST_Request $request)
@@ -301,6 +309,46 @@ final class CheckoutController extends Controller
             'payment_method'            => $payment_method,
             'order_comments'            => $customer_note,
         ];
+    }
+
+    private function get_payment_methods(): array
+    {
+        $gateways = WC()->payment_gateways()->get_available_payment_gateways();
+        $methods  = [];
+
+        foreach ($gateways as $id => $gateway) {
+            $methods[] = [
+                'id'          => $id,
+                'title'       => wp_strip_all_tags($gateway->get_title()),
+                'description' => wp_strip_all_tags($gateway->get_description()),
+            ];
+        }
+
+        return $methods;
+    }
+
+    private function get_shipping_methods(): array
+    {
+        $cart = WC()->cart;
+        $cart->calculate_shipping();
+
+        $chosen  = (array) WC()->session->get('chosen_shipping_methods', []);
+        $methods = [];
+
+        foreach (WC()->shipping()->get_packages() as $package) {
+            foreach ($package['rates'] ?? [] as $rate_id => $rate) {
+                $methods[] = [
+                    'id'           => $rate_id,
+                    'method_id'    => $rate->get_method_id(),
+                    'instance_id'  => $rate->get_instance_id(),
+                    'title'        => wp_strip_all_tags($rate->get_label()),
+                    'cost'         => wc_format_decimal($rate->get_cost(), 2),
+                    'is_selected'  => in_array($rate_id, $chosen, true),
+                ];
+            }
+        }
+
+        return $methods;
     }
 
     /**

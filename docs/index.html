@@ -105,8 +105,11 @@
 <a class="level-3" href="#post-cart-herlan-cash-set-amount">POST /cart/herlan-cash/set-amount</a>
 <a class="level-3" href="#get-cart-item-editor">GET /cart/item-editor/{cart_item_key}</a>
 <a class="level-3" href="#post-cart-replace-item">POST /cart/replace-item</a>
+<a class="level-3" href="#post-cart-apply-coupon">POST /cart/apply-coupon</a>
+<a class="level-3" href="#delete-cart-remove-coupon-code">DELETE /cart/remove-coupon/{code}</a>
 <a class="level-3" href="#cart-api-calling-order">Cart API calling order</a>
 <a href="#checkout-endpoints">Checkout endpoints</a>
+<a class="level-3" href="#get-checkout">GET /checkout</a>
 <a class="level-3" href="#get-checkout-payment-methods">GET /checkout/payment-methods</a>
 <a class="level-3" href="#post-checkout">POST /checkout</a>
 <a class="level-3" href="#get-payments-methods">GET /payments/methods</a>
@@ -4064,10 +4067,32 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
       "item_count": 1,
       "subtotal": "450.00",
       "total": "450.00",
-      "currency": "BDT"
+      "currency": "BDT",
+      "coupons": [
+        {
+          "code": "save10",
+          "discount": "45.00",
+          "free_shipping": false
+        }
+      ]
     }
   }
 }</code></pre>
+<p><code>cart.coupons[]</code> &mdash; coupons currently applied to the cart via <code>POST /cart/apply-coupon</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>code</code></td><td>string</td><td>Coupon code, lowercased/formatted by WooCommerce</td></tr>
+<tr><td><code>discount</code></td><td>string</td><td>Discount amount this coupon contributes (decimal string)</td></tr>
+<tr><td><code>free_shipping</code></td><td>boolean</td><td><code>true</code> if this coupon grants free shipping</td></tr>
+</tbody>
+</table>
 <p><code>cart.items[]</code> fields:</p>
 <table>
 <thead>
@@ -4654,6 +4679,49 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 </tbody>
 </table>
 <hr />
+<h3 id="post-cart-apply-coupon"><code>POST /cart/apply-coupon</code></h3>
+<p>Applies a coupon code to the current cart. No Bearer token required &mdash; works for guest carts, same as the other <code>/cart/*</code> endpoints.</p>
+<p>Request body:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>coupon_code</code></td><td>string</td><td>Yes</td><td>The coupon code to apply</td></tr>
+</tbody>
+</table>
+<p>Example:</p>
+<pre><code class="language-bash">curl -X POST "https://your-domain.com/wp-json/herlan/v1/cart/apply-coupon" \
+  -H "Content-Type: application/json" \
+  -d '{"coupon_code": "SAVE10"}'</code></pre>
+<p>Success response (<code>200</code>) &mdash; returns the updated cart, including the new entry in <code>cart.coupons[]</code>:</p>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "Coupon applied.",
+  "data": { "cart": { "...": "...", "coupons": [{ "code": "save10", "discount": "45.00", "free_shipping": false }] } }
+}</code></pre>
+<p>Errors:</p>
+<ul>
+<li><code>422 herlan_coupon_code_missing</code> &mdash; <code>coupon_code</code> was empty</li>
+<li><code>422 herlan_coupon_already_applied</code> &mdash; this coupon is already applied to the cart</li>
+<li><code>422 herlan_coupon_invalid</code> &mdash; WooCommerce rejected the code (not found, expired, minimum spend not met, usage limit reached, etc. &mdash; includes WC's own error message)</li>
+</ul>
+<hr />
+<h3 id="delete-cart-remove-coupon-code"><code>DELETE /cart/remove-coupon/{code}</code></h3>
+<p>Removes a previously applied coupon from the cart. No Bearer token required.</p>
+<p>Example:</p>
+<pre><code class="language-bash">curl -X DELETE "https://your-domain.com/wp-json/herlan/v1/cart/remove-coupon/SAVE10"</code></pre>
+<p>Success response (<code>200</code>) &mdash; returns the updated cart with the coupon removed from <code>cart.coupons[]</code>.</p>
+<p>Errors:</p>
+<ul>
+<li><code>404 herlan_coupon_not_applied</code> &mdash; this coupon is not currently applied to the cart</li>
+</ul>
+<hr />
 <h3 id="cart-api-calling-order">Cart API calling order</h3>
 <p>The table below shows the recommended call sequence for the full cart editing flow on mobile.</p>
 <table>
@@ -4707,8 +4775,70 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 <p><strong>Important:</strong> After a successful <code>POST /cart/replace-item</code>, the old <code>cart_item_key</code> is no longer valid. Always use the <code>cart_item_key</code> returned in the response data for subsequent operations on that item.</p>
 <hr />
 <h2 id="checkout-endpoints">Checkout endpoints</h2>
-<p>All checkout endpoints require a Bearer token. The cart must already be populated (items, coupons, Herlan Cash, etc.) before calling <code>POST /checkout</code>.</p>
+<p><code>POST /checkout</code> (placing the order) requires a Bearer token. The cart must already be populated (items, coupons, Herlan Cash, etc.) before calling it.</p>
 <p>Plugin discounts &mdash; Woo Discount Rules, Smart Coupons Pro, BOGO free gifts, Herlan Cash redemption, and Easy Product Bundles &mdash; are all applied automatically from the cart when the order is created. Nothing extra is needed from the mobile side.</p>
+<hr />
+<h3 id="get-checkout"><code>GET /checkout</code></h3>
+<p>Returns everything the checkout screen needs in one call: available payment methods and available shipping methods. No Bearer token required.</p>
+<p>Shipping methods are calculated from the current cart contents against the destination WooCommerce resolves for the request (the logged-in customer's saved address, or the guest session/geolocated address) &mdash; matching the same shipping zones used on the website checkout. If the cart is empty, or no shipping zone matches the resolved destination, <code>shipping_methods</code> will be an empty array.</p>
+<p>Example:</p>
+<pre><code class="language-bash">curl "https://your-domain.com/wp-json/herlan/v1/checkout"</code></pre>
+<p>Response:</p>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "payment_methods": [
+      {
+        "id": "sslcommerz",
+        "title": "Pay Online (Card / Mobile Banking / Net Banking)",
+        "description": "Pay securely via SSLCommerz."
+      },
+      {
+        "id": "cod",
+        "title": "Cash on Delivery",
+        "description": "Pay when your order arrives."
+      }
+    ],
+    "shipping_methods": [
+      {
+        "id": "flat_rate:2",
+        "method_id": "flat_rate",
+        "instance_id": 2,
+        "title": "Standard Delivery",
+        "cost": "60.00",
+        "is_selected": true
+      },
+      {
+        "id": "flat_rate:3",
+        "method_id": "flat_rate",
+        "instance_id": 3,
+        "title": "Next-Day Delivery",
+        "cost": "120.00",
+        "is_selected": false
+      }
+    ]
+  }
+}</code></pre>
+<p><code>payment_methods[]</code> fields are documented under <a href="#get-checkout-payment-methods"><code>GET /checkout/payment-methods</code></a> below.</p>
+<p><code>shipping_methods[]</code> fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>id</code></td><td>string</td><td>WooCommerce rate ID (<code>{method_id}:{instance_id}</code>) &mdash; this is the value the website's <code>chosen_shipping_methods</code> session uses</td></tr>
+<tr><td><code>method_id</code></td><td>string</td><td>Shipping method type, e.g. <code>flat_rate</code>, <code>free_shipping</code>, <code>local_pickup</code></td></tr>
+<tr><td><code>instance_id</code></td><td>integer</td><td>Instance ID of this method within its shipping zone</td></tr>
+<tr><td><code>title</code></td><td>string</td><td>Human-readable label to display in the app, e.g. &quot;Standard Delivery&quot;, &quot;Next-Day Delivery&quot;</td></tr>
+<tr><td><code>cost</code></td><td>string</td><td>Shipping cost (decimal string), excluding tax</td></tr>
+<tr><td><code>is_selected</code></td><td>boolean</td><td><code>true</code> if this is the currently chosen shipping method for the session</td></tr>
+</tbody>
+</table>
 <hr />
 <h3 id="get-checkout-payment-methods"><code>GET /checkout/payment-methods</code></h3>
 <p>Returns the payment gateways currently enabled in WooCommerce. Call this to populate the payment method selector on the checkout screen.</p>
