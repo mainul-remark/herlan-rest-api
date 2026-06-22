@@ -34,6 +34,10 @@ final class CheckoutController extends Controller
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [$this, 'checkout_summary'],
             'permission_callback' => '__return_true',
+            'args'                => [
+                'district' => ['required' => false, 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field'],
+                'country'  => ['required' => false, 'type' => 'string', 'default' => 'BD', 'sanitize_callback' => 'sanitize_text_field'],
+            ],
         ]);
     }
 
@@ -56,9 +60,23 @@ final class CheckoutController extends Controller
             return $boot;
         }
 
+        $country  = sanitize_text_field((string) ($request->get_param('country') ?: 'BD'));
+        $district = sanitize_text_field((string) ($request->get_param('district') ?? ''));
+
+        if ($district !== '') {
+            $states = WC()->countries->get_states($country);
+            if (! is_array($states) || ! isset($states[$district])) {
+                return new WP_Error(
+                    'herlan_invalid_district',
+                    __('The selected district is not valid for this country.', 'herlan-rest-api'),
+                    ['status' => 422]
+                );
+            }
+        }
+
         return Response::success([
             'payment_methods'  => $this->get_payment_methods(),
-            'shipping_methods' => $this->get_shipping_methods(),
+            'shipping_methods' => $this->get_shipping_methods($country, $district),
         ]);
     }
 
@@ -327,15 +345,30 @@ final class CheckoutController extends Controller
         return $methods;
     }
 
-    private function get_shipping_methods(): array
+    private function get_shipping_methods(string $country = '', string $district = ''): array
     {
         $cart = WC()->cart;
-        $cart->calculate_shipping();
+
+        if ($district === '') {
+            $cart->calculate_shipping();
+            $packages = WC()->shipping()->get_packages();
+        } else {
+            // Compute rates for an arbitrary district without touching the customer's
+            // saved/session shipping address — this is a destination override, not a selection.
+            $packages = $cart->get_shipping_packages();
+            foreach ($packages as &$package) {
+                $package['destination']['country'] = $country;
+                $package['destination']['state']    = $district;
+            }
+            unset($package);
+
+            $packages = WC()->shipping()->calculate_shipping($packages);
+        }
 
         $chosen  = (array) WC()->session->get('chosen_shipping_methods', []);
         $methods = [];
 
-        foreach (WC()->shipping()->get_packages() as $package) {
+        foreach ($packages as $package) {
             foreach ($package['rates'] ?? [] as $rate_id => $rate) {
                 $methods[] = [
                     'id'           => $rate_id,

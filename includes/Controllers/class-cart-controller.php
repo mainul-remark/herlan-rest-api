@@ -771,20 +771,30 @@ final class CartController extends Controller
             return (float) $transient['available_cash'];
         }
 
+        // Negative cache: skip the remote calls entirely while a recent failure is still fresh,
+        // so an outage doesn't block every cart request behind a fresh ~12s timeout.
+        if (WC()->session && WC()->session->get('herlan_cash_fetch_failed_until')) {
+            if (time() < (int) WC()->session->get('herlan_cash_fetch_failed_until')) {
+                return 0.0;
+            }
+        }
+
         // Call the loyalty API: login then get summary.
         $login = wp_remote_post(HERLAN_API_BASE_URL . 'login', [
             'body'        => wp_json_encode(['phone' => $phone]),
             'headers'     => ['Content-Type' => 'application/json'],
-            'timeout'     => 10,
+            'timeout'     => 6,
             'data_format' => 'body',
         ]);
 
         if (is_wp_error($login)) {
+            $this->mark_herlan_cash_fetch_failed();
             return 0.0;
         }
 
         $login_data = json_decode(wp_remote_retrieve_body($login), true);
         if (! is_array($login_data) || empty($login_data['data']['access_token'])) {
+            $this->mark_herlan_cash_fetch_failed();
             return 0.0;
         }
 
@@ -794,15 +804,17 @@ final class CartController extends Controller
                 'Authorization' => 'Bearer ' . $token,
                 'Content-Type'  => 'application/json',
             ],
-            'timeout' => 10,
+            'timeout' => 6,
         ]);
 
         if (is_wp_error($summary)) {
+            $this->mark_herlan_cash_fetch_failed();
             return 0.0;
         }
 
         $summary_data = json_decode(wp_remote_retrieve_body($summary), true);
         if (! is_array($summary_data)) {
+            $this->mark_herlan_cash_fetch_failed();
             return 0.0;
         }
 
@@ -848,6 +860,17 @@ final class CartController extends Controller
         }
 
         return $balance;
+    }
+
+    /**
+     * Suppress further loyalty API attempts for 60s after a failure, so an outage
+     * doesn't re-trigger a fresh ~12s blocking timeout on every cart request.
+     */
+    private function mark_herlan_cash_fetch_failed(): void
+    {
+        if (WC()->session) {
+            WC()->session->set('herlan_cash_fetch_failed_until', time() + 60);
+        }
     }
 
     private function get_free_shipping_info($cart): array

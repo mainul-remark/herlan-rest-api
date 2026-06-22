@@ -50,6 +50,7 @@ final class HomeController extends Controller
                 return [
                     'type'      => 'video',
                     'url'       => $url,
+                    'post_type' => $item['post_type'] ?: null,
                     'video_url' => $item['video_file'] ?? null,
                     'term'      => $this->resolve_term_from_url($url),
                 ];
@@ -61,6 +62,7 @@ final class HomeController extends Controller
             return [
                 'type'         => 'image',
                 'url'          => $url,
+                'post_type'    => $item['post_type'] ?: null,
                 'image'        => $this->attachment_data($image_id),
                 'mobile_image' => $this->attachment_data($mobile_image_id),
                 'term'         => $this->resolve_term_from_url($url),
@@ -182,8 +184,9 @@ final class HomeController extends Controller
         $bg_image_mobile_raw = get_field('field_694a56f580277', 'option');
 
         $items = array_map(fn(array $item): array => [
-            'name' => $item['name'] ?? '',
-            'url'  => $item['url'] ?? null,
+            'name'      => $item['name'] ?? '',
+            'url'       => $item['url'] ?? null,
+            'post_type' => $item['post_type'] ?: null,
         ], $raw);
 
         return [

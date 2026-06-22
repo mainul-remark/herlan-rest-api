@@ -149,7 +149,7 @@ final class LoyaltyController extends Controller
         $response = wp_remote_post(HERLAN_API_BASE_URL . $endpoint, [
             'body'        => wp_json_encode($body),
             'headers'     => ['Content-Type' => 'application/json'],
-            'timeout'     => 10,
+            'timeout'     => 6,
             'data_format' => 'body',
         ]);
 
@@ -169,7 +169,7 @@ final class LoyaltyController extends Controller
                 'Authorization' => 'Bearer ' . $token,
                 'Content-Type'  => 'application/json',
             ],
-            'timeout' => 10,
+            'timeout' => 6,
         ]);
 
         if (is_wp_error($response)) {

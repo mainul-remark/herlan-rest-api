@@ -4780,9 +4780,27 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 <hr />
 <h3 id="get-checkout"><code>GET /checkout</code></h3>
 <p>Returns everything the checkout screen needs in one call: available payment methods and available shipping methods. No Bearer token required.</p>
-<p>Shipping methods are calculated from the current cart contents against the destination WooCommerce resolves for the request (the logged-in customer's saved address, or the guest session/geolocated address) &mdash; matching the same shipping zones used on the website checkout. If the cart is empty, or no shipping zone matches the resolved destination, <code>shipping_methods</code> will be an empty array.</p>
-<p>Example:</p>
+<p>By default, shipping methods are calculated from the current cart contents against the destination WooCommerce resolves for the request (the logged-in customer's saved address, or the guest session/geolocated address) &mdash; matching the same shipping zones used on the website checkout. If the cart is empty, or no shipping zone matches the resolved destination, <code>shipping_methods</code> will be an empty array.</p>
+<p>Optional query params let the app preview rates for a different destination &mdash; e.g. when the user picks one of their saved addresses &mdash; without changing their saved/session address:</p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>district</code></td><td>string</td><td>No</td><td>WooCommerce state/district code for <code>country</code> (the same code used by <code>billing_state</code>, e.g. <code>DHA</code> for Dhaka). When provided, <code>shipping_methods</code> is computed against this destination instead of the resolved one. Must be a valid code for <code>country</code> or the request returns <code>422 herlan_invalid_district</code>.</td></tr>
+<tr><td><code>country</code></td><td>string</td><td>No</td><td>ISO country code. Defaults to <code>BD</code>. Only used when <code>district</code> is also provided.</td></tr>
+</tbody>
+</table>
+<p>This is a stateless preview &mdash; it does not change the customer's saved address or the session's chosen shipping method. <code>POST /checkout</code> still calculates the order's shipping cost from whatever destination is already resolved at the time the order is placed, not from this call.</p>
+<p>Example (default destination):</p>
 <pre><code class="language-bash">curl "https://your-domain.com/wp-json/herlan/v1/checkout"</code></pre>
+<p>Example (preview rates for a specific district):</p>
+<pre><code class="language-bash">curl "https://your-domain.com/wp-json/herlan/v1/checkout?district=DHA&amp;country=BD"</code></pre>
 <p>Response:</p>
 <pre><code class="language-json">{
   "success": true,
