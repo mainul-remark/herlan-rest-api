@@ -8,6 +8,7 @@ use WC_Order;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Server;
+use WP_User;
 
 if (! defined('ABSPATH')) {
     exit;
@@ -20,7 +21,7 @@ final class CheckoutController extends Controller
         register_rest_route($this->namespace, '/checkout', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [$this, 'place_order'],
-            'permission_callback' => [$this, 'can_access'],
+            'permission_callback' => [$this, 'maybe_authenticate'],
             'args'                => $this->checkout_args(),
         ]);
 
@@ -28,6 +29,15 @@ final class CheckoutController extends Controller
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [$this, 'payment_methods'],
             'permission_callback' => [$this, 'can_access'],
+        ]);
+
+        register_rest_route($this->namespace, '/checkout/shipping-method', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'set_shipping_method'],
+            'permission_callback' => [$this, 'maybe_authenticate'],
+            'args'                => [
+                'rate_id' => ['required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field'],
+            ],
         ]);
 
         register_rest_route($this->namespace, '/checkout', [
@@ -41,6 +51,33 @@ final class CheckoutController extends Controller
         ]);
     }
 
+    /**
+     * Optional authentication for checkout, which also serves guests.
+     *
+     * If a valid bearer token is present, sets the current user so the order
+     * is attributed to them and loyalty/fee hooks see is_user_logged_in() as
+     * true. Always returns true so guest checkout keeps working without a
+     * token.
+     */
+    public function maybe_authenticate(WP_REST_Request $request): bool
+    {
+        if ($this->auth) {
+            $header = $request->get_header('authorization');
+            if (! $header && isset($_SERVER['HTTP_AUTHORIZATION'])) {
+                $header = (string) wp_unslash($_SERVER['HTTP_AUTHORIZATION']);
+            }
+
+            if ($header) {
+                $user = $this->auth->authenticate_request($request);
+                if ($user instanceof WP_User) {
+                    $request->set_param('herlan_current_user', $user);
+                }
+            }
+        }
+
+        return true;
+    }
+
     /* ── Callbacks ─────────────────────────────────────────────────── */
 
     public function payment_methods(WP_REST_Request $request)
@@ -51,6 +88,48 @@ final class CheckoutController extends Controller
         }
 
         return Response::success(['payment_methods' => $this->get_payment_methods()]);
+    }
+
+    public function set_shipping_method(WP_REST_Request $request)
+    {
+        $boot = $this->boot_cart();
+        if (is_wp_error($boot)) {
+            return $boot;
+        }
+
+        $rate_id = (string) $request->get_param('rate_id');
+
+        $packages      = WC()->shipping()->get_packages();
+        $package_index = null;
+
+        foreach ($packages as $index => $package) {
+            if (isset($package['rates'][$rate_id])) {
+                $package_index = $index;
+                break;
+            }
+        }
+
+        if ($package_index === null) {
+            return new WP_Error(
+                'herlan_invalid_shipping_method',
+                __('The selected shipping method is not available.', 'herlan-rest-api'),
+                ['status' => 422]
+            );
+        }
+
+        $chosen                  = (array) WC()->session->get('chosen_shipping_methods', []);
+        $chosen[$package_index]  = $rate_id;
+        WC()->session->set('chosen_shipping_methods', $chosen);
+
+        WC()->cart->calculate_totals();
+
+        return Response::success([
+            'shipping_methods' => $this->get_shipping_methods(),
+            'totals'           => [
+                'shipping_total' => wc_format_decimal(WC()->cart->get_shipping_total(), 2),
+                'total'          => wc_format_decimal(WC()->cart->get_total('edit'), 2),
+            ],
+        ]);
     }
 
     public function checkout_summary(WP_REST_Request $request)
@@ -83,12 +162,10 @@ final class CheckoutController extends Controller
     public function place_order(WP_REST_Request $request)
     {
         $user = $this->current_user($request);
-        if (! $user) {
-            return new WP_Error('herlan_user_missing', __('Authentication required.', 'herlan-rest-api'), ['status' => 401]);
-        }
 
-        // Rate-limit: 10 checkout attempts per user per hour.
-        $rate_key = 'herlan_checkout_rate_' . $user->ID;
+        // Rate-limit: 10 checkout attempts per hour, keyed by user if logged in
+        // or by IP for guest checkout.
+        $rate_key = 'herlan_checkout_rate_' . ($user ? $user->ID : 'ip_' . md5((string) ($_SERVER['REMOTE_ADDR'] ?? '')));
         $attempts = (int) get_transient($rate_key);
         if ($attempts >= 10) {
             return new WP_Error(
@@ -109,7 +186,10 @@ final class CheckoutController extends Controller
         }
 
         // Ensure current-user context so loyalty/fee hooks see is_user_logged_in() === true.
-        wp_set_current_user($user->ID);
+        // For guest checkout there is no user to set; the order is created with customer ID 0.
+        if ($user) {
+            wp_set_current_user($user->ID);
+        }
 
         $payment_method     = sanitize_key((string) $request->get_param('payment_method'));
         $available_gateways = WC()->payment_gateways()->get_available_payment_gateways();
@@ -136,6 +216,20 @@ final class CheckoutController extends Controller
 
         // Tell WC which gateway is selected so gateway hooks read the correct value.
         WC()->session->set('chosen_payment_method', $payment_method);
+
+        if (WC()->cart->needs_shipping()) {
+            $chosen_shipping_methods = (array) WC()->session->get('chosen_shipping_methods', []);
+
+            foreach (WC()->shipping()->get_packages() as $package_index => $package) {
+                if (! isset($chosen_shipping_methods[$package_index], $package['rates'][$chosen_shipping_methods[$package_index]])) {
+                    return new WP_Error(
+                        'herlan_no_shipping_method',
+                        __('No shipping method has been selected. Please select a shipping method and try again.', 'herlan-rest-api'),
+                        ['status' => 422]
+                    );
+                }
+            }
+        }
 
         // Recalculate totals — fires woocommerce_cart_calculate_fees, which applies
         // Herlan Cash (negative fee), BOGO free gifts, Discount Rules, etc.
@@ -167,8 +261,8 @@ final class CheckoutController extends Controller
             );
         }
 
-        // Stamp order with the API customer and channel.
-        $order->set_customer_id($user->ID);
+        // Stamp order with the API customer (0 for guest checkout) and channel.
+        $order->set_customer_id($user ? $user->ID : 0);
         $order->set_created_via('herlan-rest-api');
         $order->save();
 
@@ -196,6 +290,24 @@ final class CheckoutController extends Controller
 
         WC()->cart->empty_cart();
 
+        // Default payment_url = whatever the gateway redirected to (for SSLCommerz this is
+        // the WC order-pay page). For SSLCommerz *hosted* mode, fetch the real gateway URL
+        // (https://pay.sslcommerz.com/<token>) up front so the client can skip the order-pay
+        // page. In Popup mode generate_sslcommerz_form() returns an array, the regex won't
+        // match, and we fall back to the current order-pay behaviour.
+        $payment_url = $result['redirect'] ?? null;
+
+        if (
+            $payment_method === 'sslcommerz'
+            && method_exists($gateway, 'generate_sslcommerz_form')
+            && $gateway->get_option('hosted') === 'yes'
+        ) {
+            $form = $gateway->generate_sslcommerz_form((int) $order_id);
+            if (is_string($form) && preg_match('/<form[^>]+action="([^"]+)"/', $form, $m)) {
+                $payment_url = html_entity_decode($m[1]);
+            }
+        }
+
         return Response::success(
             [
                 'order_id'      => (int) $order_id,
@@ -203,7 +315,7 @@ final class CheckoutController extends Controller
                 'status'        => $order->get_status(),
                 'total'         => wc_format_decimal($order->get_total(), 2),
                 'currency'      => $order->get_currency(),
-                'payment_url'   => $result['redirect'] ?? null,
+                'payment_url'   => $payment_url,
                 'thank_you_url' => $order->get_checkout_order_received_url(),
             ],
             201,

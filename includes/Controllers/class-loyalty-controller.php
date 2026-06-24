@@ -56,9 +56,9 @@ final class LoyaltyController extends Controller
 
         $data = [
             'customer'           => $this->format_customer($customer),
-            'points'             => (int) ($summary['total_usable_point'] ?? 0),
-            'available_cash'     => (float) ($summary['total_usable_cash'] ?? 0),
-            'total_spent'        => (float) ($summary['total_spent_amount'] ?? 0),
+            'points'             => (int) self::to_float($summary['total_usable_point'] ?? 0),
+            'available_cash'     => self::to_float($summary['total_usable_cash'] ?? 0),
+            'total_spent'        => self::to_float($summary['total_spent_amount'] ?? 0),
             'level'              => $this->format_level($customer, $summary),
             'next_expiring_cash' => $summary['next_expiring_cash'] ?? null,
             'transactions'       => [
@@ -108,9 +108,9 @@ final class LoyaltyController extends Controller
         $next    = $levels['next'] ?? [];
 
         $level_name     = $current['name'] ?? $this->format_customer($customer)['level'];
-        $current_amount = (float) ($current['starting_amount'] ?? 0);
-        $next_amount    = (float) ($next['starting_amount'] ?? 0);
-        $total_spent    = (float) ($summary['total_spent_amount'] ?? 0);
+        $current_amount = self::to_float($current['starting_amount'] ?? 0);
+        $next_amount    = self::to_float($next['starting_amount'] ?? 0);
+        $total_spent    = self::to_float($summary['total_spent_amount'] ?? 0);
 
         $color = '#C1C1C1';
         foreach ($current['meta'] ?? [] as $m) {
@@ -139,7 +139,7 @@ final class LoyaltyController extends Controller
             'next_at'          => $next_amount ?: null,
             'retention'        => [
                 'message' => $retention['message'] ?? null,
-                'target'  => (float) ($retention['required_minimum_spend'] ?? 0) ?: null,
+                'target'  => self::to_float($retention['required_minimum_spend'] ?? 0) ?: null,
             ],
         ];
     }

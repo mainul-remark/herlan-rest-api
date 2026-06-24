@@ -2,6 +2,8 @@
 
 namespace HerlanRestApi\Controllers;
 
+use Automattic\WooCommerce\StoreApi\SessionHandler as StoreApiSessionHandler;
+use Automattic\WooCommerce\StoreApi\Utilities\CartTokenUtils;
 use HerlanRestApi\Controller;
 use HerlanRestApi\Support\Response;
 use WC_Product;
@@ -10,6 +12,7 @@ use WC_Shipping_Zones;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Server;
+use WP_User;
 
 if (! defined('ABSPATH')) {
     exit;
@@ -22,13 +25,13 @@ final class CartController extends Controller
         register_rest_route($this->namespace, '/cart', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [$this, 'get_cart'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'maybe_authenticate'],
         ]);
 
         register_rest_route($this->namespace, '/cart/add-to-cart', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [$this, 'add_item'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'maybe_authenticate'],
             'args'                => [
                 'product_id'   => ['required' => true,  'type' => 'integer', 'minimum' => 1],
                 'quantity'     => ['required' => false, 'type' => 'integer', 'minimum' => 1, 'default' => 1],
@@ -40,7 +43,7 @@ final class CartController extends Controller
         register_rest_route($this->namespace, '/cart/update-item', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [$this, 'update_item'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'maybe_authenticate'],
             'args'                => [
                 'cart_item_key' => ['required' => true, 'type' => 'string'],
                 'quantity'      => ['required' => true, 'type' => 'integer', 'minimum' => 0],
@@ -50,25 +53,25 @@ final class CartController extends Controller
         register_rest_route($this->namespace, '/cart/remove-item/(?P<cart_item_key>[a-f0-9]{32})', [
             'methods'             => WP_REST_Server::DELETABLE,
             'callback'            => [$this, 'remove_item'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'maybe_authenticate'],
         ]);
 
         register_rest_route($this->namespace, '/cart/clear', [
             'methods'             => WP_REST_Server::DELETABLE,
             'callback'            => [$this, 'clear_cart'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'maybe_authenticate'],
         ]);
 
         register_rest_route($this->namespace, '/cart/item-editor/(?P<cart_item_key>[a-f0-9]{32})', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [$this, 'get_item_editor'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'maybe_authenticate'],
         ]);
 
         register_rest_route($this->namespace, '/cart/replace-item', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [$this, 'replace_item'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'maybe_authenticate'],
             'args'                => [
                 'cart_item_key' => ['required' => true,  'type' => 'string'],
                 'product_id'    => ['required' => true,  'type' => 'integer', 'minimum' => 1],
@@ -81,7 +84,7 @@ final class CartController extends Controller
         register_rest_route($this->namespace, '/cart/apply-coupon', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [$this, 'apply_coupon'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'maybe_authenticate'],
             'args'                => [
                 'coupon_code' => ['required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field'],
             ],
@@ -90,7 +93,7 @@ final class CartController extends Controller
         register_rest_route($this->namespace, '/cart/remove-coupon/(?P<code>[^/]+)', [
             'methods'             => WP_REST_Server::DELETABLE,
             'callback'            => [$this, 'remove_coupon'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'maybe_authenticate'],
         ]);
 
         register_rest_route($this->namespace, '/cart/herlan-cash/toggle', [
@@ -110,6 +113,33 @@ final class CartController extends Controller
                 'amount' => ['required' => true, 'type' => 'integer', 'minimum' => 0],
             ],
         ]);
+    }
+
+    /**
+     * Optional authentication for cart routes that also serve guests.
+     *
+     * If a valid bearer token is present, sets the current WP user so that
+     * is_user_logged_in() is true (required for the Herlan Cash fee hook in
+     * the loyalty plugin and for get_herlan_cash_info()) and the WC session
+     * keys to that user. Always returns true so guest carts keep working.
+     */
+    public function maybe_authenticate(WP_REST_Request $request): bool
+    {
+        if ($this->auth) {
+            $header = $request->get_header('authorization');
+            if (! $header && isset($_SERVER['HTTP_AUTHORIZATION'])) {
+                $header = (string) wp_unslash($_SERVER['HTTP_AUTHORIZATION']);
+            }
+
+            if ($header) {
+                $user = $this->auth->authenticate_request($request);
+                if ($user instanceof WP_User) {
+                    $request->set_param('herlan_current_user', $user);
+                }
+            }
+        }
+
+        return true;
     }
 
     /* ── Callbacks ─────────────────────────────────────────────────── */
@@ -544,12 +574,22 @@ final class CartController extends Controller
      * Initialize WooCommerce cart/session for REST API context.
      * wc_load_cart() is the official WC function for this (WC 3.6.4+).
      *
+     * REST requests never fire the 'wp' action, so WooCommerce's normal cookie-based
+     * session (which is set on 'wp') never reaches the client. We use WooCommerce's
+     * own Store API session handler instead, which identifies the cart purely via a
+     * "Cart-Token" header/JWT (see get_cart_token()) — no cookies required, so this
+     * also works for guest checkout in a mobile app that only relays JSON responses.
+     *
      * @return true|WP_Error
      */
     private function boot_cart()
     {
         if (! function_exists('WC') || ! WC()) {
             return new WP_Error('herlan_woocommerce_unavailable', __('WooCommerce is not available.', 'herlan-rest-api'), ['status' => 500]);
+        }
+
+        if (WC()->session === null && $this->incoming_cart_token() !== '') {
+            add_filter('woocommerce_session_handler', static fn () => StoreApiSessionHandler::class);
         }
 
         if (WC()->cart === null) {
@@ -561,6 +601,30 @@ final class CartController extends Controller
         }
 
         return true;
+    }
+
+    /**
+     * Reads the "Cart-Token" header sent by the client, if present and valid.
+     */
+    private function incoming_cart_token(): string
+    {
+        $token = isset($_SERVER['HTTP_CART_TOKEN']) ? wc_clean(wp_unslash($_SERVER['HTTP_CART_TOKEN'])) : '';
+
+        return $token !== '' && CartTokenUtils::validate_cart_token($token) ? $token : '';
+    }
+
+    /**
+     * Builds the cart token to hand back to the client. The client must send this
+     * value back as the "Cart-Token" header on every subsequent cart request so its
+     * cart/coupons can be found again without relying on cookies.
+     */
+    private function get_cart_token(): string
+    {
+        if (! WC()->session) {
+            return '';
+        }
+
+        return CartTokenUtils::get_cart_token((string) WC()->session->get_customer_id());
     }
 
     private function format_cart(): array
@@ -601,6 +665,7 @@ final class CartController extends Controller
         $cart->calculate_totals();
 
         return [
+            'cart_token'    => $this->get_cart_token(),
             'items'         => $items,
             'item_count'    => $cart->get_cart_contents_count(),
             'subtotal'      => wc_format_decimal($cart->get_subtotal(), 2),
@@ -825,8 +890,8 @@ final class CartController extends Controller
             $summary_data['data']['total_usable_cash'] ?? null,
             $summary_data['total_usable_cash'] ?? null,
         ] as $candidate) {
-            if (is_numeric($candidate)) {
-                $balance = (float) $candidate;
+            if ($candidate !== null && $candidate !== '') {
+                $balance = self::to_float($candidate);
                 break;
             }
         }
@@ -840,7 +905,7 @@ final class CartController extends Controller
             ?? [];
 
         if (is_array($expiring_node)) {
-            $next_expiring_amount = (float) ($expiring_node['amount'] ?? $expiring_node['cash_amount'] ?? 0);
+            $next_expiring_amount = self::to_float($expiring_node['amount'] ?? $expiring_node['cash_amount'] ?? 0);
             $next_expiring_date   = (string) (
                 $expiring_node['expires_at']
                 ?? $expiring_node['expiration_date']

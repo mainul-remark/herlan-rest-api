@@ -47,4 +47,17 @@ abstract class Controller
 
         return $user instanceof WP_User ? $user : null;
     }
+
+    /**
+     * Casts a value to float, stripping thousands-separator commas first
+     * (the loyalty API returns amounts like "273,600" as strings).
+     */
+    protected static function to_float($value): float
+    {
+        if (is_string($value)) {
+            $value = str_replace(',', '', $value);
+        }
+
+        return is_numeric($value) ? (float) $value : 0.0;
+    }
 }
