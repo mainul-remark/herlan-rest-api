@@ -60,4 +60,168 @@ abstract class Controller
 
         return is_numeric($value) ? (float) $value : 0.0;
     }
+
+    protected function get_herlan_cash_info($cart): array
+    {
+        if (! defined('HERLAN_API_BASE_URL') || ! WC()->session) {
+            return ['available' => false];
+        }
+
+        $user_id = get_current_user_id();
+        if (! $user_id) {
+            return ['available' => false];
+        }
+
+        $phone = (string) get_user_meta($user_id, 'billing_phone', true);
+        if (! $phone) {
+            return ['available' => false];
+        }
+
+        $available_cash  = (float) (WC()->session->get('herlan_cached_available_cash_v2') ?? 0);
+        $cache_expiry    = WC()->session->get('herlan_cached_cash_expiry_v2');
+        $cache_valid     = $cache_expiry && time() < (int) $cache_expiry;
+
+        if (! $cache_valid) {
+            $available_cash = $this->get_herlan_cash_balance($user_id, $phone);
+        }
+
+        $enabled         = (bool) WC()->session->get('herlan_cash_enabled', false);
+        $redeemed_amount = (int) WC()->session->get('herlan_redeemed_amount', 0);
+
+        $ceiling        = max(0.0, (float) $cart->get_subtotal() - (float) $cart->get_discount_total());
+        $max_redeemable = (int) (floor(min($available_cash, $ceiling) / 10) * 10);
+
+        // Clamp stored amount to current max (subtotal may have changed).
+        if ($redeemed_amount > $max_redeemable) {
+            $redeemed_amount = $max_redeemable;
+            WC()->session->set('herlan_redeemed_amount', $redeemed_amount);
+        }
+
+        $next_expiring_amount = (float) (WC()->session->get('herlan_cached_next_expiring_cash_amount_v2') ?? 0);
+        $next_expiring_date   = (string) (WC()->session->get('herlan_cached_next_expiring_cash_date_v2') ?? '');
+
+        return [
+            'available'            => true,
+            'available_cash'       => wc_format_decimal($available_cash, 2),
+            'max_redeemable'       => wc_format_decimal($max_redeemable, 2),
+            'enabled'              => $enabled,
+            'redeemed_amount'      => wc_format_decimal($redeemed_amount, 2),
+            'next_expiring_amount' => wc_format_decimal($next_expiring_amount, 2),
+            'next_expiring_date'   => $next_expiring_date,
+        ];
+    }
+
+    /**
+     * Fetch Herlan Cash balance for a user, using WC session cache when available.
+     * Falls back to calling the loyalty API directly.
+     */
+    protected function get_herlan_cash_balance(int $user_id, string $phone): float
+    {
+        // Try the transient cache set by LoyaltyController first.
+        $transient = get_transient('herlan_mobile_loyalty_' . $user_id);
+        if (is_array($transient) && isset($transient['available_cash'])) {
+            return (float) $transient['available_cash'];
+        }
+
+        // Negative cache: skip the remote calls entirely while a recent failure is still fresh,
+        // so an outage doesn't block every cart request behind a fresh ~12s timeout.
+        if (WC()->session && WC()->session->get('herlan_cash_fetch_failed_until')) {
+            if (time() < (int) WC()->session->get('herlan_cash_fetch_failed_until')) {
+                return 0.0;
+            }
+        }
+
+        // Call the loyalty API: login then get summary.
+        $login = wp_remote_post(HERLAN_API_BASE_URL . 'login', [
+            'body'        => wp_json_encode(['phone' => $phone]),
+            'headers'     => ['Content-Type' => 'application/json'],
+            'timeout'     => 6,
+            'data_format' => 'body',
+        ]);
+
+        if (is_wp_error($login)) {
+            $this->mark_herlan_cash_fetch_failed();
+            return 0.0;
+        }
+
+        $login_data = json_decode(wp_remote_retrieve_body($login), true);
+        if (! is_array($login_data) || empty($login_data['data']['access_token'])) {
+            $this->mark_herlan_cash_fetch_failed();
+            return 0.0;
+        }
+
+        $token   = (string) $login_data['data']['access_token'];
+        $summary = wp_remote_get(HERLAN_API_BASE_URL . 'summary', [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $token,
+                'Content-Type'  => 'application/json',
+            ],
+            'timeout' => 6,
+        ]);
+
+        if (is_wp_error($summary)) {
+            $this->mark_herlan_cash_fetch_failed();
+            return 0.0;
+        }
+
+        $summary_data = json_decode(wp_remote_retrieve_body($summary), true);
+        if (! is_array($summary_data)) {
+            $this->mark_herlan_cash_fetch_failed();
+            return 0.0;
+        }
+
+        $balance = 0.0;
+        foreach ([
+            $summary_data['data']['summary']['total_usable_cash'] ?? null,
+            $summary_data['summary']['total_usable_cash'] ?? null,
+            $summary_data['data']['total_usable_cash'] ?? null,
+            $summary_data['total_usable_cash'] ?? null,
+        ] as $candidate) {
+            if ($candidate !== null && $candidate !== '') {
+                $balance = self::to_float($candidate);
+                break;
+            }
+        }
+
+        $next_expiring_amount = 0.0;
+        $next_expiring_date   = '';
+        $expiring_node        = $summary_data['data']['summary']['next_expiring_cash']
+            ?? $summary_data['summary']['next_expiring_cash']
+            ?? $summary_data['data']['next_expiring_cash']
+            ?? $summary_data['next_expiring_cash']
+            ?? [];
+
+        if (is_array($expiring_node)) {
+            $next_expiring_amount = self::to_float($expiring_node['amount'] ?? $expiring_node['cash_amount'] ?? 0);
+            $next_expiring_date   = (string) (
+                $expiring_node['expires_at']
+                ?? $expiring_node['expiration_date']
+                ?? $expiring_node['expire_date']
+                ?? $expiring_node['expiry_date']
+                ?? $expiring_node['expires_on']
+                ?? ''
+            );
+        }
+
+        // Populate the session cache so subsequent calls within the same request are free.
+        if (WC()->session) {
+            WC()->session->set('herlan_cached_available_cash_v2', $balance);
+            WC()->session->set('herlan_cached_next_expiring_cash_amount_v2', $next_expiring_amount);
+            WC()->session->set('herlan_cached_next_expiring_cash_date_v2', $next_expiring_date);
+            WC()->session->set('herlan_cached_cash_expiry_v2', time() + 120);
+        }
+
+        return $balance;
+    }
+
+    /**
+     * Suppress further loyalty API attempts for 60s after a failure, so an outage
+     * doesn't re-trigger a fresh ~12s blocking timeout on every cart request.
+     */
+    protected function mark_herlan_cash_fetch_failed(): void
+    {
+        if (WC()->session) {
+            WC()->session->set('herlan_cash_fetch_failed_until', time() + 60);
+        }
+    }
 }

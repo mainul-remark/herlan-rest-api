@@ -2,6 +2,8 @@
 
 namespace HerlanRestApi\Controllers;
 
+use Automattic\WooCommerce\StoreApi\SessionHandler as StoreApiSessionHandler;
+use Automattic\WooCommerce\StoreApi\Utilities\CartTokenUtils;
 use HerlanRestApi\Controller;
 use HerlanRestApi\Support\Response;
 use WC_Order;
@@ -43,7 +45,7 @@ final class CheckoutController extends Controller
         register_rest_route($this->namespace, '/checkout', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [$this, 'checkout_summary'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'maybe_authenticate'],
             'args'                => [
                 'district' => ['required' => false, 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field'],
                 'country'  => ['required' => false, 'type' => 'string', 'default' => 'BD', 'sanitize_callback' => 'sanitize_text_field'],
@@ -139,6 +141,11 @@ final class CheckoutController extends Controller
             return $boot;
         }
 
+        $user = $this->current_user($request);
+        if ($user) {
+            wp_set_current_user($user->ID);
+        }
+
         $country  = sanitize_text_field((string) ($request->get_param('country') ?: 'BD'));
         $district = sanitize_text_field((string) ($request->get_param('district') ?? ''));
 
@@ -156,6 +163,7 @@ final class CheckoutController extends Controller
         return Response::success([
             'payment_methods'  => $this->get_payment_methods(),
             'shipping_methods' => $this->get_shipping_methods($country, $district),
+            'herlan_cash'      => $this->get_herlan_cash_info(WC()->cart),
         ]);
     }
 
@@ -234,6 +242,10 @@ final class CheckoutController extends Controller
         // Recalculate totals — fires woocommerce_cart_calculate_fees, which applies
         // Herlan Cash (negative fee), BOGO free gifts, Discount Rules, etc.
         WC()->cart->calculate_totals();
+
+        // Captured here, before empty_cart() below zeroes out the cart subtotal/discount
+        // totals that get_herlan_cash_info() needs to compute max_redeemable.
+        $herlan_cash_info = $this->get_herlan_cash_info(WC()->cart);
 
         $data = $this->build_checkout_data($billing, $shipping, $ship_different, $payment_method, $customer_note);
 
@@ -317,6 +329,7 @@ final class CheckoutController extends Controller
                 'currency'      => $order->get_currency(),
                 'payment_url'   => $payment_url,
                 'thank_you_url' => $order->get_checkout_order_received_url(),
+                'herlan_cash'   => $herlan_cash_info,
             ],
             201,
             __('Order placed successfully.', 'herlan-rest-api')
@@ -497,12 +510,22 @@ final class CheckoutController extends Controller
     }
 
     /**
+     * REST requests never fire the 'wp' action, so WooCommerce's normal cookie-based
+     * session never reaches the client. If the client sent the "Cart-Token" header
+     * (set on the /cart response), resolve via WooCommerce's Store API session handler
+     * so checkout finds the same cart/session that /cart already identified — see
+     * CartController::boot_cart() for the matching logic.
+     *
      * @return true|WP_Error
      */
     private function boot_cart()
     {
         if (! function_exists('WC') || ! WC()) {
             return new WP_Error('herlan_woocommerce_unavailable', __('WooCommerce is not available.', 'herlan-rest-api'), ['status' => 500]);
+        }
+
+        if (WC()->session === null && $this->incoming_cart_token() !== '') {
+            add_filter('woocommerce_session_handler', static fn () => StoreApiSessionHandler::class);
         }
 
         if (WC()->cart === null) {
@@ -514,5 +537,15 @@ final class CheckoutController extends Controller
         }
 
         return true;
+    }
+
+    /**
+     * Reads the "Cart-Token" header sent by the client, if present and valid.
+     */
+    private function incoming_cart_token(): string
+    {
+        $token = isset($_SERVER['HTTP_CART_TOKEN']) ? wc_clean(wp_unslash($_SERVER['HTTP_CART_TOKEN'])) : '';
+
+        return $token !== '' && CartTokenUtils::validate_cart_token($token) ? $token : '';
     }
 }
