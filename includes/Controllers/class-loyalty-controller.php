@@ -45,12 +45,12 @@ final class LoyaltyController extends Controller
 
         $login = $this->loyalty_post('login', ['phone' => $phone]);
 
-        if (empty($login['success']) || empty($login['data']['access_token'])) {
+        if (empty($login['access_token'])) {
             return new WP_Error('herlan_loyalty_auth_failed', __('Could not connect to loyalty program.', 'herlan-rest-api'), ['status' => 502]);
         }
 
-        $token    = (string) $login['data']['access_token'];
-        $customer = $login['data']['customer'] ?? [];
+        $token    = (string) $login['access_token'];
+        $customer = $login['customer'] ?? [];
         $raw      = $this->loyalty_get('summary', $token);
         $summary  = $this->resolve_summary($raw);
 
@@ -146,9 +146,14 @@ final class LoyaltyController extends Controller
 
     private function loyalty_post(string $endpoint, array $body): array
     {
-        $response = wp_remote_post(HERLAN_API_BASE_URL . $endpoint, [
-            'body'        => wp_json_encode($body),
-            'headers'     => ['Content-Type' => 'application/json'],
+        $url          = HERLAN_API_BASE_URL . $endpoint;
+        $encoded_body = wp_json_encode($body);
+        $response     = wp_remote_post($url, [
+            'body'        => $encoded_body,
+            'headers'     => array_merge(
+                ['Content-Type' => 'application/json'],
+                $this->loyalty_signing_headers('POST', $url, $encoded_body)
+            ),
             'timeout'     => 6,
             'data_format' => 'body',
         ]);
@@ -164,11 +169,15 @@ final class LoyaltyController extends Controller
 
     private function loyalty_get(string $endpoint, string $token): array
     {
-        $response = wp_remote_get(HERLAN_API_BASE_URL . $endpoint, [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $token,
-                'Content-Type'  => 'application/json',
-            ],
+        $url      = HERLAN_API_BASE_URL . $endpoint;
+        $response = wp_remote_get($url, [
+            'headers' => array_merge(
+                [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type'  => 'application/json',
+                ],
+                $this->loyalty_signing_headers('GET', $url)
+            ),
             'timeout' => 6,
         ]);
 

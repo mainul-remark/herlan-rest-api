@@ -132,9 +132,14 @@ abstract class Controller
         }
 
         // Call the loyalty API: login then get summary.
-        $login = wp_remote_post(HERLAN_API_BASE_URL . 'login', [
-            'body'        => wp_json_encode(['phone' => $phone]),
-            'headers'     => ['Content-Type' => 'application/json'],
+        $login_url  = HERLAN_API_BASE_URL . 'login';
+        $login_body = wp_json_encode(['phone' => $phone]);
+        $login      = wp_remote_post($login_url, [
+            'body'        => $login_body,
+            'headers'     => array_merge(
+                ['Content-Type' => 'application/json'],
+                $this->loyalty_signing_headers('POST', $login_url, $login_body)
+            ),
             'timeout'     => 6,
             'data_format' => 'body',
         ]);
@@ -145,17 +150,21 @@ abstract class Controller
         }
 
         $login_data = json_decode(wp_remote_retrieve_body($login), true);
-        if (! is_array($login_data) || empty($login_data['data']['access_token'])) {
+        if (! is_array($login_data) || empty($login_data['access_token'])) {
             $this->mark_herlan_cash_fetch_failed();
             return 0.0;
         }
 
-        $token   = (string) $login_data['data']['access_token'];
-        $summary = wp_remote_get(HERLAN_API_BASE_URL . 'summary', [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $token,
-                'Content-Type'  => 'application/json',
-            ],
+        $token       = (string) $login_data['access_token'];
+        $summary_url = HERLAN_API_BASE_URL . 'summary';
+        $summary     = wp_remote_get($summary_url, [
+            'headers' => array_merge(
+                [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type'  => 'application/json',
+                ],
+                $this->loyalty_signing_headers('GET', $summary_url)
+            ),
             'timeout' => 6,
         ]);
 
@@ -212,6 +221,44 @@ abstract class Controller
         }
 
         return $balance;
+    }
+
+    /**
+     * Build HMAC-SHA256 signing headers required by the Loyalty API.
+     * Reads channel_key_id and channel_secret from auth-popup settings.
+     * Returns an empty array if credentials are not configured.
+     */
+    protected function loyalty_signing_headers(string $method, string $url, string $body = ''): array
+    {
+        $settings    = get_option('auth_popup_settings', []);
+        $channel_key = $settings['loyalty_channel_key_id'] ?? '';
+        $secret      = $settings['loyalty_channel_secret'] ?? '';
+
+        if (! $channel_key || ! $secret) {
+            return [];
+        }
+
+        $parsed    = parse_url($url);
+        $path      = ($parsed['path'] ?? '/') . (isset($parsed['query']) ? '?' . $parsed['query'] : '');
+        $timestamp = (string) time();
+        $nonce     = sprintf(
+            '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0x0fff) | 0x4000,
+            mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+        );
+
+        $canonical = strtoupper($method) . "\n" . $path . "\n" . $timestamp . "\n" . $nonce . "\n" . hash('sha256', $body);
+        $signature = hash_hmac('sha256', $canonical, $secret);
+
+        return [
+            'X-Channel-Key' => $channel_key,
+            'X-Timestamp'   => $timestamp,
+            'X-Nonce'       => $nonce,
+            'X-Signature'   => $signature,
+        ];
     }
 
     /**
