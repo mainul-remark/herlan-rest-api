@@ -149,18 +149,21 @@ abstract class Controller
             return 0.0;
         }
 
-        $login_data = json_decode(wp_remote_retrieve_body($login), true);
-        if (! is_array($login_data) || empty($login_data['access_token'])) {
+        $login_data    = json_decode(wp_remote_retrieve_body($login), true);
+        $login_payload = is_array($login_data) ? ($login_data['data'] ?? []) : [];
+        if (empty($login_payload['access_token'])) {
             $this->mark_herlan_cash_fetch_failed();
             return 0.0;
         }
 
-        $token       = (string) $login_data['access_token'];
+        $token       = (string) $login_payload['access_token'];
+        $device_id   = (string) ($login_payload['device_id'] ?? '');
         $summary_url = HERLAN_API_BASE_URL . 'summary';
         $summary     = wp_remote_get($summary_url, [
             'headers' => array_merge(
                 [
                     'Authorization' => 'Bearer ' . $token,
+                    'X-DEVICE-ID'   => $device_id,
                     'Content-Type'  => 'application/json',
                 ],
                 $this->loyalty_signing_headers('GET', $summary_url)

@@ -43,16 +43,18 @@ final class LoyaltyController extends Controller
             return Response::success($cached);
         }
 
-        $login = $this->loyalty_post('login', ['phone' => $phone]);
+        $login         = $this->loyalty_post('login', ['phone' => $phone]);
+        $login_payload = $login['data'] ?? [];
 
-        if (empty($login['access_token'])) {
+        if (empty($login_payload['access_token'])) {
             return new WP_Error('herlan_loyalty_auth_failed', __('Could not connect to loyalty program.', 'herlan-rest-api'), ['status' => 502]);
         }
 
-        $token    = (string) $login['access_token'];
-        $customer = $login['customer'] ?? [];
-        $raw      = $this->loyalty_get('summary', $token);
-        $summary  = $this->resolve_summary($raw);
+        $token     = (string) $login_payload['access_token'];
+        $device_id = (string) ($login_payload['device_id'] ?? '');
+        $customer  = $login_payload['customer'] ?? [];
+        $raw       = $this->loyalty_get('summary', $token, $device_id);
+        $summary   = $this->resolve_summary($raw);
 
         $data = [
             'customer'           => $this->format_customer($customer),
@@ -167,13 +169,14 @@ final class LoyaltyController extends Controller
         return is_array($data) ? $data : [];
     }
 
-    private function loyalty_get(string $endpoint, string $token): array
+    private function loyalty_get(string $endpoint, string $token, string $device_id = ''): array
     {
         $url      = HERLAN_API_BASE_URL . $endpoint;
         $response = wp_remote_get($url, [
             'headers' => array_merge(
                 [
                     'Authorization' => 'Bearer ' . $token,
+                    'X-DEVICE-ID'   => $device_id,
                     'Content-Type'  => 'application/json',
                 ],
                 $this->loyalty_signing_headers('GET', $url)
