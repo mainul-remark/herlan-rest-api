@@ -12,6 +12,23 @@ if (! defined('ABSPATH')) {
 
 final class HomeController extends Controller
 {
+    /** Maps legacy/widget query param names to the canonical keys accepted by /group/products. */
+    private const FILTER_QUERY_ALIASES = [
+        '_brand'      => 'filter_brand',
+        'product-cat' => 'filter_product_cat',
+        '_skin-type'  => 'filter_skin-type',
+        '_age-range'  => 'filter_age-range',
+        '_keywords'   => 'filter_keywords',
+    ];
+
+    private const FILTER_TAXONOMY_KEYS = [
+        'filter_product_cat',
+        'filter_brand',
+        'filter_skin-type',
+        'filter_age-range',
+        'filter_keywords',
+    ];
+
     public function register_routes(): void
     {
         register_rest_route($this->namespace, '/home', [
@@ -143,6 +160,84 @@ final class HomeController extends Controller
         return null;
     }
 
+    /**
+     * Parses a campaign shortcut's URL into the params /group/products understands:
+     * path segments (e.g. /product-tag/best-selling/) resolve to context_taxonomy +
+     * context_term, and the query string (filter_*, min_price/max_price, or the
+     * WooCommerce price widget's "price=min~max" format) resolves to the filter keys.
+     */
+    private function resolve_shortcut_filters(?string $url): array
+    {
+        $result = [
+            'context_taxonomy' => null,
+            'context_term'     => null,
+            'min_price'        => null,
+            'max_price'        => null,
+        ];
+
+        foreach (self::FILTER_TAXONOMY_KEYS as $key) {
+            $result[$key] = null;
+        }
+
+        if (empty($url)) {
+            return $result;
+        }
+
+        $term_data = $this->resolve_term_from_url($url);
+        if ($term_data) {
+            $result['context_taxonomy'] = $term_data['taxonomy'];
+            $result['context_term']    = $term_data['slug'];
+        }
+
+        $query = wp_parse_url($url, PHP_URL_QUERY);
+        if (! $query) {
+            return $result;
+        }
+
+        parse_str($query, $params);
+
+        foreach (self::FILTER_QUERY_ALIASES as $raw_key => $canonical_key) {
+            if (isset($params[$raw_key]) && ! isset($params[$canonical_key])) {
+                $params[$canonical_key] = $params[$raw_key];
+            }
+        }
+
+        foreach (self::FILTER_TAXONOMY_KEYS as $key) {
+            if (empty($params[$key])) {
+                continue;
+            }
+
+            $slugs = array_values(array_filter(array_map('sanitize_title', explode(',', (string) $params[$key]))));
+
+            if ($slugs) {
+                $result[$key] = $slugs;
+            }
+        }
+
+        if (isset($params['min_price']) && is_numeric($params['min_price'])) {
+            $result['min_price'] = (float) $params['min_price'];
+        }
+
+        if (isset($params['max_price']) && is_numeric($params['max_price'])) {
+            $result['max_price'] = (float) $params['max_price'];
+        }
+
+        // WooCommerce native price-widget format, e.g. "price=10~500".
+        if ($result['min_price'] === null && $result['max_price'] === null && isset($params['price']) && str_contains((string) $params['price'], '~')) {
+            [$min, $max] = array_pad(explode('~', (string) $params['price'], 2), 2, null);
+
+            if (is_numeric($min)) {
+                $result['min_price'] = (float) $min;
+            }
+
+            if (is_numeric($max)) {
+                $result['max_price'] = (float) $max;
+            }
+        }
+
+        return $result;
+    }
+
     private function promotional_block(): array
     {
         $block   = get_field('promotional_block', 'option') ?: [];
@@ -183,11 +278,15 @@ final class HomeController extends Controller
         $bg_image_raw        = get_field('field_694a33e959829', 'option');
         $bg_image_mobile_raw = get_field('field_694a56f580277', 'option');
 
-        $items = array_map(fn(array $item): array => [
-            'name'      => $item['name'] ?? '',
-            'url'       => $item['url'] ?? null,
-            'post_type' => $item['post_type'] ?: null,
-        ], $raw);
+        $items = array_map(function (array $item): array {
+            $url = $item['url'] ?? null;
+
+            return array_merge([
+                'name'      => $item['name'] ?? '',
+                'url'       => $url,
+                'post_type' => $item['post_type'] ?: null,
+            ], $this->resolve_shortcut_filters($url));
+        }, $raw);
 
         return [
             'enabled'              => $enabled,

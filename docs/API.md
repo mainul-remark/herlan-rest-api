@@ -2587,13 +2587,84 @@ Response fields:
 | `payment_url` | string | Open this URL in a WebView to complete payment. For SSLCommerz this shows the pay button that redirects to the gateway. For COD it leads to the order received page |
 | `thank_you_url` | string | Order received / thank-you page URL — navigate here after the WebView detects payment completion |
 
-#### WebView flow (SSLCommerz)
+#### WebView flow (SSLCommerz) — mobile app
 
-1. Open `payment_url` in a WebView.
-2. The user taps "Pay via SSLCommerz" — the WebView redirects to the SSLCommerz hosted payment page.
-3. After payment, SSLCommerz redirects back to the site's configured success or fail page.
-4. Monitor the WebView URL: when it contains `order-received` or `thank_you_url`, close the WebView and show the in-app order confirmation screen.
-5. Optionally call `GET /orders/{order_id}` to retrieve the final order status.
+Orders placed through this API are always tagged `created_via = "herlan-rest-api"`. Because of that tag, the server sends the app a **deep link** instead of a themed WordPress page once the gateway hands control back — this avoids the site header/footer flashing inside the in-app WebView, which is what you'd otherwise see for a moment on the order-received/fail page.
+
+1. Open `payment_url` in a WebView (Custom Tabs / `SFSafariViewController` / `ASWebAuthenticationSession` are all fine).
+2. The user completes payment on the SSLCommerz hosted page.
+3. SSLCommerz redirects back to the site's configured success or fail page. The plugin intercepts this server-side (before any HTML renders) and 302s the browser to:
+
+   ```text
+   herlanlive://payment-result?order_id=12345&status=success
+   ```
+
+   (`status` is one of `success`, `pending`, `failed` — a hint only, see step 5.)
+
+   This is a custom URL scheme, not a real page — register `herlanlive://` (or whatever scheme you configure, see below) as a deep link in the app so the WebView's navigation delegate (`shouldOverrideUrlLoading` on Android, `decidePolicyForNavigationAction` on iOS) intercepts it **before any content loads**, so nothing renders inside the WebView.
+4. On catching that scheme, immediately close/dismiss the WebView and navigate to a native "processing" screen.
+5. Call `GET /payments/status/{order_id}` (see below) to get the **authoritative** status — don't trust the `status` query param on the deep link alone, since the IPN callback that finalizes payment can land slightly after or before the browser redirect. If the app receives `payment_status: "pending"`, poll this endpoint a few times with backoff (e.g. 2s, 5s, 10s) before giving up.
+6. Show the success/failure screen based on the polled status, then call `POST /checkout/order-complete` to clear the server-side cart once `payment_status` is `"success"`.
+
+**Configuring the deep-link scheme.** Default is `herlanlive://payment-result`. To change it without touching plugin code, either:
+
+- Define a constant in `wp-config.php`: `define('HERLAN_APP_PAYMENT_DEEPLINK', 'yourapp://checkout-result');`, or
+- Hook the filter: `add_filter('herlan_rest_api_payment_deeplink', fn($url, $order) => 'yourapp://checkout-result', 10, 2);`
+
+#### Web (browser) checkout flow
+
+Nothing changes here — this deep-link redirect only fires for orders created through this REST API (i.e. from the mobile app). Orders placed through the site's normal WooCommerce checkout page keep rendering the standard themed order-received/fail pages exactly as before, since they're never tagged `created_via = "herlan-rest-api"`.
+
+### `GET /payments/status/{order_id}`
+
+Authoritative payment status for an order — call this after the WebView/deep-link flow ends (or any time you need to re-check). Supports both logged-in customers and guest checkout.
+
+| Param | Location | Required | Notes |
+| --- | --- | --- | --- |
+| `id` | path | **Yes** | Order ID |
+| `order_key` | query | Conditional | Required for guest orders (`customer_id = 0`) instead of a Bearer token — use the `order_key` returned in `cancel_url.order_key` from the `POST /checkout` response |
+
+Auth: Bearer token (logged-in customers) **or** `order_key` (guest checkout) — same ownership rule as `POST /checkout/order/{id}/cancel`.
+
+Example (logged in):
+
+```bash
+curl "https://your-domain.com/wp-json/herlan/v1/payments/status/12345" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+Example (guest):
+
+```bash
+curl "https://your-domain.com/wp-json/herlan/v1/payments/status/12345?order_key=wc_order_abc123"
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "order_id": 12345,
+    "status": "processing",
+    "payment_status": "success",
+    "paid": true,
+    "transaction_id": "2C9C8A7E1F",
+    "total": "1350.00",
+    "currency": "BDT"
+  }
+}
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `status` | string | Raw WooCommerce order status (`pending`, `processing`, `on-hold`, `failed`, `cancelled`, `completed`, ...) |
+| `payment_status` | string | Simplified 3-state value for the app: `success`, `pending`, or `failed` |
+| `paid` | boolean | `WC_Order::is_paid()` |
+| `transaction_id` | string\|null | Gateway transaction ID, if set |
+
+Error codes: `herlan_order_not_found` (404), `herlan_order_forbidden` (403), `herlan_woocommerce_unavailable` (500).
 
 #### Error codes
 
@@ -2618,6 +2689,10 @@ Placeholder endpoint (no active gateway configuration).
 ### `POST /payments/create`
 
 Placeholder endpoint (pending gateway integration).
+
+### `GET /payments/status/{order_id}`
+
+See [above](#get-paymentsstatusorder_id) — documented alongside the WebView flow since it's the confirmation step of that flow.
 
 ## Common auth errors
 
@@ -2671,3 +2746,4 @@ Protected endpoints may return:
 | `POST` | `/checkout` | Yes | **Place order from cart — returns payment URL** |
 | `GET` | `/payments/methods` | Yes | Payment method placeholder |
 | `POST` | `/payments/create` | Yes | Payment creation placeholder |
+| `GET` | `/payments/status/{id}` | Optional | Authoritative payment status (Bearer token or `order_key` for guest orders) |

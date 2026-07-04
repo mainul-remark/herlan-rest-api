@@ -16,6 +16,7 @@ defined('HERLAN_REST_API_PATH') || define('HERLAN_REST_API_PATH', plugin_dir_pat
 defined('HERLAN_REST_API_VERSION') || define('HERLAN_REST_API_VERSION', '0.1.0');
 
 require_once HERLAN_REST_API_PATH . 'includes/Support/class-response.php';
+require_once HERLAN_REST_API_PATH . 'includes/Support/class-payment-return-redirect.php';
 require_once HERLAN_REST_API_PATH . 'includes/class-controller.php';
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-app-controller.php';
 require_once HERLAN_REST_API_PATH . 'includes/Controllers/class-home-controller.php';

@@ -20,6 +20,7 @@ use HerlanRestApi\Controllers\SearchController;
 use HerlanRestApi\Controllers\StoreController;
 use HerlanRestApi\Controllers\WishlistController;
 use HerlanRestApi\Controllers\BlogController;
+use HerlanRestApi\Support\PaymentReturnRedirect;
 
 if (! defined('ABSPATH')) {
     exit;
@@ -46,6 +47,7 @@ final class Plugin
         add_filter('rest_pre_dispatch', [$this, 'bypass_jwt_auth_pre_dispatch_for_herlan_routes'], 1, 3);
         add_filter('rest_authentication_errors', [$this, 'bypass_auth_errors_for_herlan_routes'], PHP_INT_MAX);
         add_action('rest_api_init', [$this, 'register_routes']);
+        (new PaymentReturnRedirect())->boot();
     }
 
     public function bypass_jwt_auth_for_herlan_routes($user)

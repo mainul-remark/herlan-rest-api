@@ -6,11 +6,12 @@ use Automattic\WooCommerce\StoreApi\SessionHandler as StoreApiSessionHandler;
 use Automattic\WooCommerce\StoreApi\Utilities\CartTokenUtils;
 use HerlanRestApi\Controller;
 use HerlanRestApi\Support\Response;
+use ReflectionProperty;
+use WC_Cart;
 use WC_Order;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Server;
-use WP_User;
 
 if (! defined('ABSPATH')) {
     exit;
@@ -51,33 +52,20 @@ final class CheckoutController extends Controller
                 'country'  => ['required' => false, 'type' => 'string', 'default' => 'BD', 'sanitize_callback' => 'sanitize_text_field'],
             ],
         ]);
-    }
 
-    /**
-     * Optional authentication for checkout, which also serves guests.
-     *
-     * If a valid bearer token is present, sets the current user so the order
-     * is attributed to them and loyalty/fee hooks see is_user_logged_in() as
-     * true. Always returns true so guest checkout keeps working without a
-     * token.
-     */
-    public function maybe_authenticate(WP_REST_Request $request): bool
-    {
-        if ($this->auth) {
-            $header = $request->get_header('authorization');
-            if (! $header && isset($_SERVER['HTTP_AUTHORIZATION'])) {
-                $header = (string) wp_unslash($_SERVER['HTTP_AUTHORIZATION']);
-            }
+        register_rest_route($this->namespace, '/checkout/order-complete', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'complete_order'],
+            'permission_callback' => [$this, 'maybe_authenticate'],
+            'args'                => $this->complete_order_args(),
+        ]);
 
-            if ($header) {
-                $user = $this->auth->authenticate_request($request);
-                if ($user instanceof WP_User) {
-                    $request->set_param('herlan_current_user', $user);
-                }
-            }
-        }
-
-        return true;
+        register_rest_route($this->namespace, '/checkout/order/(?P<id>\d+)/cancel', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'cancel_order'],
+            'permission_callback' => [$this, 'maybe_authenticate'],
+            'args'                => $this->order_action_args(),
+        ]);
     }
 
     /* ── Callbacks ─────────────────────────────────────────────────── */
@@ -161,7 +149,7 @@ final class CheckoutController extends Controller
         }
 
         return Response::success([
-            'payment_methods'  => $this->get_payment_methods(),
+            'payment_methods'  => $this->get_payment_methods($country, $district),
             'shipping_methods' => $this->get_shipping_methods($country, $district),
             'herlan_cash'      => $this->get_herlan_cash_info(WC()->cart),
         ]);
@@ -300,7 +288,9 @@ final class CheckoutController extends Controller
         // Mirror the hook WC native checkout fires so Herlan Loyalty redeems cash.
         do_action('woocommerce_checkout_order_processed', $order_id, $data, $order);
 
-        WC()->cart->empty_cart();
+        // Cart is intentionally left intact — payment isn't confirmed yet (the gateway may
+        // redirect off-site and the customer can still cancel). It's cleared by
+        // POST /checkout/order/{id}/complete once the order status shows payment succeeded.
 
         // Default payment_url = whatever the gateway redirected to (for SSLCommerz this is
         // the WC order-pay page). For SSLCommerz *hosted* mode, fetch the real gateway URL
@@ -329,11 +319,83 @@ final class CheckoutController extends Controller
                 'currency'      => $order->get_currency(),
                 'payment_url'   => $payment_url,
                 'thank_you_url' => $order->get_checkout_order_received_url(),
+                'cancel_url'    => [
+                    'url'          => $order->get_cancel_order_url_raw(),
+                    'order_id'     => $order->get_id(),
+                    'order_key'    => $order->get_order_key(),
+                    'cancel_order' => true,
+                ],
                 'herlan_cash'   => $herlan_cash_info,
             ],
             201,
             __('Order placed successfully.', 'herlan-rest-api')
         );
+    }
+
+    /**
+     * Clears the cart once the client confirms the customer returned from payment.
+     * Only actually clears it if the order shows as paid — this is what makes it
+     * safe to leave the cart intact in place_order() while payment is pending.
+     */
+    public function complete_order(WP_REST_Request $request)
+    {
+        $order = wc_get_order((int) $request->get_param('order_id'));
+        if (! $order instanceof WC_Order) {
+            return new WP_Error('herlan_order_not_found', __('Order not found.', 'herlan-rest-api'), ['status' => 404]);
+        }
+
+        $auth = $this->authorize_order_access($order, $request);
+        if (is_wp_error($auth)) {
+            return $auth;
+        }
+
+        $cart_cleared = false;
+
+        if ($order->has_status(['processing', 'completed'])) {
+            $boot = $this->boot_cart();
+            if (! is_wp_error($boot) && WC()->cart) {
+                WC()->cart->empty_cart();
+                $cart_cleared = true;
+            }
+        }
+
+        return Response::success([
+            'order_id'     => $order->get_id(),
+            'status'       => $order->get_status(),
+            'cart_cleared' => $cart_cleared,
+        ]);
+    }
+
+    /**
+     * Cancels an unpaid order on the customer's behalf, mirroring what
+     * cancel_url's WooCommerce page would do, but as plain JSON.
+     */
+    public function cancel_order(WP_REST_Request $request)
+    {
+        $order = wc_get_order((int) $request->get_param('id'));
+        if (! $order instanceof WC_Order) {
+            return new WP_Error('herlan_order_not_found', __('Order not found.', 'herlan-rest-api'), ['status' => 404]);
+        }
+
+        $auth = $this->authorize_order_access($order, $request);
+        if (is_wp_error($auth)) {
+            return $auth;
+        }
+
+        if (! $order->has_status(['pending', 'on-hold', 'failed'])) {
+            return new WP_Error(
+                'herlan_order_not_cancellable',
+                __('This order can no longer be cancelled.', 'herlan-rest-api'),
+                ['status' => 422]
+            );
+        }
+
+        $order->update_status('cancelled', __('Cancelled by customer via API.', 'herlan-rest-api'));
+
+        return Response::success([
+            'order_id' => $order->get_id(),
+            'status'   => $order->get_status(),
+        ]);
     }
 
     /* ── Args ──────────────────────────────────────────────────────── */
@@ -368,6 +430,22 @@ final class CheckoutController extends Controller
             'shipping_country'          => $otext,
             'shipping_company'          => $otext,
             'customer_note'             => ['required' => false, 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_textarea_field'],
+        ];
+    }
+
+    private function order_action_args(): array
+    {
+        return [
+            'id'        => ['required' => true, 'type' => 'integer'],
+            'order_key' => ['required' => false, 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field'],
+        ];
+    }
+
+    private function complete_order_args(): array
+    {
+        return [
+            'order_id'  => ['required' => true, 'type' => 'integer'],
+            'order_key' => ['required' => false, 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field'],
         ];
     }
 
@@ -454,10 +532,24 @@ final class CheckoutController extends Controller
         ];
     }
 
-    private function get_payment_methods(): array
+    private function get_payment_methods(string $country = '', string $district = ''): array
     {
+        // Gateways such as COD restrict availability to specific shipping rate IDs
+        // (see WC_Gateway_COD::is_available()), checked against WC()->cart->get_shipping_methods()
+        // — which reflects whatever was chosen in the real session, not the district being
+        // previewed here. Without this override, COD gets filtered out for any district whose
+        // matching shipping zone wasn't already the customer's session selection.
+        $restore = $district !== ''
+            ? $this->override_cart_shipping_methods_for_destination($country, $district)
+            : null;
+
         $gateways = WC()->payment_gateways()->get_available_payment_gateways();
-        $methods  = [];
+
+        if ($restore !== null) {
+            $restore();
+        }
+
+        $methods = [];
 
         foreach ($gateways as $id => $gateway) {
             $methods[] = [
@@ -472,22 +564,11 @@ final class CheckoutController extends Controller
 
     private function get_shipping_methods(string $country = '', string $district = ''): array
     {
-        $cart = WC()->cart;
-
         if ($district === '') {
-            $cart->calculate_shipping();
+            WC()->cart->calculate_shipping();
             $packages = WC()->shipping()->get_packages();
         } else {
-            // Compute rates for an arbitrary district without touching the customer's
-            // saved/session shipping address — this is a destination override, not a selection.
-            $packages = $cart->get_shipping_packages();
-            foreach ($packages as &$package) {
-                $package['destination']['country'] = $country;
-                $package['destination']['state']    = $district;
-            }
-            unset($package);
-
-            $packages = WC()->shipping()->calculate_shipping($packages);
+            $packages = $this->calculate_packages_for_destination($country, $district);
         }
 
         $chosen  = (array) WC()->session->get('chosen_shipping_methods', []);
@@ -507,6 +588,60 @@ final class CheckoutController extends Controller
         }
 
         return $methods;
+    }
+
+    /**
+     * Compute rates for an arbitrary district without touching the customer's
+     * saved/session shipping address — this is a destination override, not a selection.
+     */
+    private function calculate_packages_for_destination(string $country, string $district): array
+    {
+        $packages = WC()->cart->get_shipping_packages();
+
+        foreach ($packages as &$package) {
+            $package['destination']['country'] = $country;
+            $package['destination']['state']   = $district;
+        }
+        unset($package);
+
+        return WC()->shipping()->calculate_shipping($packages);
+    }
+
+    /**
+     * WC_Cart exposes no setter for its shipping-methods cache, so reflection is the
+     * only way to point it at the destination override's rates without mutating the
+     * customer object or session (either of which would persist past this request via
+     * WC_Customer's save-on-shutdown behavior). Returns a closure that restores the
+     * cart's original cache — call it right after the gateway-availability check. Returns
+     * null (nothing to restore) when the cart doesn't need shipping (e.g. all-virtual cart).
+     */
+    private function override_cart_shipping_methods_for_destination(string $country, string $district): ?callable
+    {
+        $packages = $this->calculate_packages_for_destination($country, $district);
+
+        // calculate_packages_for_destination() -> get_shipping_packages() triggers WC_Cart's
+        // lazy session hydration as a side effect, so needs_shipping() here reflects the
+        // actual cart contents rather than the not-yet-loaded cart wc_load_cart() leaves behind.
+        if (! WC()->cart->needs_shipping()) {
+            return null;
+        }
+
+        $rates = [];
+        foreach ($packages as $package) {
+            foreach ($package['rates'] ?? [] as $rate_id => $rate) {
+                $rates[$rate_id] = $rate;
+            }
+        }
+
+        $property = new ReflectionProperty(WC_Cart::class, 'shipping_methods');
+        $property->setAccessible(true);
+
+        $original = $property->getValue(WC()->cart);
+        $property->setValue(WC()->cart, $rates);
+
+        return static function () use ($property, $original): void {
+            $property->setValue(WC()->cart, $original);
+        };
     }
 
     /**

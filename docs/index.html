@@ -113,6 +113,8 @@
 <a class="level-3" href="#get-checkout-payment-methods">GET /checkout/payment-methods</a>
 <a class="level-3" href="#post-checkout-shipping-method">POST /checkout/shipping-method</a>
 <a class="level-3" href="#post-checkout">POST /checkout</a>
+<a class="level-3" href="#post-checkout-order-complete">POST /checkout/order-complete</a>
+<a class="level-3" href="#post-checkout-order-cancel">POST /checkout/order/{id}/cancel</a>
 <a class="level-3" href="#get-payments-methods">GET /payments/methods</a>
 <a class="level-3" href="#post-payments-create">POST /payments/create</a>
 <a href="#common-auth-errors">Common auth errors</a>
@@ -5235,6 +5237,7 @@ SHA256(BODY)</code></pre>
 <hr />
 <h3 id="post-checkout"><code>POST /checkout</code></h3>
 <p>Places an order from the authenticated user's current cart. Returns an order ID and a <code>payment_url</code> the mobile app should open in a WebView to complete payment.</p>
+<p><strong>The cart is intentionally left intact by this call</strong> &mdash; payment isn't confirmed yet at this point (the gateway may redirect off-site, and the customer can still cancel or fail to pay). Clear the cart afterwards with <a href="#post-checkout-order-complete"><code>POST /checkout/order-complete</code></a> once payment is confirmed, or cancel the order with <a href="#post-checkout-order-cancel"><code>POST /checkout/order/{id}/cancel</code></a> if the customer backs out.</p>
 <p><strong>The recommended flow:</strong></p>
 <ol>
 <li>Build the cart (<code>POST /cart/add-to-cart</code>, apply coupons, set Herlan Cash, etc.)</li>
@@ -5242,6 +5245,7 @@ SHA256(BODY)</code></pre>
 <li>Show checkout form &mdash; collect billing/shipping details, payment method choice, and shipping method choice (<code>POST /checkout/shipping-method</code> on selection)</li>
 <li>Submit <code>POST /checkout</code></li>
 <li>On success, open <code>payment_url</code> in a WebView for gateway-based payments (SSLCommerz), or navigate to the order confirmation screen for COD</li>
+<li>Once the WebView shows the order was paid, call <code>POST /checkout/order-complete</code> to clear the cart. If the customer cancels or backs out instead, call <code>POST /checkout/order/{id}/cancel</code></li>
 </ol>
 <h4>Request body</h4>
 <table>
@@ -5326,7 +5330,22 @@ SHA256(BODY)</code></pre>
     "total": "1350.00",
     "currency": "BDT",
     "payment_url": "https://pay.sslcommerz.com/c819d502c8c7885851bc192f720cfdc09c49aae0",
-    "thank_you_url": "https://your-domain.com/checkout/order-received/12345/?key=wc_order_abc123"
+    "thank_you_url": "https://your-domain.com/checkout/order-received/12345/?key=wc_order_abc123",
+    "cancel_url": {
+      "url": "https://your-domain.com/cart/?cancel_order=true&amp;order=wc_order_abc123&amp;order_id=12345&amp;redirect=&amp;_wpnonce=abc12345",
+      "order_id": 12345,
+      "order_key": "wc_order_abc123",
+      "cancel_order": true
+    },
+    "herlan_cash": {
+      "available": true,
+      "available_cash": "500.00",
+      "max_redeemable": "500.00",
+      "enabled": true,
+      "redeemed_amount": "200.00",
+      "next_expiring_amount": "0.00",
+      "next_expiring_date": ""
+    }
   }
 }</code></pre>
 <p>The <code>payment_url</code> above is for SSLCommerz with <strong>Hosted checkout enabled</strong>. If Hosted checkout is <strong>disabled</strong> (Popup mode), <code>payment_url</code> is the WooCommerce order-pay page instead:</p>
@@ -5347,14 +5366,17 @@ SHA256(BODY)</code></pre>
 <tr><td><code>total</code></td><td>string</td><td>Grand total (decimal string)</td></tr>
 <tr><td><code>currency</code></td><td>string</td><td>Currency code, e.g. <code>"BDT"</code></td></tr>
 <tr><td><code>payment_url</code></td><td>string</td><td>Open this URL in a WebView to complete payment. For SSLCommerz with <strong>Hosted checkout enabled</strong>, this is the direct gateway URL (<code>https://pay.sslcommerz.com/&lt;token&gt;</code>) &mdash; the WebView loads the payment page immediately, no intermediate page. If Hosted checkout is disabled (Popup mode), this is the WooCommerce order-pay page that shows a "Pay via SSLCommerz" button instead. For COD it leads to the order received page</td></tr>
-<tr><td><code>thank_you_url</code></td><td>string</td><td>Order received / thank-you page URL &mdash; navigate here after the WebView detects payment completion</td></tr>
+<tr><td><code>thank_you_url</code></td><td>string</td><td>Order received / thank-you page URL &mdash; navigate here after the WebView detects payment completion. Note: WooCommerce always empties the cart when this page loads in a browser, and shows a login wall for registered customers whose WP session doesn't match (bearer-token auth doesn't set the WP cookie) &mdash; prefer <code>POST /checkout/order-complete</code> over relying on this page for headless flows</td></tr>
+<tr><td><code>cancel_url</code></td><td>object</td><td>WooCommerce's native cancel-order page URL plus its parameters broken out individually. <code>cancel_url.url</code> is the raw nonce-protected page URL (redirects to the cart with a notice) &mdash; prefer <code>POST /checkout/order/{id}/cancel</code> with <code>cancel_url.order_id</code> / <code>cancel_url.order_key</code> for a clean JSON response instead of following the URL</td></tr>
+<tr><td><code>herlan_cash</code></td><td>object</td><td>Herlan Cash balance/redemption snapshot at order time. <code>available: false</code> if the customer has no linked phone number or Herlan Cash isn't configured</td></tr>
 </tbody>
 </table>
 <h4>WebView flow (SSLCommerz)</h4>
 <ol>
 <li>Open <code>payment_url</code> in a WebView. With Hosted checkout enabled this is already the <code>https://pay.sslcommerz.com/&lt;token&gt;</code> gateway page, so payment options load immediately. (If Hosted checkout is disabled, the user first taps "Pay via SSLCommerz" on the order-pay page, which then redirects to the gateway.)</li>
-<li>After payment, SSLCommerz redirects back to the site's configured success or fail page.</li>
-<li>Monitor the WebView URL: when it contains <code>order-received</code> or <code>thank_you_url</code>, close the WebView and show the in-app order confirmation screen.</li>
+<li>After payment, SSLCommerz redirects the browser to its own callback in the gateway plugin, which validates the transaction and updates the order status (<code>pending</code> &rarr; <code>processing</code>/<code>on-hold</code>/<code>failed</code>) &mdash; <strong>before</strong> the WebView ever reaches <code>thank_you_url</code>.</li>
+<li>Monitor the WebView URL: when it contains <code>order-received</code> or matches <code>thank_you_url</code>, close the WebView, call <code>POST /checkout/order-complete</code> (this clears the cart only if the order is actually <code>processing</code>/<code>completed</code>), and show the in-app order confirmation screen.</li>
+<li>If the customer backs out of the WebView instead of completing payment, call <code>POST /checkout/order/{id}/cancel</code> to cancel the still-unpaid order. The cart is left untouched until one of these two calls runs.</li>
 <li>Optionally call <code>GET /orders/{order_id}</code> to retrieve the final order status.</li>
 </ol>
 <h4>Error codes</h4>
@@ -5377,6 +5399,126 @@ SHA256(BODY)</code></pre>
 <tr><td><code>herlan_woocommerce_unavailable</code></td><td>500</td><td>WooCommerce is not active</td></tr>
 <tr><td><code>herlan_cart_unavailable</code></td><td>500</td><td>Cart could not be initialized</td></tr>
 <tr><td><code>herlan_rate_limit</code></td><td>429</td><td>More than 10 checkout attempts in one hour</td></tr>
+</tbody>
+</table>
+<hr />
+<h3 id="post-checkout-order-complete"><code>POST /checkout/order-complete</code></h3>
+<p>Clears the cart once the client confirms the customer returned from payment. Call this after the WebView URL matches <code>thank_you_url</code> or otherwise indicates the payment flow finished. It only actually empties the cart if the order's current status is <code>processing</code> or <code>completed</code> &mdash; calling it against a still-<code>pending</code> or <code>failed</code> order is a safe no-op, so it's fine to call unconditionally whenever the WebView closes.</p>
+<h4>Request body</h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>order_id</code></td><td>integer</td><td><strong>Yes</strong></td><td>Order ID from <code>POST /checkout</code>'s response (<code>order_id</code>)</td></tr>
+<tr><td><code>order_key</code></td><td>string</td><td>Conditional</td><td>Required for guest orders (no Bearer token / order has no <code>customer_id</code>) to prove ownership. Use the value from <code>cancel_url.order_key</code> in the <code>POST /checkout</code> response. Not required when calling with the same Bearer token used to place the order</td></tr>
+</tbody>
+</table>
+<h4>Example</h4>
+<pre><code class="language-bash">curl -X POST "https://your-domain.com/wp-json/herlan/v1/checkout/order-complete" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"order_id": 12345}'</code></pre>
+<h4>Success response (<code>200</code>)</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "order_id": 12345,
+    "status": "processing",
+    "cart_cleared": true
+  }
+}</code></pre>
+<p>Response fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>order_id</code></td><td>integer</td><td>WooCommerce order ID</td></tr>
+<tr><td><code>status</code></td><td>string</td><td>Current order status</td></tr>
+<tr><td><code>cart_cleared</code></td><td>boolean</td><td><code>true</code> only if the order was <code>processing</code>/<code>completed</code> and the cart was emptied; <code>false</code> if the order isn't paid yet</td></tr>
+</tbody>
+</table>
+<h4>Error codes</h4>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>HTTP</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>herlan_order_not_found</code></td><td>404</td><td>No order exists with the given <code>order_id</code></td></tr>
+<tr><td><code>herlan_order_forbidden</code></td><td>403</td><td>The current user doesn't own this order, or the guest <code>order_key</code> doesn't match</td></tr>
+</tbody>
+</table>
+<hr />
+<h3 id="post-checkout-order-cancel"><code>POST /checkout/order/{id}/cancel</code></h3>
+<p>Cancels an order that hasn't been paid yet &mdash; the JSON equivalent of following <code>cancel_url</code>, without the WordPress nonce/page-load/login-wall issues. Call this when the customer backs out of the payment WebView.</p>
+<h4>Path parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>id</code></td><td>integer</td><td><strong>Yes</strong></td><td>Order ID from <code>POST /checkout</code>'s response (<code>order_id</code>)</td></tr>
+</tbody>
+</table>
+<h4>Request body</h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>order_key</code></td><td>string</td><td>Conditional</td><td>Same rule as <code>POST /checkout/order-complete</code> &mdash; required for guest orders, use <code>cancel_url.order_key</code> from the <code>POST /checkout</code> response</td></tr>
+</tbody>
+</table>
+<h4>Example</h4>
+<pre><code class="language-bash">curl -X POST "https://your-domain.com/wp-json/herlan/v1/checkout/order/12345/cancel" \
+  -H "Authorization: Bearer YOUR_TOKEN"</code></pre>
+<h4>Success response (<code>200</code>)</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "order_id": 12345,
+    "status": "cancelled"
+  }
+}</code></pre>
+<h4>Error codes</h4>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>HTTP</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>herlan_order_not_found</code></td><td>404</td><td>No order exists with the given <code>id</code></td></tr>
+<tr><td><code>herlan_order_forbidden</code></td><td>403</td><td>The current user doesn't own this order, or the guest <code>order_key</code> doesn't match</td></tr>
+<tr><td><code>herlan_order_not_cancellable</code></td><td>422</td><td>Order is not <code>pending</code>/<code>on-hold</code>/<code>failed</code> &mdash; already paid, already cancelled, etc.</td></tr>
 </tbody>
 </table>
 <hr />
@@ -5676,6 +5818,18 @@ SHA256(BODY)</code></pre>
 <td><code>/checkout</code></td>
 <td>Yes</td>
 <td><strong>Place order from cart &mdash; returns payment URL</strong></td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/checkout/order-complete</code></td>
+<td>Optional</td>
+<td>Clear the cart once the order shows as paid</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/checkout/order/{id}/cancel</code></td>
+<td>Optional</td>
+<td>Cancel an unpaid order</td>
 </tr>
 <tr>
 <td><code>GET</code></td>

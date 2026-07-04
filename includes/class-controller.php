@@ -3,6 +3,7 @@
 namespace HerlanRestApi;
 
 use HerlanRestApi\Controllers\AuthController;
+use WC_Order;
 use WP_Error;
 use WP_REST_Request;
 use WP_User;
@@ -46,6 +47,67 @@ abstract class Controller
         $user = $request->get_param('herlan_current_user');
 
         return $user instanceof WP_User ? $user : null;
+    }
+
+    /**
+     * Optional authentication for routes that also serve guests.
+     *
+     * If a valid bearer token is present, sets the current user so ownership
+     * checks (e.g. authorize_order_access()) can match against it. Always
+     * returns true so guest flows keep working without a token.
+     */
+    public function maybe_authenticate(WP_REST_Request $request): bool
+    {
+        if ($this->auth) {
+            $header = $request->get_header('authorization');
+            if (! $header && isset($_SERVER['HTTP_AUTHORIZATION'])) {
+                $header = (string) wp_unslash($_SERVER['HTTP_AUTHORIZATION']);
+            }
+
+            if ($header) {
+                $user = $this->auth->authenticate_request($request);
+                if ($user instanceof WP_User) {
+                    $request->set_param('herlan_current_user', $user);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Logged-in customers must own the order; guest orders are verified via the
+     * order key instead, since there's no user to check.
+     *
+     * @return true|WP_Error
+     */
+    protected function authorize_order_access(WC_Order $order, WP_REST_Request $request)
+    {
+        $customer_id = $order->get_customer_id();
+
+        if ($customer_id > 0) {
+            $user = $this->current_user($request);
+            if (! $user || $user->ID !== $customer_id) {
+                return new WP_Error(
+                    'herlan_order_forbidden',
+                    __('You do not have permission to access this order.', 'herlan-rest-api'),
+                    ['status' => 403]
+                );
+            }
+
+            return true;
+        }
+
+        $order_key = (string) $request->get_param('order_key');
+        if ($order_key === '' || ! hash_equals($order->get_order_key(), $order_key)) {
+            return new WP_Error(
+                'herlan_order_forbidden',
+                __('You do not have permission to access this order.', 'herlan-rest-api'),
+                ['status' => 403]
+            );
+        }
+
+        return true;
     }
 
     /**
