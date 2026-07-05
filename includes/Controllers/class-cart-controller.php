@@ -598,6 +598,12 @@ final class CartController extends Controller
             }
 
             wc_load_cart();
+
+            // REST requests dispatch after 'wp_loaded' has already fired, so WC_Cart_Session's
+            // auto-hydration hook (added on 'wp_loaded' during wc_load_cart() above) never runs.
+            // Force it now so cart contents/applied coupons are populated before any controller
+            // method reads them (e.g. has_discount()), instead of only on the eventual get_cart() call.
+            WC()->cart->get_cart();
         }
 
         return true;

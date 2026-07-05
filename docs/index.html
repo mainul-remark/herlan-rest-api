@@ -92,6 +92,7 @@
 <a class="level-3" href="#get-user-coupons">GET /user/coupons</a>
 <a class="level-3" href="#get-orders">GET /orders</a>
 <a class="level-3" href="#get-orders-id">GET /orders/{id}</a>
+<a class="level-3" href="#get-orders-id-invoice">GET /orders/{id}/invoice</a>
 <a class="level-3" href="#get-wishlist">GET /wishlist</a>
 <a class="level-3" href="#post-wishlist">POST /wishlist</a>
 <a class="level-3" href="#delete-wishlist-product-id">DELETE /wishlist/{product_id}</a>
@@ -4085,6 +4086,95 @@ SHA256(BODY)</code></pre>
 <li><code>404 herlan_order_not_found</code></li>
 <li><code>500 herlan_woocommerce_unavailable</code></li>
 </ul>
+<h3 id="get-orders-id-invoice"><code>GET /orders/{id}/invoice</code></h3>
+<p>Downloads the invoice for an order as a file attachment (PDF when <a href="https://wordpress.org/plugins/woocommerce-pdf-invoices-packing-slips/">WooCommerce PDF Invoices &amp; Packing Slips</a> is active, otherwise a generated HTML invoice). Works for both logged-in customers and guest checkout orders.</p>
+<h4>Authentication</h4>
+<p>This endpoint accepts either of the following, checked in order:</p>
+<ul>
+<li><strong>Logged-in owner</strong> — send <code>Authorization: Bearer TOKEN</code>. The token's user must match the order's customer.</li>
+<li><strong>Guest order</strong> — omit the token and instead pass the order's <code>order_key</code> as a query parameter (returned by the checkout response / order-received page).</li>
+</ul>
+<p>Requests that match neither receive <code>403 herlan_order_forbidden</code>.</p>
+<h4>Path parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Yes</td>
+<td>Order ID</td>
+</tr>
+</tbody>
+</table>
+<h4>Query parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>order_key</code></td>
+<td>string</td>
+<td>Guests only</td>
+<td>The order's <code>order_key</code> (e.g. <code>wc_order_XXXXXXXXXXXXX</code>). Not needed when calling with the owner's Bearer token.</td>
+</tr>
+</tbody>
+</table>
+<h4>Response</h4>
+<p>On success, the response is the raw invoice file (not JSON) with download headers:</p>
+<pre><code class="language-http">Content-Type: application/pdf
+Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
+<p>Errors are returned as normal JSON error responses:</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>HTTP</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>herlan_order_not_found</code></td>
+<td>404</td>
+<td>Order does not exist</td>
+</tr>
+<tr>
+<td><code>herlan_order_forbidden</code></td>
+<td>403</td>
+<td>Not the order owner and no valid <code>order_key</code> supplied</td>
+</tr>
+<tr>
+<td><code>herlan_order_not_completed</code></td>
+<td>400</td>
+<td>Order status is not one of <code>processing</code>, <code>completed</code>, <code>on-hold</code></td>
+</tr>
+<tr>
+<td><code>herlan_woocommerce_unavailable</code></td>
+<td>500</td>
+<td>WooCommerce is not active</td>
+</tr>
+</tbody>
+</table>
+<h4>Example requests</h4>
+<p><strong>Logged-in customer:</strong></p>
+<pre><code class="language-bash">curl -H "Authorization: Bearer TOKEN" \
+  "https://herlan.com/wp-json/herlan/v1/orders/123/invoice" -o invoice-123.pdf</code></pre>
+<p><strong>Guest checkout order:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/orders/123/invoice?order_key=wc_order_XXXXXXXXXXXXX" -o invoice-123.pdf</code></pre>
 <h3 id="get-wishlist"><code>GET /wishlist</code></h3>
 <p>Returns the authenticated user's wishlist items.</p>
 <p>Query parameters:</p>
@@ -5632,6 +5722,12 @@ SHA256(BODY)</code></pre>
 <td><code>/orders/{id}</code></td>
 <td>Yes</td>
 <td>Order detail</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/orders/{id}/invoice</code></td>
+<td>Owner or guest <code>order_key</code></td>
+<td>Download invoice (PDF/HTML)</td>
 </tr>
 <tr>
 <td><code>GET</code></td>
