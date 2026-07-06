@@ -112,6 +112,7 @@ final class OrderController extends Controller
             'total'                => $order->get_total(),
             'item_count'           => $order->get_item_count(),
             'payment_method_title' => $order->get_payment_method_title(),
+            'line_items' => $this->format_line_items($order),
         ];
     }
 
