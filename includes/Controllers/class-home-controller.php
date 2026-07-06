@@ -161,16 +161,46 @@ final class HomeController extends Controller
     }
 
     /**
+     * Resolves a single product permalink (any permalink structure) to its product
+     * ID/slug via url_to_postid(), the same way WordPress rewrite matching does it.
+     */
+    private function resolve_product_from_url(?string $url): ?array
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        $post_id = url_to_postid($url);
+
+        if (! $post_id || get_post_type($post_id) !== 'product') {
+            return null;
+        }
+
+        return [
+            'product_id'   => $post_id,
+            'product_slug' => get_post_field('post_name', $post_id),
+        ];
+    }
+
+    /**
      * Parses a campaign shortcut's URL into the params /group/products understands:
      * path segments (e.g. /product-tag/best-selling/) resolve to context_taxonomy +
      * context_term, and the query string (filter_*, min_price/max_price, or the
      * WooCommerce price widget's "price=min~max" format) resolves to the filter keys.
+     *
+     * When the URL points at a single product permalink instead of an archive,
+     * target_type is 'product' and product_id/product_slug are populated so callers
+     * can fetch the product directly (e.g. GET /products/{product_id}) instead of
+     * treating it as a /group/products listing query.
      */
     private function resolve_shortcut_filters(?string $url): array
     {
         $result = [
             'context_taxonomy' => null,
             'context_term'     => null,
+            'target_type'      => null,
+            'product_id'       => null,
+            'product_slug'     => null,
             'min_price'        => null,
             'max_price'        => null,
         ];
@@ -187,6 +217,14 @@ final class HomeController extends Controller
         if ($term_data) {
             $result['context_taxonomy'] = $term_data['taxonomy'];
             $result['context_term']    = $term_data['slug'];
+            $result['target_type']     = 'archive';
+        } else {
+            $product_data = $this->resolve_product_from_url($url);
+            if ($product_data) {
+                $result['target_type']  = 'product';
+                $result['product_id']  = $product_data['product_id'];
+                $result['product_slug'] = $product_data['product_slug'];
+            }
         }
 
         $query = wp_parse_url($url, PHP_URL_QUERY);
@@ -258,13 +296,23 @@ final class HomeController extends Controller
 
         $posts = array_map(function (int $id): array {
             $thumb_id = (int) get_post_thumbnail_id($id);
-            return [
+//            return [
+//                'id'       => $id,
+//                'title'    => get_field('title', $id) ?: get_the_title($id),
+//                'subtitle' => get_field('subtitle', $id) ?: null,
+//                'image'    => $thumb_id ? $this->attachment_data($thumb_id) : null,
+//                'url'      => get_field('external_url', $id) ?: null,
+//            ];
+            $url      = get_field('external_url', $id) ?: null;
+            $parsed   = $this->resolve_shortcut_filters($url);
+
+            return array_merge([
                 'id'       => $id,
                 'title'    => get_field('title', $id) ?: get_the_title($id),
                 'subtitle' => get_field('subtitle', $id) ?: null,
                 'image'    => $thumb_id ? $this->attachment_data($thumb_id) : null,
-                'url'      => get_field('external_url', $id) ?: null,
-            ];
+                'url'      => $url,
+            ], $parsed);
         }, $query->posts);
 
         return ['enabled' => true, 'posts' => $posts];

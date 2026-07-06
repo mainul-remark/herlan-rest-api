@@ -118,6 +118,9 @@
 <a class="level-3" href="#post-checkout-order-cancel">POST /checkout/order/{id}/cancel</a>
 <a class="level-3" href="#get-payments-methods">GET /payments/methods</a>
 <a class="level-3" href="#post-payments-create">POST /payments/create</a>
+<a class="level-3" href="#sslcommerz-payment-confirmation-flow">SSLCommerz payment confirmation flow</a>
+<a class="level-3" href="#get-payments-status-id">GET /payments/status/{id}</a>
+<a class="level-3" href="#post-payments-verify-id">POST /payments/verify/{id}</a>
 <a href="#common-auth-errors">Common auth errors</a>
 <a href="#route-inventory">Route inventory</a>
     </nav>
@@ -1653,14 +1656,51 @@ GET /group/products
 <li>image slide: <code>type</code>, <code>url</code>, <code>image</code>, <code>mobile_image</code></li>
 <li>video slide: <code>type</code>, <code>url</code>, <code>video_url</code></li>
 </ul></li>
-<li><code>promotional_block.posts[]</code>: <code>id</code>, <code>title</code>, <code>subtitle</code>, <code>image</code>, <code>url</code></li>
-<li><code>campaign_shortcuts.items[]</code>: <code>name</code>, <code>url</code></li>
+<li><code>promotional_block.posts[]</code>: <code>id</code>, <code>title</code>, <code>subtitle</code>, <code>image</code>, <code>url</code>, plus the shortcut resolution fields below</li>
+<li><code>campaign_shortcuts.items[]</code>: <code>name</code>, <code>url</code>, <code>post_type</code>, plus the shortcut resolution fields below</li>
 <li><code>product_groups.groups[]</code>: <code>title</code>, <code>product_tag</code>, <code>featured_tag</code></li>
 <li><code>campaigns[]</code>: <code>title</code>, <code>product_tag</code>, <code>tag_url</code>, <code>see_all_text</code>, <code>background_image</code></li>
 <li><code>custom_tags.items[]</code>: <code>name</code>, <code>url</code>, <code>image</code></li>
 <li><code>product_sliders[]</code>: <code>title</code>, <code>product_type</code>, <code>taxonomy_type</code>, <code>term_slug</code>, <code>url</code>, <code>background_image</code></li>
 <li><code>home_video</code>: <code>video_desktop</code>, <code>video_mobile</code>, <code>poster</code>, <code>link_url</code></li>
 </ul>
+<p><strong>Shortcut resolution fields</strong> — present on both <code>promotional_block.posts[]</code> and <code>campaign_shortcuts.items[]</code>. Each item's <code>url</code> is parsed server-side so the app doesn't need to parse links itself.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target_type</code></td>
+<td>string|null</td>
+<td><code>"archive"</code> when <code>url</code> is a taxonomy archive link (<code>product-category</code>/<code>product-tag</code>/<code>brand</code>), <code>"product"</code> when <code>url</code> is a single product permalink, <code>null</code> when it couldn't be resolved to either (e.g. an external URL)</td>
+</tr>
+<tr>
+<td><code>context_taxonomy</code> / <code>context_term</code></td>
+<td>string|null</td>
+<td>Set when <code>target_type</code> is <code>"archive"</code>. Pass straight through to <code>GET /group/products</code></td>
+</tr>
+<tr>
+<td><code>product_id</code> / <code>product_slug</code></td>
+<td>int|string|null</td>
+<td>Set when <code>target_type</code> is <code>"product"</code>. Use <code>product_id</code> with <code>GET /products/{id}</code> to fetch the product directly</td>
+</tr>
+<tr>
+<td><code>min_price</code> / <code>max_price</code></td>
+<td>float|null</td>
+<td>Parsed from the URL's query string, if present</td>
+</tr>
+<tr>
+<td><code>filter_product_cat</code>, <code>filter_brand</code>, <code>filter_skin-type</code>, <code>filter_age-range</code>, <code>filter_keywords</code></td>
+<td>array|null</td>
+<td>Parsed from the URL's query string filters, if present</td>
+</tr>
+</tbody>
+</table>
 <h3 id="post-auth-login"><code>POST /auth/login</code></h3>
 <p>Logs a user in with WordPress username/email and password.</p>
 <p>Request body:</p>
@@ -5616,6 +5656,143 @@ Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
 <p>Placeholder endpoint (no active gateway configuration).</p>
 <h3 id="post-payments-create"><code>POST /payments/create</code></h3>
 <p>Placeholder endpoint (pending gateway integration).</p>
+<h3 id="sslcommerz-payment-confirmation-flow">SSLCommerz payment confirmation flow (mobile app)</h3>
+<p>An SSLCommerz order can end up marked paid through <strong>three independent paths</strong>, and the app doesn't control the timing of any of them:</p>
+<ol>
+<li><strong>IPN webhook</strong> &mdash; SSLCommerz calls the site directly, server-to-server, completely independent of the customer's browser/WebView. This is usually the fastest and most reliable path, but it's invisible to the app.</li>
+<li><strong>Browser return leg</strong> (<code>?wc-api=WC_sslcommerz</code>) &mdash; SSLCommerz's hosted page auto-submits a POST back into the WebView when the customer finishes paying. If that completes, the order is validated the instant it lands. This is the step that can silently fail in some embedded WebViews (JavaScript disabled, blocked third-party cookies, the WebView context torn down mid-navigation) &mdash; when it does, nothing marks the order paid and nothing errors either.</li>
+<li><strong><code>POST /payments/verify/{id}</code></strong> &mdash; an on-demand check the app triggers itself, asking SSLCommerz directly for the transaction status by <code>tran_id</code> (the order ID). Doesn't depend on the WebView completing anything.</li>
+</ol>
+<p>Because of this, by the time your WebView flow "ends" (deep link received, WebView navigated away from SSLCommerz's domain, or a timeout), the order may already be fully processed by IPN or the browser leg &mdash; or it may not be resolved yet. <strong>Always check before assuming either way.</strong> Call the app-facing endpoints in this order:</p>
+<h4>Step 1 &mdash; <code>GET /payments/status/{id}</code> (always call this first)</h4>
+<p>A cheap, read-only check of whatever WooCommerce currently has recorded. It never talks to SSLCommerz itself, so call it immediately after the WebView flow ends, before reaching for anything heavier.</p>
+<ul>
+<li><code>payment_status: "success"</code> or <code>"failed"</code> &mdash; done. Show the result screen; on success call <a href="#post-checkout-order-complete"><code>POST /checkout/order-complete</code></a> to clear the cart.</li>
+<li><code>payment_status: "pending"</code> &mdash; neither IPN nor the browser return leg has resolved it yet. Go to step 2.</li>
+</ul>
+<h4>Step 2 &mdash; <code>POST /payments/verify/{id}</code> (only if step 1 is still pending)</h4>
+<p>Actively queries SSLCommerz by <code>tran_id</code>. If SSLCommerz now shows a valid transaction, this call updates the order itself and returns the fresh status in the same response &mdash; no separate follow-up call needed. Don't call this on every check; it makes a real outbound request to SSLCommerz, so reserve it for when step 1 comes back pending.</p>
+<ul>
+<li><code>payment_status: "success"</code> or <code>"failed"</code> &mdash; done, same as above.</li>
+<li>still <code>"pending"</code> &mdash; SSLCommerz itself hasn't recorded the transaction yet (propagation delay, or the payment is genuinely still in progress). Go to step 3.</li>
+</ul>
+<h4>Step 3 &mdash; poll with backoff</h4>
+<p>Retry on a backoff schedule (e.g. 2s, 5s, 10s, 20s) rather than in a tight loop. Use <code>GET /payments/status/{id}</code> for most retries (cheap, and picks up IPN if it lands late), and call <code>POST /payments/verify/{id}</code> again only every couple of attempts. Stop after a reasonable ceiling (e.g. 30&ndash;60s) and show a "we'll update your order status shortly" screen instead of blocking indefinitely &mdash; IPN can still resolve the order later, independent of the app.</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>When to call</th>
+<th>Cost</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>GET /payments/status/{id}</code></td><td>First, always &mdash; and for most retries while polling</td><td>Cheap &mdash; local read only</td></tr>
+<tr><td><code>POST /payments/verify/{id}</code></td><td>Only when status still shows <code>pending</code></td><td>Real network call to SSLCommerz &mdash; use sparingly</td></tr>
+</tbody>
+</table>
+<h3 id="get-payments-status-id"><code>GET /payments/status/{id}</code></h3>
+<p>Authoritative payment-status check for an order. Call this after the SSLCommerz WebView payment flow ends &mdash; deep link, poll timeout, or app resume &mdash; to confirm the real status rather than trusting the deep link's <code>status</code> query param alone. Supports both logged-in customers and guest checkout.</p>
+<h4>Parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Location</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>id</code></td><td>path</td><td>Yes</td><td>Order ID</td></tr>
+<tr><td><code>order_key</code></td><td>query</td><td>Conditional</td><td>Required for guest orders &mdash; use <code>cancel_url.order_key</code> from the <code>POST /checkout</code> response</td></tr>
+</tbody>
+</table>
+<h4>Example</h4>
+<pre><code class="language-bash">curl "https://your-domain.com/wp-json/herlan/v1/payments/status/12345" \
+  -H "Authorization: Bearer YOUR_TOKEN"</code></pre>
+<h4>Success response (<code>200</code>)</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "order_id": 12345,
+    "status": "processing",
+    "payment_status": "success",
+    "paid": true,
+    "transaction_id": "abc123",
+    "total": "1250.00",
+    "currency": "BDT"
+  }
+}</code></pre>
+<p><code>payment_status</code> collapses WooCommerce's many order statuses into three states for the app: <code>success</code>, <code>failed</code>, or <code>pending</code>.</p>
+<h4>Error codes</h4>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>HTTP</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>herlan_order_not_found</code></td><td>404</td><td>No order exists with the given <code>id</code></td></tr>
+<tr><td><code>herlan_order_forbidden</code></td><td>403</td><td>The current user doesn't own this order, or the guest <code>order_key</code> doesn't match</td></tr>
+</tbody>
+</table>
+<h3 id="post-payments-verify-id"><code>POST /payments/verify/{id}</code></h3>
+<p>Fallback confirmation for SSLCommerz orders whose browser return leg (<code>?wc-api=WC_sslcommerz</code>) never fires &mdash; for example a mobile WebView that fails to complete SSLCommerz's auto-submit POST back to the site. That callback (and the separate IPN webhook) needs a <code>val_id</code> that only arrives via that POST; this endpoint doesn't need it. It asks SSLCommerz directly for the status of the order's <code>tran_id</code> (the order ID itself), so the app can trigger it any time after the payment attempt regardless of what the WebView did.</p>
+<p>Call this once the WebView/payment attempt ends, then read the result the same way as <a href="#get-payments-status-id"><code>GET /payments/status/{id}</code></a> &mdash; in fact this endpoint returns the identical response shape, after first (re)checking with SSLCommerz. If the order is already <code>processing</code>/<code>completed</code> (confirmed earlier by the IPN or the <code>wc-api</code> leg), it skips the SSLCommerz call entirely and just returns the current status.</p>
+<h4>Parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Location</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>id</code></td><td>path</td><td>Yes</td><td>Order ID (also the SSLCommerz <code>tran_id</code>)</td></tr>
+<tr><td><code>order_key</code></td><td>query</td><td>Conditional</td><td>Required for guest orders &mdash; use <code>cancel_url.order_key</code> from the <code>POST /checkout</code> response</td></tr>
+</tbody>
+</table>
+<h4>Example</h4>
+<pre><code class="language-bash">curl -X POST "https://your-domain.com/wp-json/herlan/v1/payments/verify/12345" \
+  -H "Authorization: Bearer YOUR_TOKEN"</code></pre>
+<h4>Success response (<code>200</code>)</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "order_id": 12345,
+    "status": "processing",
+    "payment_status": "success",
+    "paid": true,
+    "transaction_id": "abc123",
+    "total": "1250.00",
+    "currency": "BDT"
+  }
+}</code></pre>
+<p>A <code>200</code> response doesn't guarantee <code>payment_status: "success"</code> &mdash; if SSLCommerz hasn't recorded a valid transaction for this order yet, it comes back <code>"pending"</code> and the order is left untouched. Poll with backoff (e.g. 2s, 5s, 10s) before giving up.</p>
+<h4>Error codes</h4>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>HTTP</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><code>herlan_order_not_found</code></td><td>404</td><td>No order exists with the given <code>id</code></td></tr>
+<tr><td><code>herlan_order_forbidden</code></td><td>403</td><td>The current user doesn't own this order, or the guest <code>order_key</code> doesn't match</td></tr>
+<tr><td><code>herlan_not_sslcommerz_order</code></td><td>422</td><td>The order's payment method isn't SSLCommerz</td></tr>
+<tr><td><code>herlan_sslcommerz_not_configured</code></td><td>500</td><td>The SSLCommerz gateway has no <code>store_id</code>/<code>store_password</code> configured</td></tr>
+<tr><td><code>herlan_sslcommerz_unreachable</code></td><td>502</td><td>SSLCommerz's validation API didn't respond, or responded with a non-200 status &mdash; safe to retry</td></tr>
+</tbody>
+</table>
 <h2 id="common-auth-errors">Common auth errors</h2>
 <p>Protected endpoints may return:</p>
 <ul>
@@ -5938,6 +6115,18 @@ Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
 <td><code>/payments/create</code></td>
 <td>Yes</td>
 <td>Payment creation placeholder</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/payments/status/{id}</code></td>
+<td>Optional</td>
+<td>Authoritative payment status for an order</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/payments/verify/{id}</code></td>
+<td>Optional</td>
+<td>Re-checks an SSLCommerz order directly with SSLCommerz by <code>tran_id</code>, without needing <code>val_id</code></td>
 </tr>
 <tr>
 <td><code>GET</code></td>
