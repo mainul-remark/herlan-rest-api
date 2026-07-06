@@ -1,0 +1,1107 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Herlan REST API — পণ্য (Products) ও ফিল্টার (Filter) API ডকুমেন্টেশন</title>
+  <style>
+    :root { color-scheme: light; --bg: #f5f1e8; --panel: #fffdf8; --panel-2: #f8f2e5; --text: #261f18; --muted: #6f6257; --line: #e2d7c8; --code-bg: #1f2933; --code-text: #f4f7fb; --inline-bg: #efe4d5; --accent: #a63c29; --shadow: 0 18px 38px rgba(38, 31, 24, 0.08); }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; min-height: 100vh; color: var(--text); background: radial-gradient(circle at top left, rgba(217, 119, 6, 0.08), transparent 28%), linear-gradient(180deg, #fcf8f2 0%, var(--bg) 100%); font: 16px/1.65 "Hind Siliguri", "Noto Sans Bengali", Georgia, "Times New Roman", serif; }
+    header { padding: 36px 24px 28px; border-bottom: 1px solid rgba(166, 60, 41, 0.12); background: linear-gradient(135deg, rgba(166, 60, 41, 0.08), rgba(217, 119, 6, 0.04)), var(--panel); }
+    .header-inner, .layout { max-width: 1280px; margin: 0 auto; }
+    h1.page-title { margin: 0; font-size: clamp(2rem, 3vw, 3rem); line-height: 1.15; letter-spacing: -0.02em; }
+    .lede { max-width: 820px; margin: 12px 0 0; color: var(--muted); font-size: 1.05rem; }
+    .badge { display: inline-block; margin-top: 14px; padding: 5px 12px; border-radius: 999px; background: rgba(166, 60, 41, 0.1); color: var(--accent); font-size: 0.85rem; font-weight: bold; }
+    .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 28px; padding: 28px 24px 56px; align-items: start; }
+    nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow: auto; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255, 253, 248, 0.92); box-shadow: var(--shadow); }
+    nav h2 { margin: 0 0 12px; font-size: 0.95rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    nav a { display: block; padding: 6px 0; color: var(--muted); text-decoration: none; font-size: 0.95rem; }
+    nav a.level-3 { padding-left: 14px; font-size: 0.9rem; }
+    nav a:hover, nav a:focus { color: var(--accent); }
+    main { min-width: 0; padding: 28px 32px 34px; border: 1px solid var(--line); border-radius: 24px; background: var(--panel); box-shadow: var(--shadow); }
+    article > *:first-child { margin-top: 0; }
+    article h1 { margin: 0 0 1rem; font-size: 2.1rem; line-height: 1.15; letter-spacing: -0.02em; }
+    article h2, article h3, article h4 { line-height: 1.25; letter-spacing: -0.01em; }
+    article h2 { margin: 2.5rem 0 1rem; padding-bottom: 0.65rem; border-bottom: 1px solid var(--line); font-size: 1.9rem; }
+    article h3 { margin: 1.7rem 0 0.75rem; font-size: 1.35rem; }
+    article h4 { margin: 1.3rem 0 0.5rem; font-size: 1.08rem; color: var(--accent); }
+    p, ul, ol, table, pre, blockquote { margin: 0 0 1rem; }
+    ul, ol { padding-left: 1.4rem; }
+    li + li { margin-top: 0.35rem; }
+    hr { border: 0; border-top: 1px solid var(--line); margin: 1.6rem 0; }
+    code { padding: 0.14rem 0.4rem; border-radius: 6px; background: var(--inline-bg); font-family: Consolas, Monaco, monospace; font-size: 0.92em; }
+    pre { overflow: auto; padding: 16px 18px; border-radius: 16px; background: var(--code-bg); color: var(--code-text); }
+    pre code { padding: 0; background: transparent; color: inherit; font-size: 0.92rem; }
+    table { width: 100%; border-collapse: collapse; border: 1px solid var(--line); font-size: 0.96rem; }
+    th, td { padding: 10px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: var(--panel-2); }
+    a { color: var(--accent); }
+    .note { padding: 12px 16px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); }
+    .tip { padding: 12px 16px; border-radius: 12px; background: rgba(166,60,41,0.06); border: 1px solid rgba(166,60,41,0.2); }
+    @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } nav { position: static; max-height: none; } main { padding: 24px 20px 28px; } }
+  </style>
+</head>
+<body>
+  <header><div class="header-inner">
+    <h1 class="page-title">Herlan REST API — পণ্য ও ফিল্টার</h1>
+    <p class="lede">এটি <code>docs/index.html</code> এর একটি ফোকাসড ভার্সন — শুধু <strong>Product Listing</strong>, <strong>Product Detail</strong> এবং <strong>Filter</strong> সম্পর্কিত API গুলো এখানে বাংলায় সহজভাবে ব্যাখ্যা করা হয়েছে, যাতে যেকোনো ডেভেলপার দ্রুত বুঝে কাজ শুরু করতে পারে।</p>
+    <span class="badge">সম্পূর্ণ API লিস্টের জন্য index.html দেখুন</span>
+  </div></header>
+  <div class="layout">
+    <nav aria-label="Documentation navigation"><h2>সূচিপত্র (Contents)</h2>
+<a href="#intro">শুরুর কথা</a>
+<a href="#base-url">Base URL</a>
+<a href="#response-format">Response ফরম্যাট</a>
+<a href="#product-listing-api">Product Listing API</a>
+<a class="level-3" href="#how-it-works">এটি কীভাবে কাজ করে</a>
+<a class="level-3" href="#url-mapping">ওয়েবসাইট URL → API কল ম্যাপিং</a>
+<a class="level-3" href="#legacy-alias">পুরনো (Legacy) নাম নরমালাইজেশন</a>
+<a class="level-3" href="#get-group-products">GET /group/products</a>
+<a class="level-3" href="#get-filter-config">GET /filter-config</a>
+<a class="level-3" href="#get-filter-terms">GET /filter-terms</a>
+<a class="level-3" href="#get-filter-forms-id">GET /filter-forms/{id}</a>
+<a href="#get-products-filters">GET /products/filters</a>
+<a href="#get-products-id">GET /products/{id}</a>
+<a href="#get-products-id-reviews">GET /products/{id}/reviews</a>
+<a href="#post-products-id-reviews">POST /products/{id}/reviews</a>
+<a href="#get-products-id-questions">GET /products/{id}/questions</a>
+<a href="#post-products-id-questions">POST /products/{id}/questions</a>
+<a href="#get-drawer-brands-categories">GET /drawer-brands-categories</a>
+<a href="#get-taxonomies">GET /taxonomies</a>
+<a href="#get-search">GET /search</a>
+<a href="#quick-recipes">দ্রুত উদাহরণ (Quick Recipes)</a>
+    </nav>
+    <main><article>
+<h1 id="intro">Herlan REST API — পণ্য (Products) ও ফিল্টার (Filter)</h1>
+<p>এই ডকুমেন্টে শুধুমাত্র মোবাইল অ্যাপের <strong>পণ্যের তালিকা (product listing)</strong>, <strong>পণ্যের বিস্তারিত (product detail)</strong>, <strong>রিভিউ/প্রশ্ন-উত্তর</strong> এবং <strong>ফিল্টার (filter)</strong> সংক্রান্ত API গুলো আছে। Authentication, Cart, Checkout, Orders ইত্যাদির জন্য <code>index.html</code> দেখুন — সেখান থেকে কোনো কিছু মুছে ফেলা হয়নি, এই ফাইলটি আলাদাভাবে যোগ করা হয়েছে।</p>
+<div class="tip"><strong>দ্রুত টিপ:</strong> যদি আপনি শুধু একটা জিনিস মনে রাখতে চান, সেটা হলো — <strong>প্রায় সব পণ্যের তালিকা <code>GET /group/products</code> দিয়েই হয়</strong>। ব্র্যান্ড পেজ, ক্যাটাগরি পেজ, সার্চ রেজাল্ট, ফিল্টার করা রেজাল্ট — সবকিছুর জন্য একই endpoint ব্যবহার হয়, শুধু প্যারামিটার আলাদা হয়।</p></div>
+
+<h2 id="base-url">Base URL</h2>
+<pre><code class="language-text">https://YOUR_DOMAIN/wp-json/herlan/v1</code></pre>
+<p>লোকাল (localhost) উদাহরণ:</p>
+<pre><code class="language-text">http://localhost/herlanlive3/wp-json/herlan/v1</code></pre>
+
+<h2 id="response-format">Response ফরম্যাট</h2>
+<p>সফল (success) রেসপন্স সবসময় এই কাঠামোতে আসে:</p>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {}
+}</code></pre>
+<p>এরর (error) হলে WordPress REST-এর স্ট্যান্ডার্ড ফরম্যাটে আসে:</p>
+<pre><code class="language-json">{
+  "code": "herlan_error_code",
+  "message": "Error message.",
+  "data": {
+    "status": 400
+  }
+}</code></pre>
+<p class="note">অর্থাৎ, কোড লেখার সময় সবসময় আগে <code>success</code> ফিল্ড চেক করবেন। <code>true</code> হলে <code>data</code>-তে আসল তথ্য পাবেন, <code>false</code>/এরর হলে <code>message</code> ইউজারকে দেখাতে পারবেন।</p>
+
+<hr />
+<h2 id="product-listing-api">Product Listing API</h2>
+<p>এই সেকশনে আছে <strong>মূল প্রোডাক্ট লিস্টিং endpoint</strong> এবং তার সাথে জড়িত ফিল্টার endpoint গুলো। মোবাইল অ্যাপের প্রতিটি প্রোডাক্ট আর্কাইভ পেজ, ফিল্টার ড্রয়ার, এবং সার্চ স্ক্রিন — সবই এখান থেকে চালিত হয়।</p>
+
+<h3 id="how-it-works">এটি কীভাবে কাজ করে</h3>
+<p>ওয়েবসাইটের প্রতিটি প্রোডাক্ট লিস্টিং পেজ — সেটা ব্র্যান্ড পেজ হোক, ক্যাটাগরি পেজ হোক, ফিল্টার করা রেজাল্ট হোক, বা সার্চ হোক — সবকিছুই একটামাত্র endpoint দিয়ে সার্ভ হয়:</p>
+<pre><code class="language-text">GET /wp-json/herlan/v1/group/products</code></pre>
+<p>মোবাইল অ্যাপকে শুধু দুইটা জিনিস বলতে হয়:</p>
+<ol>
+<li><strong>Archive context</strong> — ইউজার কোথায় আছে (যেমন: Nior ব্র্যান্ড পেজে, বা Lipstick ক্যাটাগরি পেজে)</li>
+<li><strong>Active filters</strong> — ইউজার কী কী ফিল্টার সিলেক্ট করেছে (যেমন: skin type = Combination Skin, category = Eyes)</li>
+</ol>
+<p>এই endpoint একসাথে রিটার্ন করে: মিলে যাওয়া প্রোডাক্টগুলো, লাইভ কাউন্ট সহ ফিল্টার অপশন, প্রাইস রেঞ্জ, পেজিনেশন, এবং বর্তমান সর্ট (sort) অবস্থা।</p>
+<hr />
+
+<h3 id="url-mapping">ওয়েবসাইট URL → API কল ম্যাপিং</h3>
+<p>এটাই মোবাইল ডেভেলপারের জন্য সবচেয়ে গুরুত্বপূর্ণ কনসেপ্ট। ওয়েবসাইটের প্রতিটি URL সরাসরি একটা API কলের সাথে ম্যাপ হয়। নিচের টেবিলে সাধারণ কিছু উদাহরণ দেওয়া হলো।</p>
+<table>
+<thead><tr><th>ওয়েবসাইট URL</th><th>সমতুল্য API কল</th></tr></thead>
+<tbody>
+<tr><td><code>/shop/</code></td><td><code>GET /group/products</code></td></tr>
+<tr><td><code>/brand/d32/</code></td><td><code>GET /group/products?context_taxonomy=brand&amp;context_term=d32</code></td></tr>
+<tr><td><code>/brand/nior/</code></td><td><code>GET /group/products?context_taxonomy=brand&amp;context_term=nior</code></td></tr>
+<tr><td><code>/brand/d32/?product-cat=electric-toothbrush</code></td><td><code>GET /group/products?context_taxonomy=brand&amp;context_term=d32&amp;filter_product_cat=electric-toothbrush</code></td></tr>
+<tr><td><code>/brand/nior/?_skin-type=combination-skin</code></td><td><code>GET /group/products?context_taxonomy=brand&amp;context_term=nior&amp;filter_skin-type=combination-skin</code></td></tr>
+<tr><td><code>/product-category/makeup/</code></td><td><code>GET /group/products?context_taxonomy=product_cat&amp;context_term=makeup</code></td></tr>
+<tr><td><code>/product-category/makeup/lip/lipstick/</code></td><td><code>GET /group/products?context_taxonomy=product_cat&amp;context_term=lipstick</code></td></tr>
+<tr><td><code>/product-category/skin-care/?_brand=herlan</code></td><td><code>GET /group/products?context_taxonomy=product_cat&amp;context_term=skin-care&amp;filter_brand=herlan</code></td></tr>
+<tr><td><code>/search/?s=lipstick</code></td><td><code>GET /group/products?search=lipstick</code></td></tr>
+</tbody>
+</table>
+<p><strong>গুরুত্বপূর্ণ কথা:</strong></p>
+<ul>
+<li><code>/makeup/lip/lipstick/</code>-এর মতো nested (nested) ক্যাটাগরি URL-এর ক্ষেত্রে শুধু সবার শেষের term slug (<code>lipstick</code>) দিলেই হবে — পুরো path দিতে হবে না। WordPress প্রতিটা term-কে ইউনিক slug দিয়ে রাখে।</li>
+<li>এই endpoint সবসময় চাইল্ড ক্যাটাগরি অটোমেটিক include করে (<code>include_children=true</code>) — তাই প্যারেন্ট ক্যাটাগরি (যেমন <code>makeup</code>) দিলে তার সব চাইল্ড (<code>lip</code>, <code>lipstick</code>, <code>lip-gloss</code> ইত্যাদি) এর প্রোডাক্টও চলে আসবে।</li>
+<li>ওয়েবসাইটের পুরনো (legacy) query parameter নাম (যেমন <code>?product-cat=...</code> বা <code>?_brand=...</code>) সরাসরি পাঠালেও চলবে — API নিজে থেকেই সেগুলো নরমালাইজ করে দেয়। মোবাইল অ্যাপের নাম বদলাতে হয় না।</li>
+</ul>
+<hr />
+
+<h3 id="legacy-alias">পুরনো (Legacy) নাম নরমালাইজেশন</h3>
+<p>ওয়েবসাইটের ফ্রন্টএন্ড কিছু নন-স্ট্যান্ডার্ড query parameter নাম ব্যবহার করে। API উভয় (পুরনো ও নতুন) নাম গ্রহণ করে এবং নিজে থেকেই ঠিক করে নেয়।</p>
+<table>
+<thead><tr><th>Legacy (ওয়েবসাইট স্টাইল)</th><th>Canonical (নতুন কোডে এটাই ব্যবহার করুন)</th></tr></thead>
+<tbody>
+<tr><td><code>_brand</code></td><td><code>filter_brand</code></td></tr>
+<tr><td><code>product-cat</code></td><td><code>filter_product_cat</code></td></tr>
+<tr><td><code>_skin-type</code></td><td><code>filter_skin-type</code></td></tr>
+<tr><td><code>_age-range</code></td><td><code>filter_age-range</code></td></tr>
+<tr><td><code>_keywords</code></td><td><code>filter_keywords</code></td></tr>
+<tr><td><code>sort-by</code></td><td><code>orderby</code></td></tr>
+</tbody>
+</table>
+<p>উদাহরণ — এই legacy URL:</p>
+<pre><code class="language-text">/brand/nior/?product-cat=eyebrow,eyes&amp;_skin-type=combination-skin</code></pre>
+<p>API-তে যেভাবে normalize হয়:</p>
+<pre><code class="language-text">GET /group/products?context_taxonomy=brand&amp;context_term=nior&amp;filter_product_cat=eyebrow,eyes&amp;filter_skin-type=combination-skin</code></pre>
+<hr />
+
+<h3 id="get-group-products"><code>GET /group/products</code></h3>
+<p>একটা paginated (পেজ-ভিত্তিক) প্রোডাক্ট লিস্ট রিটার্ন করে, সাথে লাইভ ফিল্টার কাউন্ট, প্রাইস রেঞ্জ, এক্টিভ ফিল্টার এবং পেজিনেশন। এটাই সব প্রোডাক্ট লিস্টিং স্ক্রিনের মূল (core) endpoint।</p>
+
+<h4>Request প্যারামিটার</h4>
+<p><strong>১. Archive context</strong> — ইউজার কোথায় আছে:</p>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>প্রয়োজনীয়?</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>context_taxonomy</code></td><td>string</td><td>না</td><td>আর্কাইভের taxonomy slug। এর একটি: <code>product_cat</code>, <code>product_tag</code>, <code>brand</code>, <code>keywords</code>, <code>skin-type</code>, <code>age-range</code></td></tr>
+<tr><td><code>context_term</code></td><td>string</td><td>শর্তসাপেক্ষ</td><td>আর্কাইভ term-এর slug। <code>context_taxonomy</code> দিলে এটা বাধ্যতামূলক।</td></tr>
+</tbody>
+</table>
+<p>নিয়ম:</p>
+<ul>
+<li>দুইটাই না দিলে — এটা একটা সাধারণ shop/search লিস্টিং হিসেবে কাজ করবে।</li>
+<li><code>context_taxonomy</code> দিলে <code>context_term</code> অবশ্যই দিতে হবে।</li>
+<li><code>product_cat</code>-এর ক্ষেত্রে চাইল্ড ক্যাটাগরি সবসময় include হবে।</li>
+</ul>
+
+<p><strong>২. Taxonomy ফিল্টার</strong> — ইউজার কী সিলেক্ট করেছে:</p>
+<p>ফরম্যাট: <code>filter_{taxonomy}=slug-a,slug-b</code></p>
+<table>
+<thead><tr><th>Parameter</th><th>উদাহরণ</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>filter_brand</code></td><td><code>filter_brand=nior,herlan</code></td><td>এক বা একাধিক ব্র্যান্ড slug দিয়ে ফিল্টার</td></tr>
+<tr><td><code>filter_product_cat</code></td><td><code>filter_product_cat=eyes,eyebrow</code></td><td>এক বা একাধিক ক্যাটাগরি slug দিয়ে ফিল্টার</td></tr>
+<tr><td><code>filter_skin-type</code></td><td><code>filter_skin-type=combination-skin</code></td><td>স্কিন টাইপ দিয়ে ফিল্টার</td></tr>
+<tr><td><code>filter_age-range</code></td><td><code>filter_age-range=25-35</code></td><td>বয়সের রেঞ্জ দিয়ে ফিল্টার</td></tr>
+<tr><td><code>filter_keywords</code></td><td><code>filter_keywords=paraben-free</code></td><td>কীওয়ার্ড দিয়ে ফিল্টার</td></tr>
+<tr><td><code>filter_pa_colors</code></td><td><code>filter_pa_colors=vintage-vibes</code></td><td>রং (color attribute) দিয়ে ফিল্টার</td></tr>
+<tr><td><code>filter_pa_size</code></td><td><code>filter_pa_size=100ml</code></td><td>সাইজ attribute দিয়ে ফিল্টার</td></tr>
+<tr><td><code>filter_pa_variant</code></td><td><code>filter_pa_variant=aloe</code></td><td>ভ্যারিয়েন্ট attribute দিয়ে ফিল্টার</td></tr>
+</tbody>
+</table>
+<p>WooCommerce-এ রেজিস্টার করা যেকোনো <code>pa_*</code> attribute কোনো কোড পরিবর্তন ছাড়াই সাপোর্ট হয়।</p>
+
+<p><strong>৩. Filter operator</strong> — একাধিক ভ্যালু কীভাবে মেলাবে:</p>
+<table>
+<thead><tr><th>Parameter</th><th>ডিফল্ট</th><th>ভ্যালু</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>filter_operator_{taxonomy}</code></td><td><code>in</code></td><td><code>in</code>, <code>and</code>, <code>not_in</code></td><td><code>in</code> = যেকোনো একটা সিলেক্টেড term মিললেই হবে, <code>and</code> = সবগুলো term-ই মিলতে হবে, <code>not_in</code> = বাদ দিন</td></tr>
+</tbody>
+</table>
+<p>উদাহরণ: <code>filter_operator_brand=and</code> — প্রোডাক্টকে অবশ্যই সিলেক্ট করা সব ব্র্যান্ডের অন্তর্ভুক্ত হতে হবে।</p>
+
+<p><strong>৪. প্রাইস, স্টক ও সেল:</strong></p>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>min_price</code></td><td>number</td><td>সর্বনিম্ন দাম</td></tr>
+<tr><td><code>max_price</code></td><td>number</td><td>সর্বোচ্চ দাম</td></tr>
+<tr><td><code>stock_status</code></td><td>string</td><td><code>instock</code>, <code>outofstock</code>, বা <code>onbackorder</code></td></tr>
+<tr><td><code>on_sale</code></td><td>boolean</td><td>শুধু সেল-এ থাকা প্রোডাক্ট দেখাতে <code>1</code> বা <code>true</code></td></tr>
+</tbody>
+</table>
+
+<p><strong>৫. সার্চ ও সর্ট:</strong></p>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>ডিফল্ট</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>search</code></td><td>string</td><td>—</td><td>প্রোডাক্ট টেক্সট সার্চ</td></tr>
+<tr><td><code>orderby</code></td><td>string</td><td><code>menu_order</code></td><td><code>menu_order</code>, <code>popularity</code>, <code>rating</code>, <code>date</code>, <code>price</code>, <code>price-desc</code>, <code>title</code></td></tr>
+</tbody>
+</table>
+<p>Sort রেফারেন্স:</p>
+<table>
+<thead><tr><th><code>orderby</code> ভ্যালু</th><th>যেভাবে সর্ট হয়</th></tr></thead>
+<tbody>
+<tr><td><code>menu_order</code></td><td>এডমিনে সেট করা ডিফল্ট ক্যাটালগ অর্ডার</td></tr>
+<tr><td><code>popularity</code></td><td>সবচেয়ে বেশি বিক্রি (WooCommerce total sales)</td></tr>
+<tr><td><code>rating</code></td><td>সবচেয়ে বেশি গড় রেটিং</td></tr>
+<tr><td><code>date</code></td><td>সবচেয়ে নতুন আগে</td></tr>
+<tr><td><code>price</code></td><td>কম দাম আগে</td></tr>
+<tr><td><code>price-desc</code></td><td>বেশি দাম আগে</td></tr>
+<tr><td><code>title</code></td><td>নাম অনুযায়ী A–Z</td></tr>
+</tbody>
+</table>
+
+<p><strong>৬. পেজিনেশন:</strong></p>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>ডিফল্ট</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>page</code></td><td>integer</td><td><code>1</code></td><td>পেজ নাম্বার</td></tr>
+<tr><td><code>per_page</code></td><td>integer</td><td><code>12</code></td><td>প্রতি পেজে কয়টা প্রোডাক্ট (সর্বোচ্চ <code>50</code>)</td></tr>
+</tbody>
+</table>
+
+<p><strong>৭. Include flags</strong> — রেসপন্সে কী কী থাকবে তা নিয়ন্ত্রণ করে:</p>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>ডিফল্ট</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>include_products</code></td><td>boolean</td><td><code>1</code></td><td>রেসপন্সে প্রোডাক্ট লিস্ট থাকবে কিনা</td></tr>
+<tr><td><code>include_filters</code></td><td>boolean</td><td><code>0</code></td><td>ফিল্টার গ্রুপ ও কাউন্ট থাকবে কিনা। ফিল্টার ডেটা পেতে অবশ্যই <code>1</code> সেট করতে হবে। রেসপন্স হালকা রাখতে ডিফল্ট <code>0</code>।</td></tr>
+<tr><td><code>include_pagination</code></td><td>boolean</td><td><code>1</code></td><td>পেজিনেশন ব্লক থাকবে কিনা</td></tr>
+</tbody>
+</table>
+<div class="tip"><strong>টিপ:</strong> সাধারণ প্রোডাক্ট লিস্টিং বা পেজিনেশন কলের জন্য <code>include_filters=0</code> (ডিফল্ট) রাখুন। ইউজার যখন ফিল্টার ড্রয়ার ওপেন করে, শুধু তখনই <code>include_filters=1</code> পাঠান — কারণ এতে সব taxonomy জুড়ে লাইভ কাউন্ট হিসাব করতে হয়, যা একটু ভারী কাজ।</div>
+
+<h4>Response এর গঠন</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "context": {},
+    "request": {},
+    "products": [],
+    "filters": {},
+    "pagination": {}
+  }
+}</code></pre>
+
+<h4><code>data.context</code></h4>
+<p>ইউজার এখন কোন আর্কাইভ ব্রাউজ করছে সেটা বলে। ভ্যালু <code>null</code> মানে কোনো আর্কাইভ কনটেক্সট নেই (সাধারণ লিস্টিং বা সার্চ)।</p>
+<pre><code class="language-json">{
+  "taxonomy": "brand",
+  "label": "Brands",
+  "term": {
+    "id": 12,
+    "name": "Nior",
+    "slug": "nior",
+    "taxonomy": "brand",
+    "description": "",
+    "parent": 0,
+    "count": 24,
+    "link": "https://herlan.com/brand/nior/",
+    "image": {
+      "id": 501,
+      "src": "https://herlan.com/wp-content/uploads/nior-logo.jpg",
+      "alt": "Nior"
+    }
+  }
+}</code></pre>
+<p>কনটেক্সট না থাকলে:</p>
+<pre><code class="language-json">{
+  "taxonomy": null,
+  "label": null,
+  "term": null
+}</code></pre>
+
+<h4><code>data.request</code></h4>
+<p>Alias resolution ও sanitization এর পর সত্যিকার অর্থে যে প্যারামিটারগুলো ব্যবহার হয়েছে, তার normalized ভার্সন। ডিবাগিং এবং ইউজারকে বর্তমান ফিল্টার অবস্থা দেখানোর জন্য কাজে লাগে।</p>
+<pre><code class="language-json">{
+  "page": 1,
+  "per_page": 12,
+  "orderby": "popularity",
+  "order": "ASC",
+  "search": null,
+  "filters": {
+    "filter_product_cat": ["eyes", "eyebrow"],
+    "filter_skin-type": ["combination-skin"],
+    "min_price": "300",
+    "max_price": "1200",
+    "stock_status": "instock",
+    "on_sale": true
+  }
+}</code></pre>
+
+<h4><code>data.products[]</code></h4>
+<p>লিস্টিং-এর প্রতিটি প্রোডাক্ট। এটা একটা হালকা (lightweight) কার্ড অবজেক্ট — পূর্ণাঙ্গ বিস্তারিত পেতে <code>GET /products/{id}</code> ব্যবহার করুন।</p>
+<pre><code class="language-json">{
+  "id": 10119,
+  "name": "Herlan Cushion Matte Lipstick Vintage Vibes",
+  "slug": "herlan-cushion-matte-lipstick-vintage-vibes",
+  "type": "simple",
+  "permalink": "https://herlan.com/product/herlan-cushion-matte-lipstick-vintage-vibes/",
+  "sku": "HL-LIP-VV",
+  "price": "690",
+  "regular_price": "690",
+  "sale_price": "",
+  "price_html": "&lt;span class=\"woocommerce-Price-amount amount\"&gt;690&lt;/span&gt;",
+  "on_sale": false,
+  "stock_status": "instock",
+  "in_stock": true,
+  "average_rating": "0",
+  "rating_count": 0,
+  "brand": { "id": 12, "name": "Herlan", "slug": "herlan" },
+  "image": { "id": 301, "src": "https://herlan.com/wp-content/uploads/product.jpg", "alt": "Herlan Cushion Matte Lipstick" },
+  "categories": [ { "id": 88, "name": "Lipstick", "slug": "lipstick" } ],
+  "tags": [ { "id": 45, "name": "Herlan Cushion Matte Lipstick", "slug": "herlan-cushion-matte-lipstick" } ]
+}</code></pre>
+<p>প্রোডাক্ট কার্ডের ফিল্ড:</p>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>integer</td><td>WooCommerce প্রোডাক্ট ID</td></tr>
+<tr><td><code>name</code></td><td>string</td><td>প্রোডাক্টের নাম</td></tr>
+<tr><td><code>slug</code></td><td>string</td><td>URL slug</td></tr>
+<tr><td><code>type</code></td><td>string</td><td><code>simple</code>, <code>variable</code> ইত্যাদি</td></tr>
+<tr><td><code>permalink</code></td><td>string</td><td>প্রোডাক্টের পূর্ণ URL</td></tr>
+<tr><td><code>sku</code></td><td>string</td><td>SKU</td></tr>
+<tr><td><code>price</code></td><td>string</td><td>বর্তমান সক্রিয় দাম</td></tr>
+<tr><td><code>regular_price</code></td><td>string</td><td>নিয়মিত (নন-সেল) দাম</td></tr>
+<tr><td><code>sale_price</code></td><td>string</td><td>সেল প্রাইস (থাকলে), না থাকলে খালি স্ট্রিং</td></tr>
+<tr><td><code>price_html</code></td><td>string</td><td>WooCommerce ফরম্যাট করা প্রাইস HTML</td></tr>
+<tr><td><code>on_sale</code></td><td>boolean</td><td>বর্তমানে সেলে থাকলে <code>true</code></td></tr>
+<tr><td><code>stock_status</code></td><td>string</td><td><code>instock</code>, <code>outofstock</code>, <code>onbackorder</code></td></tr>
+<tr><td><code>in_stock</code></td><td>boolean</td><td>কেনার মতো স্টক থাকলে <code>true</code></td></tr>
+<tr><td><code>average_rating</code></td><td>string</td><td>যেমন <code>"4.5"</code></td></tr>
+<tr><td><code>rating_count</code></td><td>integer</td><td>মোট রেটিং সংখ্যা</td></tr>
+<tr><td><code>brand</code></td><td>object|null</td><td>প্রথম ব্র্যান্ড term</td></tr>
+<tr><td><code>image</code></td><td>object|null</td><td>মূল প্রোডাক্ট ছবি</td></tr>
+<tr><td><code>categories</code></td><td>array</td><td>যুক্ত <code>product_cat</code> term-সমূহ</td></tr>
+<tr><td><code>tags</code></td><td>array</td><td>যুক্ত <code>product_tag</code> term-সমূহ</td></tr>
+</tbody>
+</table>
+
+<h4><code>data.filters</code></h4>
+<pre><code class="language-json">{
+  "active": [],
+  "available": {},
+  "price_range": {},
+  "availability": {},
+  "sorting": {},
+  "per_page": {}
+}</code></pre>
+<p><strong><code>filters.active</code></strong> — ইউজার এখন যেসব ফিল্টার প্রয়োগ করেছে, "remove filter" চিপ দেখানোর জন্য উপযুক্ত:</p>
+<pre><code class="language-json">[
+  { "key": "filter_product_cat", "value": "eyebrow", "label": "Product categories: Eyebrow" },
+  { "key": "filter_skin-type", "value": "combination-skin", "label": "Skin Types: Combination Skin" },
+  { "key": "stock_status", "value": "instock", "label": "In stock" }
+]</code></pre>
+<p><strong><code>filters.available</code></strong> — প্রতিটি ফিল্টারযোগ্য taxonomy-র জন্য একটা করে অবজেক্ট, সাথে লাইভ প্রোডাক্ট কাউন্ট:</p>
+<pre><code class="language-json">{
+  "brand": {
+    "label": "Brands",
+    "taxonomy": "brand",
+    "hierarchical": false,
+    "terms": [
+      { "id": 12, "name": "Nior", "slug": "nior", "count": 7, "parent": 0, "link": "https://herlan.com/brand/nior/", "image": null }
+    ]
+  },
+  "pa_colors": {
+    "label": "Product Colors",
+    "taxonomy": "pa_colors",
+    "hierarchical": false,
+    "terms": [
+      { "id": 999, "name": "Vintage Vibes", "slug": "vintage-vibes", "count": 3, "parent": 0, "link": "...", "color": "#a8483d", "image": null }
+    ]
+  }
+}</code></pre>
+<p><strong>কাউন্ট কীভাবে কাজ করে (faceted filtering):</strong> প্রতিটা term-এর কাউন্ট বোঝায় — ইউজার যদি ওই term-এ ট্যাপ করে তাহলে কতগুলো প্রোডাক্ট মিলবে — বর্তমান কনটেক্সট ও এক্টিভ ফিল্টার হিসেবে নিয়ে, কিন্তু যে taxonomy-র কাউন্ট হচ্ছে সেটাকে বাদ দিয়ে। এটা ওয়েবসাইটের ফিল্টার প্লাগইনের আচরণের সাথে হুবহু মেলে। <code>count: 0</code> হলে সেই term রিটার্ন হয় না।</p>
+<p><strong><code>filters.price_range</code></strong> — বর্তমান মিলে যাওয়া প্রোডাক্ট সেটের সর্বনিম্ন ও সর্বোচ্চ দাম:</p>
+<pre><code class="language-json">{ "min": 300, "max": 1200 }</code></pre>
+<p><strong><code>filters.availability</code></strong> — বর্তমান রেজাল্ট সেটের স্টক ও সেল কাউন্ট:</p>
+<pre><code class="language-json">{ "in_stock_count": 18, "on_sale_count": 4 }</code></pre>
+<p><strong><code>filters.sorting</code></strong> — বর্তমান সর্ট ও সব সম্ভাব্য সর্ট অপশন:</p>
+<pre><code class="language-json">{
+  "current": "popularity",
+  "options": [
+    { "key": "menu_order", "label": "Default sorting" },
+    { "key": "popularity", "label": "Sort by popularity" },
+    { "key": "rating",     "label": "Sort by average rating" },
+    { "key": "date",       "label": "Sort by latest" },
+    { "key": "price",      "label": "Sort by price: low to high" },
+    { "key": "price-desc", "label": "Sort by price: high to low" }
+  ]
+}</code></pre>
+<p><strong><code>filters.per_page</code></strong> — বর্তমান পেজ সাইজ ও অপশন:</p>
+<pre><code class="language-json">{ "current": 12, "options": [12, 24, 36, 48] }</code></pre>
+
+<h4><code>data.pagination</code></h4>
+<pre><code class="language-json">{
+  "page": 1,
+  "per_page": 12,
+  "total": 48,
+  "total_pages": 4,
+  "has_more": true
+}</code></pre>
+
+<h4>Error কোডসমূহ</h4>
+<table>
+<thead><tr><th>Code</th><th>HTTP</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>herlan_woocommerce_unavailable</code></td><td>500</td><td>WooCommerce সক্রিয় নেই</td></tr>
+<tr><td><code>herlan_invalid_context_taxonomy</code></td><td>400</td><td><code>context_taxonomy</code> সাপোর্টেড না</td></tr>
+<tr><td><code>herlan_missing_context_term</code></td><td>400</td><td><code>context_taxonomy</code> দেওয়া হয়েছে কিন্তু <code>context_term</code> দেওয়া হয়নি</td></tr>
+<tr><td><code>herlan_invalid_orderby</code></td><td>400</td><td><code>orderby</code> ভ্যালু চেনা যায়নি</td></tr>
+<tr><td><code>herlan_invalid_stock_status</code></td><td>400</td><td><code>stock_status</code>, <code>instock</code>/<code>outofstock</code>/<code>onbackorder</code> এর একটাও না</td></tr>
+</tbody>
+</table>
+
+<h4>উদাহরণ Request</h4>
+<p><strong>ব্র্যান্ড আর্কাইভ — Nior:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand&amp;context_term=nior"</code></pre>
+<p><strong>ব্র্যান্ড আর্কাইভ + ক্যাটাগরি + স্কিন-টাইপ ফিল্টার:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand&amp;context_term=nior&amp;filter_product_cat=eyes,eyebrow&amp;filter_skin-type=combination-skin"</code></pre>
+<p><strong>ক্যাটাগরি আর্কাইভ — Lipstick (nested URL <code>/makeup/lip/lipstick/</code>):</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=product_cat&amp;context_term=lipstick"</code></pre>
+<p><strong>সার্চ + প্রাইস রেঞ্জ + স্টক + সর্ট:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/group/products?search=lipstick&amp;min_price=300&amp;max_price=900&amp;stock_status=instock&amp;orderby=popularity&amp;page=1&amp;per_page=12"</code></pre>
+<p><strong>পেজ ২ লোড করা (ফিল্টার ডেটা ছাড়া, ডিফল্ট):</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand&amp;context_term=nior&amp;page=2"</code></pre>
+<p><strong>ফিল্টার ড্রয়ার ওপেন হলে (ফিল্টার ডেটাসহ):</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand&amp;context_term=nior&amp;include_filters=1"</code></pre>
+<p><strong>Legacy alias প্যারামিটার দিয়ে (এটাও গ্রহণযোগ্য):</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand&amp;context_term=nior&amp;product-cat=eyebrow,eyes&amp;_skin-type=combination-skin&amp;sort-by=popularity"</code></pre>
+<hr />
+
+<h3 id="get-filter-config"><code>GET /filter-config</code></h3>
+<p>মোবাইল অ্যাপ ফিল্টার ড্রয়ারে কী কী ফিল্টার টাইপ দেখাবে তার লিস্ট রিটার্ন করে। সাথে সর্টিং অপশন ও per-page কন্ট্রোলও থাকে।</p>
+<p>এই endpoint সাধারণত ফিল্টার ড্রয়ার প্রথমবার ওপেন হওয়ার সময় একবার কল করে, তারপর অ্যাপে লোকাললি ক্যাশ করে রাখা উচিত।</p>
+<h4>Request প্যারামিটার</h4>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>প্রয়োজনীয়?</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>context_taxonomy</code></td><td>string</td><td>না</td><td>কনটেক্সট-ভিত্তিক কনফিগের জন্য আর্কাইভ taxonomy slug</td></tr>
+<tr><td><code>context_term</code></td><td>string</td><td>না</td><td>আর্কাইভ term slug</td></tr>
+<tr><td><code>page</code></td><td>integer</td><td>না</td><td>পেজ নাম্বার। ডিফল্ট <code>1</code></td></tr>
+<tr><td><code>per_page</code></td><td>integer</td><td>না</td><td>প্রতি পেজে ফিল্টার সংজ্ঞা। ডিফল্ট <code>50</code>, সর্বোচ্চ <code>100</code></td></tr>
+</tbody>
+</table>
+<h4>Response এর গঠন</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "context": { "taxonomy": "brand", "term": { "slug": "nior" } },
+    "filters": [
+      {
+        "type": "taxonomy",
+        "taxonomy": "product_cat",
+        "filter_key": "product-cat",
+        "canonical_key": "filter_product_cat",
+        "label": "Product categories",
+        "multiple": true,
+        "options_endpoint": "https://herlan.com/wp-json/herlan/v1/filter-terms?taxonomy=product_cat"
+      },
+      {
+        "type": "taxonomy",
+        "taxonomy": "brand",
+        "filter_key": "_brand",
+        "canonical_key": "filter_brand",
+        "label": "Brands",
+        "multiple": true,
+        "options_endpoint": "https://herlan.com/wp-json/herlan/v1/filter-terms?taxonomy=brand"
+      },
+      { "type": "price", "filter_key": "price", "canonical_key": "min_price,max_price", "label": "Price" },
+      { "type": "sort-by", "filter_key": "sort-by", "canonical_key": "orderby", "label": "Sort By" }
+    ],
+    "sorting": { "current": "menu_order", "options": [] },
+    "per_page": { "current": 12, "options": [12, 24, 36, 48] },
+    "pagination": { "page": 1, "per_page": 50, "total": 12, "total_pages": 1, "has_more": false }
+  }
+}</code></pre>
+<p>ফিল্টার সংজ্ঞার (definition) ফিল্ড:</p>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>type</code></td><td>string</td><td><code>taxonomy</code>, <code>attribute</code>, <code>price</code>, বা <code>sort-by</code></td></tr>
+<tr><td><code>taxonomy</code></td><td>string</td><td>Taxonomy slug (শুধু taxonomy ও attribute টাইপের জন্য)</td></tr>
+<tr><td><code>filter_key</code></td><td>string</td><td>Legacy-compatible key (ওয়েবসাইট-স্টাইল URL বানাতে ব্যবহার করুন)</td></tr>
+<tr><td><code>canonical_key</code></td><td>string</td><td>মূল API প্যারামিটার নাম (<code>GET /group/products</code> কল করার সময় এটা ব্যবহার করুন)</td></tr>
+<tr><td><code>label</code></td><td>string</td><td>ফিল্টার সেকশনের হেডিং-এর জন্য মানুষের পড়ার মতো লেবেল</td></tr>
+<tr><td><code>multiple</code></td><td>boolean</td><td>একসাথে একাধিক term সিলেক্ট করা যাবে কিনা</td></tr>
+<tr><td><code>options_endpoint</code></td><td>string</td><td>কাউন্টসহ সিলেক্টযোগ্য term-এর লিস্টের জন্য এই URL কল করুন</td></tr>
+</tbody>
+</table>
+<hr />
+
+<h3 id="get-filter-terms"><code>GET /filter-terms</code></h3>
+<p>একটা taxonomy-র সিলেক্টযোগ্য term-গুলো রিটার্ন করে, বর্তমান কনটেক্সটে হিসাব করা প্রোডাক্ট কাউন্টসহ। একটা ফিল্টারের অপশন লিস্ট পপুলেট করতে এটা ব্যবহার করুন।</p>
+<h4>Request প্যারামিটার</h4>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>প্রয়োজনীয়?</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>taxonomy</code></td><td>string</td><td><strong>হ্যাঁ</strong></td><td>যে taxonomy-র term আনতে হবে</td></tr>
+<tr><td><code>context_taxonomy</code></td><td>string</td><td>না</td><td>কনটেক্সট-স্কোপড কাউন্টের জন্য আর্কাইভ taxonomy</td></tr>
+<tr><td><code>context_term</code></td><td>string</td><td>না</td><td>আর্কাইভ term slug</td></tr>
+<tr><td><code>search</code></td><td>string</td><td>না</td><td>নাম দিয়ে term ফিল্টার করুন</td></tr>
+<tr><td><code>page</code></td><td>integer</td><td>না</td><td>পেজ নাম্বার। ডিফল্ট <code>1</code></td></tr>
+<tr><td><code>per_page</code></td><td>integer</td><td>না</td><td>প্রতি পেজে term। ডিফল্ট <code>20</code>, সর্বোচ্চ <code>100</code></td></tr>
+</tbody>
+</table>
+<h4>Response এর গঠন</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "taxonomy": { "name": "pa_colors", "label": "Product Colors", "hierarchical": false },
+    "terms": [
+      { "id": 999, "name": "Vintage Vibes", "slug": "vintage-vibes", "count": 3, "parent": 0, "image": null, "color": "#a8483d" }
+    ],
+    "pagination": { "page": 1, "per_page": 20, "total": 217, "total_pages": 11, "has_more": true }
+  }
+}</code></pre>
+<p>Term-এর ফিল্ড:</p>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>integer</td><td>Term ID</td></tr>
+<tr><td><code>name</code></td><td>string</td><td>দেখানোর নাম</td></tr>
+<tr><td><code>slug</code></td><td>string</td><td>API slug — <code>filter_{taxonomy}</code> প্যারামিটারে এটা ব্যবহার করুন</td></tr>
+<tr><td><code>count</code></td><td>integer</td><td>বর্তমান কনটেক্সটে এই term-এ কতগুলো প্রোডাক্ট মেলে</td></tr>
+<tr><td><code>parent</code></td><td>integer</td><td>প্যারেন্ট term ID, root term হলে <code>0</code></td></tr>
+<tr><td><code>image</code></td><td>string|null</td><td>Swatch ছবি (থাকলে)</td></tr>
+<tr><td><code>color</code></td><td>string</td><td>Swatch হেক্স কালার (থাকলে, যেমন <code>"#a8483d"</code>)</td></tr>
+</tbody>
+</table>
+<p>এখানে পেজিনেশন গুরুত্বপূর্ণ — বর্তমান ক্যাটালগে <code>pa_colors</code>-এর 217টা term আছে। ধাপে ধাপে লোড করতে <code>page</code> ও <code>per_page</code> ব্যবহার করুন (যেমন কালার পিকারে স্ক্রল করার সময়)।</p>
+<p>Error কোড:</p>
+<ul><li><code>400 herlan_invalid_filter_taxonomy</code> — taxonomy দেওয়া হয়নি বা এটার অস্তিত্ব নেই</li></ul>
+<h4>উদাহরণ — ব্র্যান্ড আর্কাইভের জন্য কালার সোয়াচ লোড করা:</h4>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/filter-terms?taxonomy=pa_colors&amp;context_taxonomy=brand&amp;context_term=nior&amp;per_page=50"</code></pre>
+<hr />
+
+<h3 id="get-filter-forms-id"><code>GET /filter-forms/{id}</code></h3>
+<p>একটা WooCommerce Ajax Product Filter (wcapf) ফর্মের সম্পূর্ণ ফিল্টার কনফিগারেশন রিটার্ন করে। মোবাইল ফিল্টার ড্রয়ার চালানোর প্রধান endpoint এটা — এটা বলে দেয় ঠিক কী কী ফিল্টার আছে, কীভাবে দেখাতে হবে, কোন term-গুলো পাওয়া যাবে, এবং ইউজার সিলেক্ট করলে <code>GET /group/products</code>-এ কোন প্যারামিটার পাঠাতে হবে।</p>
+<h4>এটা <code>/group/products</code>-এর সাথে কীভাবে কাজ করে</h4>
+<p>রেসপন্সের প্রতিটা ফিল্টারে একটা <code>api_param</code> ফিল্ড থাকে। ইউজার যখন অ্যাপে একটা ফিল্টার অপশন সিলেক্ট করে, <code>/group/products</code> কল করার সময় সেই param নাম ব্যবহার করুন।</p>
+<p>উদাহরণ ফ্লো:</p>
+<ol>
+<li><code>GET /filter-forms/20537?context_taxonomy=brand&amp;context_term=siodil</code> কল করুন</li>
+<li>রেসপন্সে <code>skin-type</code> ফিল্টার থাকবে, <code>"api_param": "filter_skin-type"</code> সহ, এবং term যেমন <code>{ "slug": "combination-skin", ... }</code></li>
+<li>ইউজার "Combination Skin" সিলেক্ট করে</li>
+<li>এখন কল করুন: <code>GET /group/products?context_taxonomy=brand&amp;context_term=siodil&amp;filter_skin-type=combination-skin</code></li>
+</ol>
+<h4>Path প্যারামিটার</h4>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>প্রয়োজনীয়?</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>integer</td><td>হ্যাঁ</td><td>wcapf ফর্ম পোস্ট ID (যেমন <code>20537</code>)</td></tr>
+</tbody>
+</table>
+<h4>Query প্যারামিটার</h4>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>প্রয়োজনীয়?</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>context_taxonomy</code></td><td>string</td><td>না</td><td>আর্কাইভ taxonomy slug — এই কনটেক্সটে term কাউন্ট স্কোপ করে</td></tr>
+<tr><td><code>context_term</code></td><td>string</td><td>না</td><td>আর্কাইভ term slug — এই কনটেক্সটে term কাউন্ট স্কোপ করে</td></tr>
+</tbody>
+</table>
+<p>Context পাঠানো অত্যন্ত সুপারিশকৃত। না পাঠালে term কাউন্ট পুরো ক্যাটালগ অনুযায়ী দেখাবে। পাঠালে, শুধু বর্তমান আর্কাইভের (যেমন Siodil ব্র্যান্ড পেজের) প্রোডাক্ট অনুযায়ী দেখাবে।</p>
+<h4>Response এর গঠন</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "form": { "id": 20537, "title": "Sample form", "slug": "sample-form" },
+    "context": { "taxonomy": "brand", "term": "siodil" },
+    "filters": [],
+    "products_endpoint": "https://herlan.com/wp-json/herlan/v1/group/products"
+  }
+}</code></pre>
+
+<h4><code>filters[]</code> — ফিল্টারের ধরন</h4>
+<p>array-এর প্রতিটা ফিল্টার হলো ফিল্টার ড্রয়ারের একটা প্যানেল। <code>type</code> ফিল্ড বলে দেয় এটা কোন ধরনের ফিল্টার।</p>
+
+<p><strong>Taxonomy ফিল্টার</strong> (<code>type: "taxonomy"</code>) — সিলেক্টযোগ্য term-এর লিস্ট:</p>
+<pre><code class="language-json">{
+  "id": 1001,
+  "type": "taxonomy",
+  "label": "Brand",
+  "filter_key": "_brand",
+  "taxonomy": "brand",
+  "api_param": "filter_brand",
+  "display_type": "checkbox",
+  "multiple": true,
+  "operator": "in",
+  "hierarchical": false,
+  "terms": [ { "id": 12, "name": "Siodil", "slug": "siodil", "count": 18, "parent": 0, "image": null } ],
+  "terms_endpoint": "https://herlan.com/wp-json/herlan/v1/filter-terms?taxonomy=brand&amp;context_taxonomy=brand&amp;context_term=siodil"
+}</code></pre>
+<p>Taxonomy ফিল্টারের ফিল্ড:</p>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>filter_key</code></td><td>string</td><td>ওয়েবসাইটে ব্যবহৃত URL param (legacy)। <code>/group/products</code> কল করার সময় এর বদলে <code>api_param</code> ব্যবহার করুন</td></tr>
+<tr><td><code>api_param</code></td><td>string</td><td>ইউজার term সিলেক্ট করলে <code>/group/products</code>-এ পাঠানোর প্যারামিটার। ফরম্যাট: <code>filter_{taxonomy}</code></td></tr>
+<tr><td><code>display_type</code></td><td>string</td><td>wcapf কীভাবে এটা দেখায়: <code>checkbox</code>, <code>radio</code>, <code>select</code>, <code>multi-select</code>, <code>label</code></td></tr>
+<tr><td><code>multiple</code></td><td>boolean</td><td>একসাথে একাধিক term সিলেক্ট করা যায় কিনা</td></tr>
+<tr><td><code>operator</code></td><td>string</td><td><code>in</code> (যেকোনো একটা সিলেক্টেড term মিললেই হবে) বা <code>and</code> (সব সিলেক্টেড term মিলতে হবে)। <code>/group/products</code>-এ <code>filter_operator_{taxonomy}</code> হিসেবে পাঠান</td></tr>
+<tr><td><code>hierarchical</code></td><td>boolean</td><td>Term-এর parent/child সম্পর্ক আছে কিনা</td></tr>
+<tr><td><code>terms</code></td><td>array</td><td>বর্তমান কনটেক্সটে কাউন্টসহ পাওয়া যাওয়া term</td></tr>
+<tr><td><code>terms_endpoint</code></td><td>string</td><td>পেজিনেশনসহ term লোড করার URL — বড় taxonomy-র জন্য ব্যবহার করুন (যেমন <code>pa_colors</code>-এর 217টা term)</td></tr>
+</tbody>
+</table>
+
+<p><strong>Price ফিল্টার</strong> (<code>type: "price"</code>) — একটা রেঞ্জ স্লাইডার:</p>
+<pre><code class="language-json">{
+  "id": 1002,
+  "type": "price",
+  "label": "Price",
+  "filter_key": "price",
+  "api_param_min": "min_price",
+  "api_param_max": "max_price",
+  "range": { "min": 150, "max": 2500 }
+}</code></pre>
+<p><code>range</code> বর্তমান কনটেক্সটের প্রোডাক্টের প্রকৃত সর্বনিম্ন/সর্বোচ্চ দাম দেখায়। <code>/group/products</code> কল করার সময় প্যারামিটার নাম হিসেবে <code>api_param_min</code> ও <code>api_param_max</code> ব্যবহার করুন।</p>
+
+<p><strong>Sort-by ফিল্টার</strong> (<code>type: "sort-by"</code>):</p>
+<pre><code class="language-json">{
+  "id": 1003,
+  "type": "sort-by",
+  "label": "Sort By",
+  "filter_key": "sort-by",
+  "api_param": "orderby",
+  "options": [
+    { "key": "menu_order", "label": "Default sorting" },
+    { "key": "popularity", "label": "Sort by popularity" },
+    { "key": "date",       "label": "Sort by latest" },
+    { "key": "price",      "label": "Sort by price: low to high" },
+    { "key": "price-desc", "label": "Sort by price: high to low" }
+  ]
+}</code></pre>
+
+<p><strong>Product status ফিল্টার</strong> (<code>type: "product-status"</code>):</p>
+<pre><code class="language-json">{
+  "id": 1004,
+  "type": "product-status",
+  "label": "Availability",
+  "filter_key": "product-status",
+  "api_param": "on_sale or stock_status",
+  "note": "Pass on_sale=1 for on-sale products, stock_status=instock|outofstock|onbackorder for stock filtering."
+}</code></pre>
+
+<p><strong>Keyword / Search ফিল্টার</strong> (<code>type: "keyword"</code>):</p>
+<pre><code class="language-json">{ "id": 1005, "type": "keyword", "label": "Search", "filter_key": "s", "api_param": "search" }</code></pre>
+
+<h4>পূর্ণ উদাহরণ</h4>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/filter-forms/20537?context_taxonomy=brand&amp;context_term=siodil"</code></pre>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/filter-forms/20537?context_taxonomy=product_cat&amp;context_term=liquid-lipstick"</code></pre>
+
+<h4>এই রেসপন্স থেকে কীভাবে ফিল্টার রিকোয়েস্ট বানাবেন</h4>
+<pre><code># ইউজার /brand/d32/ পেজে আছে এবং Electric Toothbrush ক্যাটাগরি + In Stock সিলেক্ট করেছে
+GET /group/products
+  ?context_taxonomy=brand
+  &amp;context_term=d32
+  &amp;filter_product_cat=electric-toothbrush   ← ক্যাটাগরি ফিল্টার থেকে api_param
+  &amp;stock_status=instock                      ← product-status ফিল্টার থেকে</code></pre>
+<p>Error কোড:</p>
+<ul><li><code>404 herlan_wcapf_form_not_found</code> — ফর্ম ID-র অস্তিত্ব নেই বা এটা wcapf ফর্ম না</li></ul>
+<hr />
+
+<h2 id="get-products-filters"><code>GET /products/filters</code></h2>
+<p>প্রোডাক্ট ছাড়া শুধু মোবাইল প্রোডাক্ট লিস্টিং ফিল্টার রিটার্ন করে।</p>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>ডিফল্ট</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>taxonomy</code></td><td>string</td><td>নেই</td><td>ঐচ্ছিক কনটেক্সট taxonomy slug</td></tr>
+<tr><td><code>term</code></td><td>string</td><td>নেই</td><td>ঐচ্ছিক কনটেক্সট term slug</td></tr>
+<tr><td><code>include_counts</code></td><td>boolean</td><td><code>true</code></td><td>বর্তমান কনটেক্সটের জন্য কাউন্ট পুনরায় হিসাব করবে</td></tr>
+</tbody>
+</table>
+<div class="note">এটা পুরনো ফিল্টার মেটাডেটা endpoint। নতুন <code>GET /group/products</code> endpoint প্রোডাক্টের সাথে একই ফিল্টার ডেটা একই রিকোয়েস্টে দেয়, যা লিস্টিং স্ক্রিনের জন্য বেশি প্রেফারড। শুধু যখন ফিল্টার মেটাডেটা আলাদাভাবে দরকার, তখনই এই endpoint ব্যবহার করুন।</div>
+<hr />
+
+<h2 id="get-products-id"><code>GET /products/{id}</code></h2>
+<p>একটা পাবলিশড WooCommerce প্রোডাক্টের সম্পূর্ণ বিস্তারিত তথ্য রিটার্ন করে।</p>
+<h4>মূল ফিল্ড</h4>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>integer</td><td>প্রোডাক্ট ID</td></tr>
+<tr><td><code>name</code></td><td>string</td><td>প্রোডাক্টের নাম</td></tr>
+<tr><td><code>slug</code></td><td>string</td><td>প্রোডাক্ট slug</td></tr>
+<tr><td><code>type</code></td><td>string</td><td>WooCommerce টাইপ</td></tr>
+<tr><td><code>permalink</code></td><td>string</td><td>প্রোডাক্ট URL</td></tr>
+<tr><td><code>status</code></td><td>string</td><td>প্রোডাক্ট স্ট্যাটাস</td></tr>
+<tr><td><code>sku</code></td><td>string</td><td>SKU</td></tr>
+<tr><td><code>description</code></td><td>string</td><td>Sanitized HTML</td></tr>
+<tr><td><code>short_description</code></td><td>string</td><td>Sanitized HTML</td></tr>
+<tr><td><code>price</code></td><td>string</td><td>বর্তমান দাম</td></tr>
+<tr><td><code>regular_price</code></td><td>string</td><td>নিয়মিত দাম</td></tr>
+<tr><td><code>sale_price</code></td><td>string</td><td>সেল প্রাইস</td></tr>
+<tr><td><code>price_html</code></td><td>string</td><td>WooCommerce ফরম্যাট করা HTML</td></tr>
+<tr><td><code>on_sale</code></td><td>boolean</td><td>সেল ফ্ল্যাগ</td></tr>
+<tr><td><code>purchasable</code></td><td>boolean</td><td>কেনা যায় কিনা</td></tr>
+<tr><td><code>stock_status</code></td><td>string</td><td>স্টক স্ট্যাটাস</td></tr>
+<tr><td><code>stock_quantity</code></td><td>integer|null</td><td>স্টক পরিমাণ</td></tr>
+<tr><td><code>total_sold</code></td><td>integer</td><td>মোট বিক্রি (WooCommerce <code>total_sales</code> meta)</td></tr>
+<tr><td><code>average_rating</code></td><td>string</td><td>গড় রেটিং, যেমন <code>"4.5"</code></td></tr>
+<tr><td><code>rating_count</code></td><td>integer</td><td>মোট রেটিং সংখ্যা</td></tr>
+<tr><td><code>review_count</code></td><td>integer</td><td>মোট অনুমোদিত (approved) টেক্সট রিভিউ</td></tr>
+<tr><td><code>rating_distribution</code></td><td>object</td><td>প্রতি স্টারের কাউন্ট, যেমন <code>{"1":0,"2":1,"3":4,"4":12,"5":30}</code></td></tr>
+<tr><td><code>wishlist_count</code></td><td>integer</td><td>এই প্রোডাক্ট কতগুলো wishlist-এ আছে</td></tr>
+<tr><td><code>reviews</code></td><td>object</td><td>ইনলাইন প্রিভিউ — <code>{total, items[]}</code>, সর্বশেষ ৫টা approved রিভিউ</td></tr>
+<tr><td><code>questions</code></td><td>object</td><td>ইনলাইন প্রিভিউ — <code>{total, items[]}</code>, সর্বশেষ ৫টা approved Q&amp;A প্রশ্ন</td></tr>
+<tr><td><code>categories</code></td><td>array</td><td>যুক্ত <code>product_cat</code> term</td></tr>
+<tr><td><code>tags</code></td><td>array</td><td>যুক্ত <code>product_tag</code> term</td></tr>
+<tr><td><code>brand</code></td><td>object|null</td><td>প্রথম ব্র্যান্ড term</td></tr>
+<tr><td><code>taxonomies</code></td><td>object</td><td>যুক্ত সব পাবলিক taxonomy ও attribute</td></tr>
+<tr><td><code>attributes</code></td><td>array</td><td>প্রোডাক্ট attribute</td></tr>
+<tr><td><code>images</code></td><td>array</td><td>মূল ছবি সহ গ্যালারি</td></tr>
+<tr><td><code>custom_fields</code></td><td>object</td><td>ACF ফিল্ড, API ব্যবহারের জন্য normalized</td></tr>
+<tr><td><code>linked_products</code></td><td>object</td><td>WPC Linked Variation ডেটা</td></tr>
+<tr><td><code>recommendations</code></td><td>object</td><td>রেকমেন্ডেশন সেকশন</td></tr>
+<tr><td><code>variations</code></td><td>array</td><td>শুধু variable প্রোডাক্টের জন্য থাকে</td></tr>
+</tbody>
+</table>
+<p><code>recommendations</code>-এ সবসময় থাকে:</p>
+<ul>
+<li><code>you_may_like</code></li>
+<li><code>more_from_this_brand</code></li>
+<li><code>best_selling</code></li>
+<li><code>new_arrivals</code></li>
+</ul>
+<p>Error:</p>
+<ul>
+<li><code>404 herlan_product_not_found</code></li>
+<li><code>500 herlan_woocommerce_unavailable</code></li>
+</ul>
+<hr />
+
+<h2 id="get-products-id-reviews"><code>GET /products/{id}/reviews</code></h2>
+<p>প্রোডাক্টের approved কাস্টমার রিভিউ পেজ-ভিত্তিক (paginated) লিস্ট রিটার্ন করে। পাবলিক — auth লাগে না।</p>
+<h4>Query প্যারামিটার</h4>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>ডিফল্ট</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>page</code></td><td>integer</td><td><code>1</code></td><td>পেজ নাম্বার</td></tr>
+<tr><td><code>per_page</code></td><td>integer</td><td><code>10</code></td><td>প্রতি পেজে রিভিউ (সর্বোচ্চ <code>50</code>)</td></tr>
+</tbody>
+</table>
+<h4>Response এর গঠন</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "items": [
+      { "id": 501, "author": "Rina Akter", "author_id": 42, "rating": 5, "content": "Loved the product! Skin feels amazing.", "date": "2026-05-10 14:23:00", "verified_purchase": true }
+    ],
+    "pagination": { "page": 1, "per_page": 10, "total": 47, "total_pages": 5 }
+  }
+}</code></pre>
+<h4>Review item ফিল্ড</h4>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>integer</td><td>WordPress কমেন্ট ID</td></tr>
+<tr><td><code>author</code></td><td>string</td><td>রিভিউয়ারের দেখানো নাম</td></tr>
+<tr><td><code>author_id</code></td><td>integer|null</td><td>WordPress user ID, গেস্ট হলে <code>null</code></td></tr>
+<tr><td><code>rating</code></td><td>integer</td><td>স্টার রেটিং ১–৫</td></tr>
+<tr><td><code>content</code></td><td>string</td><td>রিভিউ টেক্সট</td></tr>
+<tr><td><code>date</code></td><td>string</td><td>জমা দেওয়ার তারিখ (<code>Y-m-d H:i:s</code>)</td></tr>
+<tr><td><code>verified_purchase</code></td><td>boolean</td><td>রিভিউয়ার এই প্রোডাক্ট কিনেছে কিনা</td></tr>
+</tbody>
+</table>
+<h4>Error</h4>
+<ul>
+<li><code>404 herlan_product_not_found</code></li>
+<li><code>500 herlan_woocommerce_unavailable</code></li>
+</ul>
+<h4>উদাহরণ</h4>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/products/1234/reviews?page=1&amp;per_page=10"</code></pre>
+<hr />
+
+<h2 id="post-products-id-reviews"><code>POST /products/{id}/reviews</code></h2>
+<p>প্রোডাক্টের জন্য একটা নতুন রিভিউ জমা দেয়। <strong>Bearer token আবশ্যক।</strong> রিভিউয়ারকে অবশ্যই ভেরিফায়েড ক্রেতা (বা shop manager) হতে হবে। প্রতি ইউজার প্রতি প্রোডাক্টে একটাই রিভিউ দেওয়া যায়।</p>
+<h4>Request body</h4>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>প্রয়োজনীয়?</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>rating</code></td><td>integer</td><td><strong>হ্যাঁ</strong></td><td>স্টার রেটিং — <code>1</code> থেকে <code>5</code>-এর মধ্যে হতে হবে</td></tr>
+<tr><td><code>content</code></td><td>string</td><td><strong>হ্যাঁ</strong></td><td>রিভিউ টেক্সট</td></tr>
+</tbody>
+</table>
+<h4>উদাহরণ</h4>
+<pre><code class="language-bash">curl -X POST "https://herlan.com/wp-json/herlan/v1/products/1234/reviews" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 5, "content": "Excellent product, highly recommended!"}'</code></pre>
+<h4>সফল রেসপন্স (<code>201</code>)</h4>
+<pre><code class="language-json">{ "success": true, "message": "Review submitted successfully.", "data": [] }</code></pre>
+<h4>Error কোড</h4>
+<table>
+<thead><tr><th>Code</th><th>HTTP</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>herlan_product_not_found</code></td><td>404</td><td>প্রোডাক্ট নেই বা পাবলিশড না</td></tr>
+<tr><td><code>herlan_review_duplicate</code></td><td>409</td><td>ইউজার আগেই এই প্রোডাক্টে রিভিউ দিয়েছে</td></tr>
+<tr><td><code>herlan_review_not_purchased</code></td><td>403</td><td>ইউজার এই প্রোডাক্ট কেনেনি</td></tr>
+<tr><td><code>herlan_review_failed</code></td><td>500</td><td>রিভিউ সেভ করা যায়নি</td></tr>
+<tr><td><code>herlan_missing_token</code></td><td>401</td><td>কোনো Bearer token পাঠানো হয়নি</td></tr>
+<tr><td><code>herlan_invalid_token</code></td><td>401</td><td>Token অবৈধ বা মেয়াদ শেষ</td></tr>
+</tbody>
+</table>
+<hr />
+
+<h2 id="get-products-id-questions"><code>GET /products/{id}/questions</code></h2>
+<p>প্রোডাক্টের approved Q&amp;A প্রশ্ন, সাথে তাদের approved উত্তরসহ, পেজ-ভিত্তিক লিস্ট রিটার্ন করে। পাবলিক — auth লাগে না। এটা <code>customer-reviews-woocommerce</code> প্লাগইন দ্বারা চালিত (<code>cr_qna</code> কমেন্ট টাইপ)।</p>
+<h4>Query প্যারামিটার</h4>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>ডিফল্ট</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>page</code></td><td>integer</td><td><code>1</code></td><td>পেজ নাম্বার</td></tr>
+<tr><td><code>per_page</code></td><td>integer</td><td><code>10</code></td><td>প্রতি পেজে প্রশ্ন (সর্বোচ্চ <code>50</code>)</td></tr>
+</tbody>
+</table>
+<h4>Response এর গঠন</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "items": [
+      {
+        "id": 602,
+        "author": "Rahim Uddin",
+        "author_id": 55,
+        "question": "Is this product suitable for oily skin?",
+        "date": "2026-04-18 10:05:00",
+        "answer_count": 1,
+        "answers": [
+          { "id": 603, "author": "Herlan Support", "author_id": 1, "author_type": 1, "content": "Yes, it works great for oily skin types.", "date": "2026-04-19 08:30:00" }
+        ]
+      }
+    ],
+    "pagination": { "page": 1, "per_page": 10, "total": 12, "total_pages": 2 }
+  }
+}</code></pre>
+<h4>Question item ফিল্ড</h4>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>integer</td><td>WordPress কমেন্ট ID</td></tr>
+<tr><td><code>author</code></td><td>string</td><td>প্রশ্নকর্তার নাম</td></tr>
+<tr><td><code>author_id</code></td><td>integer|null</td><td>WordPress user ID</td></tr>
+<tr><td><code>question</code></td><td>string</td><td>প্রশ্নের টেক্সট</td></tr>
+<tr><td><code>date</code></td><td>string</td><td>জমা দেওয়ার তারিখ</td></tr>
+<tr><td><code>answer_count</code></td><td>integer</td><td>Approved উত্তর সংখ্যা</td></tr>
+<tr><td><code>answers</code></td><td>array</td><td>এই প্রশ্নের approved উত্তর</td></tr>
+</tbody>
+</table>
+<h4>Answer item ফিল্ড</h4>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>integer</td><td>WordPress কমেন্ট ID</td></tr>
+<tr><td><code>author</code></td><td>string</td><td>উত্তরদাতার নাম</td></tr>
+<tr><td><code>author_id</code></td><td>integer|null</td><td>WordPress user ID</td></tr>
+<tr><td><code>author_type</code></td><td>integer</td><td><code>0</code> = কাস্টমার, <code>1</code> = shop staff (shop manager বা admin)</td></tr>
+<tr><td><code>content</code></td><td>string</td><td>উত্তরের টেক্সট</td></tr>
+<tr><td><code>date</code></td><td>string</td><td>জমা দেওয়ার তারিখ</td></tr>
+</tbody>
+</table>
+<h4>Error</h4>
+<ul>
+<li><code>404 herlan_product_not_found</code></li>
+<li><code>500 herlan_woocommerce_unavailable</code></li>
+</ul>
+<h4>উদাহরণ</h4>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/products/1234/questions?page=1&amp;per_page=10"</code></pre>
+<hr />
+
+<h2 id="post-products-id-questions"><code>POST /products/{id}/questions</code></h2>
+<p>প্রোডাক্টের জন্য একটা নতুন প্রশ্ন জমা দেয়। <strong>Bearer token আবশ্যক।</strong> সাধারণ ইউজারের প্রশ্ন admin অনুমোদনের আগ পর্যন্ত পাবলিকলি দেখা যায় না। Shop manager-এর প্রশ্ন সাথে সাথেই অনুমোদিত হয়।</p>
+<h4>Request body</h4>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>প্রয়োজনীয়?</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>question</code></td><td>string</td><td><strong>হ্যাঁ</strong></td><td>প্রশ্নের টেক্সট</td></tr>
+</tbody>
+</table>
+<h4>উদাহরণ</h4>
+<pre><code class="language-bash">curl -X POST "https://herlan.com/wp-json/herlan/v1/products/1234/questions" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Does this come in a travel size?"}'</code></pre>
+<h4>সফল রেসপন্স (<code>201</code>)</h4>
+<pre><code class="language-json">{ "success": true, "message": "Question submitted and pending approval.", "data": [] }</code></pre>
+<p>Shop manager হলে মেসেজ আসবে <code>"Question submitted successfully."</code> এবং প্রশ্ন সাথে সাথেই পাবলিকলি দেখা যাবে।</p>
+<h4>Error কোড</h4>
+<table>
+<thead><tr><th>Code</th><th>HTTP</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>herlan_product_not_found</code></td><td>404</td><td>প্রোডাক্ট নেই বা পাবলিশড না</td></tr>
+<tr><td><code>herlan_question_failed</code></td><td>500</td><td>প্রশ্ন সেভ করা যায়নি</td></tr>
+<tr><td><code>herlan_missing_token</code></td><td>401</td><td>কোনো Bearer token পাঠানো হয়নি</td></tr>
+<tr><td><code>herlan_invalid_token</code></td><td>401</td><td>Token অবৈধ বা মেয়াদ শেষ</td></tr>
+</tbody>
+</table>
+<hr />
+
+<h2 id="get-drawer-brands-categories"><code>GET /drawer-brands-categories</code></h2>
+<p>অ্যাপ নেভিগেশনের জন্য প্রোডাক্ট ক্যাটাগরি ও ব্র্যান্ড রিটার্ন করে।</p>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>ডিফল্ট</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>hide_empty</code></td><td>boolean</td><td><code>true</code></td><td>খালি (কোনো প্রোডাক্ট নেই এমন) term বাদ দেয়</td></tr>
+<tr><td><code>categories_flat</code></td><td>boolean</td><td><code>false</code></td><td>ক্যাটাগরি flat (nested না) লিস্ট হিসেবে রিটার্ন করবে কিনা</td></tr>
+<tr><td><code>order</code></td><td>string</td><td><code>asc</code></td><td><code>asc</code> বা <code>desc</code></td></tr>
+<tr><td><code>order_by</code></td><td>string</td><td><code>name</code></td><td><code>name</code>, <code>count</code>, <code>id</code>, বা <code>slug</code></td></tr>
+</tbody>
+</table>
+<p>উদাহরণ:</p>
+<pre><code class="language-bash">curl "http://localhost/herlanlive3/wp-json/herlan/v1/drawer-brands-categories"</code></pre>
+<p>Response ফিল্ড:</p>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>categories</code></td><td>array</td><td>ডিফল্টভাবে nested tree</td></tr>
+<tr><td><code>total_categories</code></td><td>integer</td><td>Nesting করার আগে মোট ক্যাটাগরি term</td></tr>
+<tr><td><code>brands</code></td><td>array</td><td>ব্র্যান্ড term লিস্ট</td></tr>
+<tr><td><code>total_brands</code></td><td>integer</td><td>মোট ব্র্যান্ড term</td></tr>
+</tbody>
+</table>
+<p>ক্যাটাগরির ফিল্ড: <code>id</code>, <code>name</code>, <code>slug</code>, <code>description</code>, <code>count</code>, <code>parent</code>, <code>link</code>, <code>image</code>, <code>children</code> (চাইল্ড ক্যাটাগরি)।</p>
+<p>ব্র্যান্ডের ফিল্ড: <code>id</code>, <code>name</code>, <code>slug</code>, <code>description</code>, <code>count</code>, <code>link</code>, <code>image</code>।</p>
+<p>Image অবজেক্ট: <code>id</code> (attachment ID), <code>src</code> (URL), <code>alt</code> (alt text)।</p>
+<hr />
+
+<h2 id="get-taxonomies"><code>GET /taxonomies</code></h2>
+<p>এক কলেই সব ফিল্টারযোগ্য প্রোডাক্ট taxonomy ও তাদের term রিটার্ন করে। ফিল্টার UI (dropdown, checkbox, chip) পপুলেট করতে এবং ইউজার একটা term সিলেক্ট করলে <code>GET /group/products</code>-এ কোন <code>filter_*</code> প্যারামিটার পাঠাতে হবে তা জানতে এটা ব্যবহার করুন।</p>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>ডিফল্ট</th><th>নোট</th></tr></thead>
+<tbody>
+<tr><td><code>hide_empty</code></td><td>boolean</td><td><code>true</code></td><td>কোনো পাবলিশড প্রোডাক্ট নেই এমন term বাদ দেয়</td></tr>
+</tbody>
+</table>
+<p>উদাহরণ:</p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/taxonomies"
+curl "https://herlan.com/wp-json/herlan/v1/taxonomies?hide_empty=false"</code></pre>
+<p>Response এর গঠন:</p>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "taxonomies": [
+      {
+        "taxonomy": "product_cat",
+        "label": "Product categories",
+        "filter_key": "filter_product_cat",
+        "hierarchical": true,
+        "terms": [
+          { "id": 12, "name": "Skin Care", "slug": "skin-care", "count": 34, "parent": 0, "image": null },
+          { "id": 15, "name": "Cleanser",  "slug": "cleanser",  "count":  8, "parent": 12, "image": null }
+        ]
+      },
+      {
+        "taxonomy": "brand",
+        "label": "Brands",
+        "filter_key": "filter_brand",
+        "hierarchical": false,
+        "terms": [ { "id": 42, "name": "Nior", "slug": "nior", "count": 22, "parent": 0, "image": { "id": 100, "src": "...", "alt": "Nior" } } ]
+      },
+      {
+        "taxonomy": "pa_colors",
+        "label": "Product Colors",
+        "filter_key": "filter_pa_colors",
+        "hierarchical": false,
+        "terms": [ { "id": 88, "name": "Classic Red", "slug": "classic-red", "count": 5, "parent": 0, "image": null, "color": "#cc0000" } ]
+      }
+    ]
+  }
+}</code></pre>
+<p>Taxonomy রেসপন্সের ফিল্ড: <code>taxonomy</code> (internal slug), <code>label</code> (মানুষের পড়ার নাম), <code>filter_key</code> (<code>GET /group/products</code>-এ ব্যবহার করার query param নাম), <code>hierarchical</code> (parent/child আছে কিনা), <code>terms</code> (এই taxonomy-র term-সমূহ)।</p>
+<p>Term ফিল্ড: <code>id</code>, <code>name</code>, <code>slug</code> (ফিল্টার করার সময় এই ভ্যালুই ব্যবহার করুন), <code>count</code>, <code>parent</code> (0 = top-level), <code>image</code>, <code>color</code> (swatch term-এ থাকলে হেক্স কালার)।</p>
+<h4><code>GET /group/products</code>-এর সাথে কীভাবে ব্যবহার করবেন</h4>
+<p><code>filter_key</code> ফিল্ড বলে দেয় ঠিক কোন query parameter <code>/group/products</code>-এ যোগ করতে হবে। ভ্যালু হিসেবে এক বা একাধিক slug (কমা দিয়ে আলাদা করে) পাঠান।</p>
+<pre><code>GET /group/products?{filter_key}={slug1},{slug2}</code></pre>
+<p>উদাহরণ:</p>
+<pre><code class="language-bash"># ক্যাটাগরি দিয়ে ফিল্টার
+curl "https://herlan.com/wp-json/herlan/v1/group/products?filter_product_cat=skin-care"
+
+# ব্র্যান্ড দিয়ে ফিল্টার
+curl "https://herlan.com/wp-json/herlan/v1/group/products?filter_brand=nior"
+
+# স্কিন টাইপ + বয়সের রেঞ্জ (একসাথে)
+curl "https://herlan.com/wp-json/herlan/v1/group/products?filter_skin-type=oily-skin&amp;filter_age-range=25-35"
+
+# রং (color attribute) দিয়ে ফিল্টার
+curl "https://herlan.com/wp-json/herlan/v1/group/products?filter_pa_colors=classic-red,cherry"
+
+# কনটেক্সট + ফিল্টার: ব্র্যান্ড আর্কাইভ, স্কিন টাইপ দিয়ে ফিল্টার করা
+curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand&amp;context_term=nior&amp;filter_skin-type=oily-skin"</code></pre>
+<hr />
+
+<h2 id="get-search"><code>GET /search</code></h2>
+<p>প্রোডাক্ট সার্চ endpoint, ওয়েবসাইটের লাইভ অটোকমপ্লিটের মতো একই ইঞ্জিন দ্বারা চালিত (Ajax Search for WooCommerce / FiboSearch)। পরিষ্কার JSON প্রোডাক্ট কার্ড রিটার্ন করে — কোনো HTML রেন্ডারিং নেই। মোবাইল সার্চ রেজাল্ট স্ক্রিনের জন্য এটা ব্যবহার করুন।</p>
+<h4>Request প্যারামিটার</h4>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>প্রয়োজনীয়?</th><th>ডিফল্ট</th><th>ব্যাখ্যা</th></tr></thead>
+<tbody>
+<tr><td><code>s</code></td><td>string</td><td><strong>হ্যাঁ</strong></td><td>—</td><td>সার্চ ফ্রেজ (কমপক্ষে ২ অক্ষর)</td></tr>
+<tr><td><code>per_page</code></td><td>integer</td><td>না</td><td><code>10</code></td><td>প্রতি পেজে রেজাল্ট (সর্বোচ্চ <code>50</code>)</td></tr>
+<tr><td><code>page</code></td><td>integer</td><td>না</td><td><code>1</code></td><td>পেজ নাম্বার</td></tr>
+</tbody>
+</table>
+<h4>Response এর গঠন</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "query": "cav",
+    "products": [],
+    "pagination": { "page": 1, "per_page": 10, "total": 5, "total_pages": 1, "has_more": false }
+  }
+}</code></pre>
+<h4><code>data.products[]</code></h4>
+<p>প্রতিটা আইটেম একটা হালকা প্রোডাক্ট কার্ড (<code>GET /group/products</code>-এর মতোই কাঠামো):</p>
+<pre><code class="language-json">{
+  "id": 123,
+  "name": "Caviar Night Cream",
+  "slug": "caviar-night-cream",
+  "type": "simple",
+  "permalink": "https://herlan.com/product/caviar-night-cream/",
+  "sku": "CAV-001",
+  "price": "1200",
+  "regular_price": "1500",
+  "sale_price": "1200",
+  "price_html": "&lt;del&gt;৳1,500&lt;/del&gt; ৳1,200",
+  "on_sale": true,
+  "stock_status": "instock",
+  "in_stock": true,
+  "average_rating": "4.5",
+  "rating_count": 12,
+  "image": { "id": 456, "src": "https://herlan.com/wp-content/uploads/product.jpg", "width": 300, "height": 300, "alt": "Caviar Night Cream" },
+  "categories": [ { "id": 7, "name": "Skincare", "slug": "skincare" } ]
+}</code></pre>
+<p>প্রোডাক্ট কার্ডের ফিল্ড <code>GET /group/products</code>-এর মতোই (উপরে দেখুন), শুধু এখানে অতিরিক্ত <code>width</code>/<code>height</code> থাকে <code>image</code>-এর ভিতরে এবং <code>brand</code>/<code>tags</code> থাকে না।</p>
+<p>নোট:</p>
+<ul>
+<li>২ অক্ষরের কম কোয়েরি দিলে সাথে সাথে খালি <code>products</code> array রিটার্ন হবে (কোনো সার্চ চালানো হয় না)।</li>
+<li>সার্চ রেজাল্ট ওয়েবসাইটের অটোকমপ্লিটের সাথে মেলে। FiboSearch প্লাগইন না থাকলে, নেটিভ WooCommerce সার্চে fallback করে।</li>
+<li>পূর্ণাঙ্গ প্রোডাক্ট বিস্তারিত (description, gallery, variations ইত্যাদি) পেতে রিটার্ন করা <code>id</code> দিয়ে <code>GET /products/{id}</code> কল করুন।</li>
+</ul>
+<h4>উদাহরণ Request</h4>
+<p><strong>সাধারণ সার্চ:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/search?s=cav"</code></pre>
+<p><strong>পেজিনেশনসহ সার্চ:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/search?s=lipstick&amp;per_page=20&amp;page=1"</code></pre>
+<p><strong>সার্চের পেজ ২:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/search?s=lipstick&amp;per_page=10&amp;page=2"</code></pre>
+<hr />
+
+<h2 id="quick-recipes">দ্রুত উদাহরণ (Quick Recipes)</h2>
+<p>নিচে সবচেয়ে সাধারণ মোবাইল অ্যাপ স্ক্রিন-ভিত্তিক ব্যবহার (use case) দেওয়া হলো — নতুন ডেভেলপারের জন্য কপি করে শুরু করার মতো:</p>
+<table>
+<thead><tr><th>মোবাইল স্ক্রিন</th><th>কল করতে হবে</th></tr></thead>
+<tbody>
+<tr><td>শপ / হোম পেজে সব প্রোডাক্ট</td><td><code>GET /group/products</code></td></tr>
+<tr><td>ব্র্যান্ড পেজ</td><td><code>GET /group/products?context_taxonomy=brand&amp;context_term={slug}</code></td></tr>
+<tr><td>ক্যাটাগরি পেজ</td><td><code>GET /group/products?context_taxonomy=product_cat&amp;context_term={slug}</code></td></tr>
+<tr><td>ফিল্টার ড্রয়ার প্রথম ওপেন (কনফিগ লোড)</td><td><code>GET /filter-config</code> অথবা <code>GET /filter-forms/{id}</code></td></tr>
+<tr><td>ফিল্টার ড্রয়ারে বড় taxonomy স্ক্রল (যেমন রং)</td><td><code>GET /filter-terms?taxonomy=pa_colors&amp;page=2</code></td></tr>
+<tr><td>ইউজার ফিল্টার প্রয়োগ করলো, রেজাল্ট রিফ্রেশ</td><td><code>GET /group/products?...&amp;filter_brand=nior&amp;include_filters=1</code></td></tr>
+<tr><td>সার্চ স্ক্রিন</td><td><code>GET /search?s={keyword}</code></td></tr>
+<tr><td>প্রোডাক্ট ডিটেইল পেজ</td><td><code>GET /products/{id}</code></td></tr>
+<tr><td>প্রোডাক্টের রিভিউ লোড / জমা</td><td><code>GET /products/{id}/reviews</code> / <code>POST /products/{id}/reviews</code></td></tr>
+<tr><td>প্রোডাক্টের প্রশ্ন-উত্তর লোড / জমা</td><td><code>GET /products/{id}/questions</code> / <code>POST /products/{id}/questions</code></td></tr>
+<tr><td>হোম ড্রয়ার নেভিগেশন (ব্র্যান্ড ও ক্যাটাগরি লিস্ট)</td><td><code>GET /drawer-brands-categories</code></td></tr>
+<tr><td>সব taxonomy একসাথে (dropdown/UI বানাতে)</td><td><code>GET /taxonomies</code></td></tr>
+</tbody>
+</table>
+<div class="note"><strong>মনে রাখবেন:</strong> এই ডকুমেন্টে যা নেই — Authentication, User account, Cart, Checkout, Orders, Wishlist, Store locator, Blog — তার জন্য মূল <code>docs/index.html</code> ফাইলটি দেখুন। সেখানে প্লাগইনের সবগুলো API-এর সম্পূর্ণ তালিকা আছে।</div>
+</article></main>
+  </div>
+</body>
+</html>
