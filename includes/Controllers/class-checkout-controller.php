@@ -351,7 +351,7 @@ final class CheckoutController extends Controller
 
         $cart_cleared = false;
 
-        if ($order->has_status(['processing', 'completed'])) {
+        if ($order->has_status(['processing', 'completed', 'orderplaced'])) {
             $boot = $this->boot_cart();
             if (! is_wp_error($boot) && WC()->cart) {
                 WC()->cart->empty_cart();
