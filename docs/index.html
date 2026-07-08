@@ -66,6 +66,7 @@
 <a class="level-3" href="#post-auth-register">POST /auth/register</a>
 <a class="level-3" href="#get-products-filters">GET /products/filters</a>
 <a class="level-3" href="#get-products-id">GET /products/{id}</a>
+<a class="level-3" href="#get-products-id-bundle-items">GET /products/{id}/bundle-items</a>
 <a class="level-3" href="#get-products-id-reviews">GET /products/{id}/reviews</a>
 <a class="level-3" href="#post-products-id-reviews">POST /products/{id}/reviews</a>
 <a class="level-3" href="#get-products-id-questions">GET /products/{id}/questions</a>
@@ -1972,6 +1973,11 @@ GET /group/products
 <td>array</td>
 <td>Present for variable products only</td>
 </tr>
+<tr>
+<td><code>bundle</code></td>
+<td>object</td>
+<td>Present only when <code>type</code> is <code>easy_product_bundle</code> — see below</td>
+</tr>
 </tbody>
 </table>
 <p><code>recommendations</code> always contains:</p>
@@ -1981,11 +1987,111 @@ GET /group/products
 <li><code>best_selling</code></li>
 <li><code>new_arrivals</code></li>
 </ul>
+<h4><code>bundle</code> — "buy X get Y" style offers</h4>
+<p>Some products (e.g. a lipstick with a "B1G1" offer) are an <strong>Easy Product Bundles</strong> product (<code>type: "easy_product_bundle"</code>) instead of a plain simple/variable product. It bundles two or more &ldquo;slots&rdquo;: a slot the customer picks from a list of eligible products, and/or a fixed slot (often discounted 100%, i.e. free) that is added automatically. Use the <code>bundle</code> object to detect the offer and know what selections are required before calling <code>POST /cart/add-to-cart</code>.</p>
+<pre><code class="language-json">"bundle": {
+  "is_bundle": true,
+  "has_free_item": true,
+  "is_fixed_price": false,
+  "slots": [
+    {
+      "index": 0,
+      "title": "",
+      "description": "",
+      "is_selectable": true,
+      "is_optional": false,
+      "is_free": false,
+      "discount_type": "fixed",
+      "discount": 330,
+      "quantity": 1,
+      "min_quantity": 1,
+      "max_quantity": null,
+      "options_count": 15,
+      "product": null
+    },
+    {
+      "index": 1,
+      "title": "",
+      "description": "",
+      "is_selectable": false,
+      "is_optional": false,
+      "is_free": true,
+      "discount_type": "percentage",
+      "discount": 100,
+      "quantity": 1,
+      "min_quantity": 1,
+      "max_quantity": null,
+      "options_count": 1,
+      "product": { "id": 10718, "name": "Lily Glazed Lipgloss", "...": "..." }
+    }
+  ]
+}</code></pre>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>is_bundle</code></td><td>boolean</td><td>Always <code>true</code> when this object is present</td></tr>
+<tr><td><code>has_free_item</code></td><td>boolean</td><td><code>true</code> if any slot is 100% discounted (a free gift)</td></tr>
+<tr><td><code>is_fixed_price</code></td><td>boolean</td><td><code>true</code> if the bundle has a fixed total price regardless of selection</td></tr>
+<tr><td><code>slots</code></td><td>array</td><td>One entry per bundle slot, in the order required by <code>bundle_items</code> on add-to-cart</td></tr>
+<tr><td><code>slots[].index</code></td><td>integer</td><td>Slot position — pass through unchanged in <code>bundle_items</code> order and use as the <code>index</code> query param for <code>GET /products/{id}/bundle-items</code></td></tr>
+<tr><td><code>slots[].is_selectable</code></td><td>boolean</td><td><code>true</code> if the customer must choose one of several eligible products (call <code>GET /products/{id}/bundle-items</code> to list them); <code>false</code> if the slot is a single fixed product</td></tr>
+<tr><td><code>slots[].is_free</code></td><td>boolean</td><td><code>true</code> if this slot is 100% discounted</td></tr>
+<tr><td><code>slots[].quantity</code></td><td>integer</td><td>Quantity of the chosen product required for this slot</td></tr>
+<tr><td><code>slots[].options_count</code></td><td>integer</td><td>Number of eligible products for a selectable slot (or <code>1</code> for a fixed slot)</td></tr>
+<tr><td><code>slots[].product</code></td><td>object|null</td><td>Populated only for fixed (non-selectable) slots — the product that gets added automatically</td></tr>
+</tbody>
+</table>
 <p>Errors:</p>
 <ul>
 <li><code>404 herlan_product_not_found</code></li>
 <li><code>500 herlan_woocommerce_unavailable</code></li>
 </ul>
+<h3 id="get-products-id-bundle-items"><code>GET /products/{id}/bundle-items</code></h3>
+<p>Returns the paginated, searchable list of eligible products for one selectable slot of a bundle product (see <code>bundle.slots</code> on <code>GET /products/{id}</code>). Public — no auth required. Returns <code>400 herlan_product_not_bundle</code> if the product is not an <code>easy_product_bundle</code>.</p>
+<h4>Query parameters</h4>
+<table>
+<thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Default</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>index</code></td><td>integer</td><td><strong>Yes</strong></td><td>&mdash;</td><td>Slot index from <code>bundle.slots[].index</code></td></tr>
+<tr><td><code>page</code></td><td>integer</td><td>No</td><td><code>1</code></td><td>Page number</td></tr>
+<tr><td><code>per_page</code></td><td>integer</td><td>No</td><td><code>12</code></td><td>Items per page (max <code>50</code>)</td></tr>
+<tr><td><code>search</code></td><td>string</td><td>No</td><td>&mdash;</td><td>Filter eligible products by name</td></tr>
+</tbody>
+</table>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "items": [
+      {
+        "id": 21574,
+        "name": "Lily Semi Matt Liquid Lipstick- Razzle",
+        "image": "https://.../razzle.webp",
+        "link": "https://.../product/lily-semi-matt-liquid-lipstick-razzle/",
+        "is_in_stock": "true",
+        "regular_price": 330,
+        "sale_price": 330,
+        "display_price": "..."
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "per_page": 12,
+      "total": 15,
+      "total_pages": 2
+    }
+  }
+}</code></pre>
+<h4>Errors</h4>
+<ul>
+<li><code>400 herlan_product_not_bundle</code> — product is not a bundle, or the slot has nothing selectable</li>
+<li><code>404 herlan_product_not_found</code></li>
+<li><code>500 herlan_woocommerce_unavailable</code></li>
+</ul>
+<h4>Example</h4>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/products/84437/bundle-items?index=0&amp;page=1&amp;per_page=12"</code></pre>
+<hr />
 <h3 id="get-products-id-reviews"><code>GET /products/{id}/reviews</code></h3>
 <p>Returns a paginated list of approved customer reviews for the product. Public — no auth required.</p>
 <h4>Query parameters</h4>
@@ -4582,6 +4688,12 @@ Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
 <td>No</td>
 <td>Variation attributes, e.g. <code>{"attribute_pa_color": "red"}</code></td>
 </tr>
+<tr>
+<td><code>bundle_items</code></td>
+<td>array</td>
+<td>Only for bundle products</td>
+<td>One <code>{"id": productId, "qty": quantity}</code> entry per slot from <code>bundle.slots</code> on <code>GET /products/{id}</code>, <strong>in slot order</strong> — include the fixed slots too, not just the selectable ones</td>
+</tr>
 </tbody>
 </table>
 <p>No Bearer token required. Send your stored <code>Cart-Token</code> header (if you have one) so the item lands in the same cart.</p>
@@ -4595,6 +4707,11 @@ Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
   -H "Cart-Token: eyJhbGciOiJIUzI1NiJ9.xxxxx" \
   -H "Content-Type: application/json" \
   -d '{"product_id": 49045, "variation_id": 49060, "quantity": 2, "variation": {"attribute_pa_size": "150ml"}}'</code></pre>
+<p>Example (bundle / "buy X get Y" product — slot 0 is the customer's chosen shade, slot 1 is the fixed free gift from <code>bundle.slots[1].product.id</code>):</p>
+<pre><code class="language-bash">curl -X POST "https://your-domain.com/wp-json/herlan/v1/cart/add-to-cart" \
+  -H "Cart-Token: eyJhbGciOiJIUzI1NiJ9.xxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{"product_id": 84437, "quantity": 1, "bundle_items": [{"id": 21574, "qty": 1}, {"id": 10718, "qty": 1}]}'</code></pre>
 <p>Success response (<code>200</code>):</p>
 <pre><code class="language-json">{
   "success": true,
@@ -4605,7 +4722,8 @@ Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
 <ul>
 <li><code>404 herlan_product_not_found</code> — product does not exist or is not purchasable</li>
 <li><code>422 herlan_out_of_stock</code> — product is out of stock</li>
-<li><code>422 herlan_cart_add_failed</code> — WooCommerce rejected the add (includes WC's own error message)</li>
+<li><code>422 herlan_bundle_items_required</code> — <code>product_id</code> is a bundle product but <code>bundle_items</code> was empty</li>
+<li><code>422 herlan_cart_add_failed</code> — WooCommerce rejected the add (includes WC's own error message, e.g. an invalid/out-of-stock bundle selection)</li>
 </ul>
 <hr />
 <h3 id="post-cart-update-item"><code>POST /cart/update-item</code></h3>
@@ -5953,6 +6071,12 @@ Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
 <td><code>/products/{id}</code></td>
 <td>No</td>
 <td>Product detail — includes inline reviews &amp; questions preview</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/products/{id}/bundle-items</code></td>
+<td>No</td>
+<td>Eligible products for one slot of a "buy X get Y" bundle product</td>
 </tr>
 <tr>
 <td><code>GET</code></td>

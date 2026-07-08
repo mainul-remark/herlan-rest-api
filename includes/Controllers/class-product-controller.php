@@ -123,6 +123,34 @@ final class ProductController extends Controller
                 ],
             ],
         ]);
+
+        register_rest_route($this->namespace, '/products/(?P<id>\d+)/bundle-items', [
+            'methods' => WP_REST_Server::READABLE,
+            'callback' => [$this, 'bundle_items'],
+            'permission_callback' => '__return_true',
+            'args' => [
+                'id' => [
+                    'required' => true,
+                    'validate_callback' => static fn ($value) => is_numeric($value) && absint($value) > 0,
+                ],
+                'index' => [
+                    'required' => true,
+                    'type' => 'integer',
+                    'minimum' => 0,
+                ],
+                'page' => [
+                    'required' => false,
+                    'default' => 1,
+                    'sanitize_callback' => static fn ($value) => ($value === '' || $value === null) ? 1 : max(1, absint($value)),
+                ],
+                'per_page' => [
+                    'required' => false,
+                    'default' => 12,
+                    'sanitize_callback' => static fn ($value) => ($value === '' || $value === null) ? 12 : min(50, max(1, absint($value))),
+                ],
+                'search' => ['required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field'],
+            ],
+        ]);
     }
 
     public function filters(WP_REST_Request $request)
@@ -175,6 +203,45 @@ final class ProductController extends Controller
         }
 
         return Response::success($this->format_product($product));
+    }
+
+    public function bundle_items(WP_REST_Request $request)
+    {
+        if (! function_exists('wc_get_product')) {
+            return new WP_Error('herlan_woocommerce_unavailable', __('WooCommerce is not available.', 'herlan-rest-api'), ['status' => 500]);
+        }
+
+        $product = wc_get_product(absint($request->get_param('id')));
+
+        if (! $product instanceof WC_Product || $product->get_status() !== 'publish') {
+            return new WP_Error('herlan_product_not_found', __('Product not found.', 'herlan-rest-api'), ['status' => 404]);
+        }
+
+        if (! $product->is_type('easy_product_bundle') || ! method_exists($product, 'get_item_products')) {
+            return new WP_Error('herlan_product_not_bundle', __('This product does not have selectable bundle items.', 'herlan-rest-api'), ['status' => 400]);
+        }
+
+        $index = absint($request->get_param('index'));
+        $page = max(1, (int) $request->get_param('page'));
+        $per_page = min(50, max(1, (int) $request->get_param('per_page')));
+        $search = (string) $request->get_param('search');
+
+        $result = $product->get_item_products([
+            'index' => $index,
+            'page' => $page,
+            'limit' => $per_page,
+            'search' => $search,
+        ]);
+
+        return Response::success([
+            'items' => $result['products'] ?? [],
+            'pagination' => [
+                'page' => $page,
+                'per_page' => $per_page,
+                'total' => (int) ($result['total'] ?? 0),
+                'total_pages' => (int) ($result['pages'] ?? 1),
+            ],
+        ]);
     }
 
     public function reviews_index(WP_REST_Request $request)
@@ -431,7 +498,70 @@ final class ProductController extends Controller
             $data['variations'] = $this->variations($product);
         }
 
+        if ($product->is_type('easy_product_bundle')) {
+            $data['bundle'] = $this->bundle_info($product);
+        }
+
         return apply_filters('herlan_rest_api_product_data', $data, $product);
+    }
+
+    /**
+     * Summarizes an "Easy Product Bundles" product's slots (e.g. a "buy 1 of these
+     * 15 shades, get this specific product free" offer) so a client can detect the
+     * offer and know which slots need a selection before add-to-cart.
+     *
+     * Slot product lists are not inlined here (they can be large and support
+     * search/pagination) — use GET /products/{id}/bundle-items?index={slot} instead.
+     */
+    private function bundle_info(WC_Product $product): array
+    {
+        $items = method_exists($product, 'get_items') ? (array) $product->get_items() : [];
+        $slots = [];
+        $has_free_slot = false;
+
+        foreach ($items as $index => $item) {
+            $discount_type = $item['discount_type'] ?? 'none';
+            $discount = isset($item['discount']) ? (float) $item['discount'] : 0.0;
+            $is_free = ('percentage' === $discount_type && $discount >= 100.0);
+            $is_selectable = ! empty($item['products']) && is_array($item['products']);
+            $fixed_product_id = ! $is_selectable && ! empty($item['product']) ? absint($item['product']) : 0;
+
+            if ($is_free) {
+                $has_free_slot = true;
+            }
+
+            $slot = [
+                'index' => (int) $index,
+                'title' => (string) ($item['title'] ?? ''),
+                'description' => (string) ($item['description'] ?? ''),
+                'is_selectable' => $is_selectable,
+                'is_optional' => 'true' === ($item['optional'] ?? 'false'),
+                'is_free' => $is_free,
+                'discount_type' => $discount_type,
+                'discount' => $discount,
+                'quantity' => (int) ($item['quantity'] ?? 1),
+                'min_quantity' => isset($item['min_quantity']) && '' !== $item['min_quantity'] ? (int) $item['min_quantity'] : null,
+                'max_quantity' => isset($item['max_quantity']) && '' !== $item['max_quantity'] ? (int) $item['max_quantity'] : null,
+                'options_count' => $is_selectable ? count($item['products']) : ($fixed_product_id ? 1 : 0),
+                'product' => null,
+            ];
+
+            if ($fixed_product_id) {
+                $fixed_product = wc_get_product($fixed_product_id);
+                if ($fixed_product instanceof WC_Product) {
+                    $slot['product'] = $this->product_card($fixed_product);
+                }
+            }
+
+            $slots[] = $slot;
+        }
+
+        return [
+            'is_bundle' => true,
+            'has_free_item' => $has_free_slot,
+            'is_fixed_price' => method_exists($product, 'is_fixed_price') && $product->is_fixed_price(),
+            'slots' => $slots,
+        ];
     }
 
     private function linked_products(WC_Product $product): array

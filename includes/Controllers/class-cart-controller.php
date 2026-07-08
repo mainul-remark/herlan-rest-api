@@ -33,10 +33,22 @@ final class CartController extends Controller
             'callback'            => [$this, 'add_item'],
             'permission_callback' => [$this, 'maybe_authenticate'],
             'args'                => [
-                'product_id'   => ['required' => true,  'type' => 'integer', 'minimum' => 1],
-                'quantity'     => ['required' => false, 'type' => 'integer', 'minimum' => 1, 'default' => 1],
-                'variation_id' => ['required' => false, 'type' => 'integer', 'default' => 0],
-                'variation'    => ['required' => false, 'type' => 'object',  'default' => []],
+                'product_id'    => ['required' => true,  'type' => 'integer', 'minimum' => 1],
+                'quantity'      => ['required' => false, 'type' => 'integer', 'minimum' => 1, 'default' => 1],
+                'variation_id'  => ['required' => false, 'type' => 'integer', 'default' => 0],
+                'variation'     => ['required' => false, 'type' => 'object',  'default' => []],
+                'bundle_items'  => [
+                    'required' => false,
+                    'type'     => 'array',
+                    'default'  => [],
+                    'items'    => [
+                        'type'       => 'object',
+                        'properties' => [
+                            'id'  => ['type' => 'integer'],
+                            'qty' => ['type' => 'integer'],
+                        ],
+                    ],
+                ],
             ],
         ]);
 
@@ -165,6 +177,7 @@ final class CartController extends Controller
         $quantity     = max(1, (int) $request->get_param('quantity'));
         $variation_id = (int) $request->get_param('variation_id');
         $variation    = (array) ($request->get_param('variation') ?? []);
+        $bundle_items = (array) ($request->get_param('bundle_items') ?? []);
 
         $product = wc_get_product($product_id);
 
@@ -176,9 +189,21 @@ final class CartController extends Controller
             return new WP_Error('herlan_out_of_stock', __('This product is currently out of stock.', 'herlan-rest-api'), ['status' => 422]);
         }
 
+        if ($product->is_type('easy_product_bundle') && empty($bundle_items)) {
+            return new WP_Error(
+                'herlan_bundle_items_required',
+                __('Please select a product for each of the required bundle items.', 'herlan-rest-api'),
+                ['status' => 422]
+            );
+        }
+
         wc_clear_notices();
 
+        $bundle_request_key = $this->apply_bundle_items_to_request($bundle_items);
+
         $cart_item_key = WC()->cart->add_to_cart($product_id, $quantity, $variation_id, $variation);
+
+        $this->clear_bundle_items_from_request($bundle_request_key);
 
         if ($cart_item_key === false) {
             $notices = wc_get_notices('error');
@@ -569,6 +594,49 @@ final class CartController extends Controller
     }
 
     /* ── Helpers ───────────────────────────────────────────────────── */
+
+    /**
+     * "Easy Product Bundles" reads the customer's slot selection straight from
+     * $_REQUEST['asnp_wepb_items'] (not from the cart_item_data passed to
+     * WC_Cart::add_to_cart()) inside its own woocommerce_add_to_cart_validation /
+     * woocommerce_add_cart_item_data hooks. We stage it there right before calling
+     * add_to_cart() and remove it again immediately after.
+     *
+     * Expects one entry per bundle slot (in slot order), including fixed/non-selectable
+     * slots — see GET /products/{id} → bundle.slots and /products/{id}/bundle-items.
+     *
+     * @return string The request key that was set, so it can be cleared afterwards.
+     */
+    private function apply_bundle_items_to_request(array $bundle_items): string
+    {
+        if (empty($bundle_items)) {
+            return '';
+        }
+
+        $payload = [];
+        foreach ($bundle_items as $item) {
+            $payload[] = [
+                'id'  => absint(is_array($item) ? ($item['id'] ?? 0) : 0),
+                'qty' => max(1, absint(is_array($item) ? ($item['qty'] ?? 1) : 1)),
+            ];
+        }
+
+        $key = 'asnp_wepb_items';
+        $encoded = (string) wp_json_encode($payload);
+        $_REQUEST[$key] = $encoded;
+        $_POST[$key] = $encoded;
+
+        return $key;
+    }
+
+    private function clear_bundle_items_from_request(string $key): void
+    {
+        if ($key === '') {
+            return;
+        }
+
+        unset($_REQUEST[$key], $_POST[$key]);
+    }
 
     /**
      * Initialize WooCommerce cart/session for REST API context.
