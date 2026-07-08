@@ -9,6 +9,7 @@ use HerlanRestApi\Support\Response;
 use ReflectionProperty;
 use WC_Cart;
 use WC_Order;
+use WC_Product;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Server;
@@ -360,9 +361,10 @@ final class CheckoutController extends Controller
         }
 
         return Response::success([
-            'order_id'     => $order->get_id(),
-            'status'       => $order->get_status(),
-            'cart_cleared' => $cart_cleared,
+            'order_id'             => $order->get_id(),
+            'status'               => $order->get_status(),
+            'cart_cleared'         => $cart_cleared,
+            'recommended_products' => $this->recommended_products(),
         ]);
     }
 
@@ -396,6 +398,77 @@ final class CheckoutController extends Controller
             'order_id' => $order->get_id(),
             'status'   => $order->get_status(),
         ]);
+    }
+
+    /**
+     * Same best-selling query the thank-you page's "You might like to fill it
+     * with" slider uses (see herlan-theme's lazy_load_product_query(), 'best'
+     * branch), just returned as JSON instead of rendered HTML — kept order-
+     * agnostic to match what the storefront shows.
+     */
+    private function recommended_products(int $limit = 10): array
+    {
+        $query = new \WP_Query([
+            'post_type'      => 'product',
+            'posts_per_page' => $limit,
+            'post_status'    => 'publish',
+            'fields'         => 'ids',
+            'meta_key'       => 'total_sales',
+            'orderby'        => 'meta_value_num',
+            'order'          => 'DESC',
+            'meta_query'     => [
+                ['key' => '_stock_status', 'value' => 'outofstock', 'compare' => '!='],
+            ],
+            'tax_query'      => [
+                [
+                    'taxonomy'         => 'product_cat',
+                    'field'            => 'slug',
+                    'terms'            => ['home-care'],
+                    'operator'         => 'NOT IN',
+                    'include_children' => true,
+                ],
+                [
+                    'taxonomy' => 'product_visibility',
+                    'field'    => 'name',
+                    'terms'    => 'exclude-from-catalog',
+                    'operator' => 'NOT IN',
+                ],
+            ],
+        ]);
+
+        $products = [];
+
+        foreach ($query->posts as $product_id) {
+            $product = wc_get_product($product_id);
+            if ($product instanceof WC_Product) {
+                $products[] = $this->format_recommended_product($product);
+            }
+        }
+
+        return $products;
+    }
+
+    private function format_recommended_product(WC_Product $product): array
+    {
+        $image_id = $product->get_image_id();
+
+        return [
+            'id'            => $product->get_id(),
+            'name'          => $product->get_name(),
+            'slug'          => $product->get_slug(),
+            'permalink'     => $product->get_permalink(),
+            'price'         => $product->get_price(),
+            'regular_price' => $product->get_regular_price(),
+            'sale_price'    => $product->get_sale_price(),
+            'price_html'    => $product->get_price_html(),
+            'on_sale'       => $product->is_on_sale(),
+            'in_stock'      => $product->is_in_stock(),
+            'image'         => $image_id ? [
+                'id'  => $image_id,
+                'src' => wp_get_attachment_url($image_id),
+                'alt' => (string) get_post_meta($image_id, '_wp_attachment_image_alt', true),
+            ] : null,
+        ];
     }
 
     /* ── Args ──────────────────────────────────────────────────────── */
