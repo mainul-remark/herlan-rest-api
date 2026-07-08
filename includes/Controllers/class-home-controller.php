@@ -464,13 +464,63 @@ final class HomeController extends Controller
             $image_id = (int) $product->get_image_id();
 
             $products[] = [
-                'id'    => $id,
-                'name'  => $product->get_name(),
-                'image' => $image_id ? $this->attachment_data($image_id) : null,
+                'id'              => $id,
+                'name'            => $product->get_name(),
+                'image'           => $image_id ? $this->attachment_data($image_id) : null,
+                'linked_products' => $this->linked_products_summary($product),
             ];
         }
 
         return $products;
+    }
+
+    /** WPC Linked Variation group (e.g. colour/shade variants sold as separate products) for a single product. */
+    private function linked_products_summary(\WC_Product $product): array
+    {
+        if (! class_exists('WPCleverWpclv')) {
+            return ['total' => 0, 'list' => []];
+        }
+
+        $link_data = \WPCleverWpclv::get_linked_data($product, 'home');
+
+        if (empty($link_data)) {
+            return ['total' => 0, 'list' => []];
+        }
+
+        $link_product_ids = \WPCleverWpclv::get_linked_products($link_data, 'home');
+        $link_product_ids = apply_filters(
+            'wpclv_linked_products',
+            array_diff(array_map('absint', $link_product_ids), [$product->get_id()]),
+            $product->get_id()
+        );
+
+        $list = [];
+
+        foreach ($link_product_ids as $link_product_id) {
+            $linked_product = wc_get_product($link_product_id);
+
+            if (! $linked_product instanceof \WC_Product) {
+                continue;
+            }
+
+            $list[] = $this->linked_product_trimmed($linked_product);
+        }
+
+        return ['total' => count($list), 'list' => $list];
+    }
+
+    private function linked_product_trimmed(\WC_Product $product): array
+    {
+        $image_id = (int) $product->get_image_id();
+
+        return [
+            'id'        => $product->get_id(),
+            'name'      => $product->get_name(),
+            'slug'      => $product->get_slug(),
+            'permalink' => $product->get_permalink(),
+            'price'     => $product->get_price(),
+            'image'     => $image_id ? $this->attachment_data($image_id) : null,
+        ];
     }
 
     private function campaigns(): array
