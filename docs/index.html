@@ -1659,7 +1659,11 @@ GET /group/products
 </ul></li>
 <li><code>promotional_block.posts[]</code>: <code>id</code>, <code>title</code>, <code>subtitle</code>, <code>image</code>, <code>url</code>, plus the shortcut resolution fields below</li>
 <li><code>campaign_shortcuts.items[]</code>: <code>name</code>, <code>url</code>, <code>post_type</code>, plus the shortcut resolution fields below</li>
-<li><code>product_groups.groups[]</code>: <code>title</code>, <code>product_tag</code>, <code>featured_tag</code></li>
+<li><code>product_groups.groups[]</code>: <code>title</code>, <code>taxonomy</code>, <code>term</code>, <code>link</code>, <code>product_tag</code>, <code>featured_tag</code>, <code>products[]</code>
+<ul>
+<li><code>products[]</code>: <code>id</code>, <code>name</code>, <code>image</code>, <code>linked_products</code></li>
+<li><code>products[].linked_products</code> &mdash; WPC Linked Variation group for this product (separate products representing colour/shade variants), trimmed for listing use: <code>{ "total": 6, "list": [{ "id", "name", "slug", "permalink", "price", "image" }] }</code>. <code>total</code> is <code>0</code> and <code>list</code> is <code>[]</code> when the product has no linked group.</li>
+</ul></li>
 <li><code>campaigns[]</code>: <code>title</code>, <code>product_tag</code>, <code>tag_url</code>, <code>see_all_text</code>, <code>background_image</code></li>
 <li><code>custom_tags.items[]</code>: <code>name</code>, <code>url</code>, <code>image</code></li>
 <li><code>product_sliders[]</code>: <code>title</code>, <code>product_type</code>, <code>taxonomy_type</code>, <code>term_slug</code>, <code>url</code>, <code>background_image</code></li>
