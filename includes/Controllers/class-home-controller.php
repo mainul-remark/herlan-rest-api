@@ -119,6 +119,9 @@ final class HomeController extends Controller
             'product-category' => 'product_cat',
             'product-tag'      => 'product_tag',
             'brand'            => 'brand',
+            'skin-type'        => 'skin-type',
+            'age-range'        => 'age-range',
+            'keywords'         => 'keywords',
         ];
 
         foreach ($taxonomy_bases as $base => $taxonomy) {
@@ -518,11 +521,13 @@ final class HomeController extends Controller
 
         $items = array_map(function (array $item): array {
             $image_id = $item['image'] ?? 0;
-            return [
+            $url      = $item['url'] ?? null;
+
+            return array_merge([
                 'name'  => $item['name'] ?? '',
-                'url'   => $item['url'] ?? null,
+                'url'   => $url,
                 'image' => $image_id ? $this->attachment_data((int) $image_id) : null,
-            ];
+            ], $this->resolve_shortcut_filters($url));
         }, $raw);
 
         return ['enabled' => $enabled, 'items' => $items];
