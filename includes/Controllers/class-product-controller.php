@@ -10,6 +10,7 @@ use WP_Error;
 use WP_REST_Request;
 use WP_REST_Server;
 use WP_Term;
+use WP_User;
 
 if (! defined('ABSPATH')) {
     exit;
@@ -76,6 +77,16 @@ final class ProductController extends Controller
                         'type' => 'string',
                         'sanitize_callback' => 'sanitize_textarea_field',
                     ],
+                    'name' => [
+                        'required' => false,
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ],
+                    'headline' => [
+                        'required' => false,
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ],
                 ],
             ],
         ]);
@@ -97,7 +108,7 @@ final class ProductController extends Controller
             [
                 'methods' => WP_REST_Server::CREATABLE,
                 'callback' => [$this, 'create_question'],
-                'permission_callback' => [$this, 'can_access'],
+                'permission_callback' => [$this, 'maybe_authenticate'],
                 'args' => [
                     'id' => [
                         'required' => true,
@@ -107,6 +118,17 @@ final class ProductController extends Controller
                         'required' => true,
                         'type' => 'string',
                         'sanitize_callback' => 'sanitize_textarea_field',
+                    ],
+                    'name' => [
+                        'required' => false,
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ],
+                    'email' => [
+                        'required' => false,
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_email',
+                        'validate_callback' => static fn ($v) => empty($v) || is_email($v),
                     ],
                 ],
             ],
@@ -354,6 +376,9 @@ final class ProductController extends Controller
         $user = $this->current_user($request);
         $rating = (int) $request->get_param('rating');
         $content = (string) $request->get_param('content');
+        $submitted_name = trim((string) $request->get_param('name'));
+        $headline = trim((string) $request->get_param('headline'));
+        $author_name = $submitted_name !== '' ? $submitted_name : $user->display_name;
 
         $existing = (int) get_comments([
             'post_id' => $product_id,
@@ -382,9 +407,44 @@ final class ProductController extends Controller
             );
         }
 
+        $image_url = '';
+        $files = $request->get_file_params();
+
+        if (! empty($files['image'])) {
+            $file = $files['image'];
+
+            if (! empty($file['size']) && (int) $file['size'] > 3 * MB_IN_BYTES) {
+                return new WP_Error('herlan_file_too_large', __('Image must be 3 MB or smaller.', 'herlan-rest-api'), ['status' => 400]);
+            }
+
+            $type_check = wp_check_filetype_and_ext($file['tmp_name'], $file['name']);
+
+            if (empty($type_check['type']) || strpos($type_check['type'], 'image/') !== 0) {
+                return new WP_Error('herlan_invalid_file_type', __('Only image files are allowed (JPEG, PNG, GIF, WebP).', 'herlan-rest-api'), ['status' => 400]);
+            }
+
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+
+            $upload = wp_handle_upload($file, [
+                'test_form' => false,
+                'mimes' => [
+                    'jpg|jpeg|jpe' => 'image/jpeg',
+                    'png' => 'image/png',
+                    'gif' => 'image/gif',
+                    'webp' => 'image/webp',
+                ],
+            ]);
+
+            if (isset($upload['error'])) {
+                return new WP_Error('herlan_upload_failed', $upload['error'], ['status' => 500]);
+            }
+
+            $image_url = esc_url_raw($upload['url'] ?? '');
+        }
+
         $comment_id = wp_insert_comment([
             'comment_post_ID' => $product_id,
-            'comment_author' => $user->display_name,
+            'comment_author' => $author_name,
             'comment_author_email' => $user->user_email,
             'comment_author_url' => '',
             'comment_content' => $content,
@@ -402,6 +462,14 @@ final class ProductController extends Controller
 
         update_comment_meta($comment_id, 'rating', $rating);
         update_comment_meta($comment_id, 'verified', (int) $is_verified);
+
+        if ($headline !== '') {
+            update_comment_meta($comment_id, 'headline', $headline);
+        }
+
+        if ($image_url !== '') {
+            update_comment_meta($comment_id, 'image_url', $image_url);
+        }
 
         if (function_exists('herlan_recalculate_product_rating')) {
             herlan_recalculate_product_rating($product_id);
@@ -425,18 +493,34 @@ final class ProductController extends Controller
 
         $user = $this->current_user($request);
         $question_text = (string) $request->get_param('question');
+        $submitted_name = trim((string) $request->get_param('name'));
+        $submitted_email = trim((string) $request->get_param('email'));
 
-        $is_manager = user_can($user, 'manage_woocommerce');
+        if ($user instanceof WP_User) {
+            $author_name = $submitted_name !== '' ? $submitted_name : $user->display_name;
+            $author_email = $submitted_email !== '' ? $submitted_email : $user->user_email;
+            $author_user_id = $user->ID;
+            $is_manager = user_can($user, 'manage_woocommerce');
+        } else {
+            if ($submitted_name === '' || $submitted_email === '' || ! is_email($submitted_email)) {
+                return new WP_Error('herlan_question_invalid', __('Name and a valid email are required.', 'herlan-rest-api'), ['status' => 422]);
+            }
+
+            $author_name = $submitted_name;
+            $author_email = $submitted_email;
+            $author_user_id = 0;
+            $is_manager = false;
+        }
 
         $comment_id = wp_insert_comment([
             'comment_post_ID' => $product_id,
-            'comment_author' => $user->display_name,
-            'comment_author_email' => $user->user_email,
+            'comment_author' => $author_name,
+            'comment_author_email' => $author_email,
             'comment_author_url' => '',
             'comment_content' => $question_text,
             'comment_type' => 'cr_qna',
             'comment_parent' => 0,
-            'user_id' => $user->ID,
+            'user_id' => $author_user_id,
             'comment_approved' => $is_manager ? 1 : 0,
             'comment_date' => current_time('mysql'),
             'comment_date_gmt' => current_time('mysql', 1),
@@ -749,24 +833,29 @@ final class ProductController extends Controller
         $category = is_array($categories) && ! empty($categories) && ! is_wp_error($categories) ? $categories[0] : null;
         $brand = is_array($brands) && ! empty($brands) && ! is_wp_error($brands) ? $brands[0] : null;
 
+        $you_may_like_url = $category instanceof WP_Term ? $this->term_link($category) : null;
+        $more_from_brand_url = $brand instanceof WP_Term ? $this->term_link($brand) : null;
+        $best_selling_url = $shop_url ? add_query_arg('orderby', 'sales', $shop_url) : null;
+        $new_arrivals_url = $shop_url ? add_query_arg('orderby', 'date', $shop_url) : null;
+
         return [
-            'you_may_like' => [
+            'you_may_like' => array_merge([
                 'title' => 'You May Like',
-                'url' => $category instanceof WP_Term ? $this->term_link($category) : null,
+                'url' => $you_may_like_url,
                 'products' => $category instanceof WP_Term
                     ? $this->recommendation_products($this->taxonomy_recommendation_args('product_cat', $category->slug, $product_id, $limit), $limit)
                     : [],
-            ],
-            'more_from_this_brand' => [
+            ], $this->resolve_shortcut_filters($you_may_like_url, 'section')),
+            'more_from_this_brand' => array_merge([
                 'title' => 'More from this brand',
-                'url' => $brand instanceof WP_Term ? $this->term_link($brand) : null,
+                'url' => $more_from_brand_url,
                 'products' => $brand instanceof WP_Term
                     ? $this->recommendation_products($this->taxonomy_recommendation_args('brand', $brand->slug, $product_id, $limit), $limit)
                     : [],
-            ],
-            'best_selling' => [
+            ], $this->resolve_shortcut_filters($more_from_brand_url, 'section')),
+            'best_selling' => array_merge([
                 'title' => 'Best Selling',
-                'url' => $shop_url ? add_query_arg('orderby', 'sales', $shop_url) : null,
+                'url' => $best_selling_url,
                 'products' => $this->recommendation_products([
                     'post__not_in' => [$product_id],
                     'meta_key' => 'total_sales',
@@ -775,10 +864,10 @@ final class ProductController extends Controller
                     'meta_query' => $this->in_stock_meta_query(),
                     'tax_query' => $this->visible_product_tax_query(),
                 ], $limit),
-            ],
-            'new_arrivals' => [
+            ], $this->resolve_shortcut_filters($best_selling_url, 'section')),
+            'new_arrivals' => array_merge([
                 'title' => 'New Arrivals',
-                'url' => $shop_url ? add_query_arg('orderby', 'date', $shop_url) : null,
+                'url' => $new_arrivals_url,
                 'products' => $this->recommendation_products([
                     'post__not_in' => [$product_id],
                     'orderby' => 'date',
@@ -794,7 +883,7 @@ final class ProductController extends Controller
                         ],
                     ]),
                 ], $limit),
-            ],
+            ], $this->resolve_shortcut_filters($new_arrivals_url, 'section')),
         ];
     }
 
@@ -1402,6 +1491,8 @@ final class ProductController extends Controller
         $comment_id = (int) $comment->comment_ID;
         $rating = (int) get_comment_meta($comment_id, 'rating', true);
         $verified = (bool) get_comment_meta($comment_id, 'verified', true);
+        $headline = (string) get_comment_meta($comment_id, 'headline', true);
+        $image_url = (string) get_comment_meta($comment_id, 'image_url', true);
 
         if (! $verified && $comment->user_id && function_exists('wc_customer_bought_product')) {
             $verified = wc_customer_bought_product(
@@ -1416,7 +1507,9 @@ final class ProductController extends Controller
             'author' => $comment->comment_author,
             'author_id' => (int) $comment->user_id ?: null,
             'rating' => $rating,
+            'headline' => $headline !== '' ? $headline : null,
             'content' => $comment->comment_content,
+            'image_url' => $image_url !== '' ? $image_url : null,
             'date' => $comment->comment_date,
             'verified_purchase' => (bool) $verified,
         ];

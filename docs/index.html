@@ -2117,7 +2117,9 @@ GET /group/products
         "author": "Rina Akter",
         "author_id": 42,
         "rating": 5,
+        "headline": "Amazing glow!",
         "content": "Loved the product! Skin feels amazing.",
+        "image_url": "https://herlan.com/wp-content/uploads/2026/05/review-501.jpg",
         "date": "2026-05-10 14:23:00",
         "verified_purchase": true
       }
@@ -2138,7 +2140,9 @@ GET /group/products
 <tr><td><code>author</code></td><td>string</td><td>Reviewer display name</td></tr>
 <tr><td><code>author_id</code></td><td>integer|null</td><td>WordPress user ID, <code>null</code> for guests</td></tr>
 <tr><td><code>rating</code></td><td>integer</td><td>Star rating 1–5</td></tr>
+<tr><td><code>headline</code></td><td>string|null</td><td>Review headline/title, <code>null</code> if not set</td></tr>
 <tr><td><code>content</code></td><td>string</td><td>Review text</td></tr>
+<tr><td><code>image_url</code></td><td>string|null</td><td>URL of the image uploaded with the review, <code>null</code> if none</td></tr>
 <tr><td><code>date</code></td><td>string</td><td>Submission date (<code>Y-m-d H:i:s</code>)</td></tr>
 <tr><td><code>verified_purchase</code></td><td>boolean</td><td><code>true</code> if reviewer has purchased this product</td></tr>
 </tbody>
@@ -2152,20 +2156,26 @@ GET /group/products
 <pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/products/1234/reviews?page=1&amp;per_page=10"</code></pre>
 <hr />
 <h3 id="post-products-id-reviews"><code>POST /products/{id}/reviews</code></h3>
-<p>Submits a new review for the product. <strong>Requires a Bearer token.</strong> The reviewer must be a verified purchaser (or shop manager). One review per user per product is allowed.</p>
-<h4>Request body</h4>
+<p>Submits a new review for the product. <strong>Requires a Bearer token.</strong> The reviewer must be a verified purchaser (or shop manager). One review per user per product is allowed. To upload an image, the request must be sent as <code>multipart/form-data</code> (not JSON).</p>
+<h4>Request body (<code>multipart/form-data</code>)</h4>
 <table>
 <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
 <tbody>
 <tr><td><code>rating</code></td><td>integer</td><td><strong>Yes</strong></td><td>Star rating — must be <code>1</code> to <code>5</code></td></tr>
 <tr><td><code>content</code></td><td>string</td><td><strong>Yes</strong></td><td>Review text</td></tr>
+<tr><td><code>name</code></td><td>string</td><td>No</td><td>Display name for the review; falls back to the account's display name</td></tr>
+<tr><td><code>headline</code></td><td>string</td><td>No</td><td>Review headline/title</td></tr>
+<tr><td><code>image</code></td><td>file</td><td>No</td><td>Image to attach (JPEG/PNG/GIF/WebP, max 3 MB)</td></tr>
 </tbody>
 </table>
 <h4>Example</h4>
 <pre><code class="language-bash">curl -X POST "https://herlan.com/wp-json/herlan/v1/products/1234/reviews" \
   -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"rating": 5, "content": "Excellent product, highly recommended!"}'</code></pre>
+  -F "rating=5" \
+  -F "content=Excellent product, highly recommended!" \
+  -F "name=Rina Akter" \
+  -F "headline=Amazing glow!" \
+  -F "image=@/path/to/photo.jpg"</code></pre>
 <h4>Success response (<code>201</code>)</h4>
 <pre><code class="language-json">{
   "success": true,
@@ -2179,6 +2189,9 @@ GET /group/products
 <tr><td><code>herlan_product_not_found</code></td><td>404</td><td>Product does not exist or is not published</td></tr>
 <tr><td><code>herlan_review_duplicate</code></td><td>409</td><td>User has already submitted a review for this product</td></tr>
 <tr><td><code>herlan_review_not_purchased</code></td><td>403</td><td>User has not purchased this product</td></tr>
+<tr><td><code>herlan_file_too_large</code></td><td>400</td><td>Uploaded image exceeds 3 MB</td></tr>
+<tr><td><code>herlan_invalid_file_type</code></td><td>400</td><td>Uploaded file is not an allowed image type</td></tr>
+<tr><td><code>herlan_upload_failed</code></td><td>500</td><td>Could not upload the image</td></tr>
 <tr><td><code>herlan_review_failed</code></td><td>500</td><td>Could not save the review</td></tr>
 <tr><td><code>herlan_missing_token</code></td><td>401</td><td>No Bearer token provided</td></tr>
 <tr><td><code>herlan_invalid_token</code></td><td>401</td><td>Token is invalid or expired</td></tr>
@@ -2262,19 +2275,25 @@ GET /group/products
 <pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/products/1234/questions?page=1&amp;per_page=10"</code></pre>
 <hr />
 <h3 id="post-products-id-questions"><code>POST /products/{id}/questions</code></h3>
-<p>Submits a new question for the product. <strong>Requires a Bearer token.</strong> Questions from regular users are held for admin approval before appearing publicly. Questions from shop managers are auto-approved.</p>
+<p>Submits a new question for the product. <strong>Bearer token is optional</strong> — both logged-in users and guests (no auth) can submit a question. Guests must provide <code>name</code> and <code>email</code>. Logged-in users default to their account's name/email, but may override either by sending <code>name</code>/<code>email</code>. Questions from regular users and guests are held for admin approval before appearing publicly. Questions from shop managers are auto-approved.</p>
 <h4>Request body</h4>
 <table>
 <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
 <tbody>
 <tr><td><code>question</code></td><td>string</td><td><strong>Yes</strong></td><td>The question text</td></tr>
+<tr><td><code>name</code></td><td>string</td><td><strong>Yes</strong> for guests, optional if logged in</td><td>Submitter's name. If logged in and provided, overrides the account's display name</td></tr>
+<tr><td><code>email</code></td><td>string</td><td><strong>Yes</strong> for guests, optional if logged in</td><td>Must be a valid email format. If logged in and provided, overrides the account's email</td></tr>
 </tbody>
 </table>
-<h4>Example</h4>
+<h4>Example — logged-in user</h4>
 <pre><code class="language-bash">curl -X POST "https://herlan.com/wp-json/herlan/v1/products/1234/questions" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"question": "Does this come in a travel size?"}'</code></pre>
+<h4>Example — guest (no auth)</h4>
+<pre><code class="language-bash">curl -X POST "https://herlan.com/wp-json/herlan/v1/products/1234/questions" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Does this come in a travel size?", "name": "Rafi Islam", "email": "rafi@example.com"}'</code></pre>
 <h4>Success response (<code>201</code>)</h4>
 <pre><code class="language-json">{
   "success": true,
@@ -2287,9 +2306,9 @@ GET /group/products
 <thead><tr><th>Code</th><th>HTTP</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>herlan_product_not_found</code></td><td>404</td><td>Product does not exist or is not published</td></tr>
+<tr><td><code>herlan_question_invalid</code></td><td>422</td><td>Submitted as a guest without a valid <code>name</code> or <code>email</code></td></tr>
 <tr><td><code>herlan_question_failed</code></td><td>500</td><td>Could not save the question</td></tr>
-<tr><td><code>herlan_missing_token</code></td><td>401</td><td>No Bearer token provided</td></tr>
-<tr><td><code>herlan_invalid_token</code></td><td>401</td><td>Token is invalid or expired</td></tr>
+<tr><td><code>herlan_invalid_token</code></td><td>401</td><td>A token was provided but is invalid or expired</td></tr>
 </tbody>
 </table>
 <hr />
@@ -6103,8 +6122,8 @@ Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
 <tr>
 <td><code>POST</code></td>
 <td><code>/products/{id}/questions</code></td>
-<td>Yes</td>
-<td>Submit a product question (pending approval)</td>
+<td>Optional</td>
+<td>Submit a product question (guests must send name/email; pending approval)</td>
 </tr>
 <tr>
 <td><code>GET</code></td>

@@ -777,7 +777,7 @@ GET /group/products
   "message": "",
   "data": {
     "items": [
-      { "id": 501, "author": "Rina Akter", "author_id": 42, "rating": 5, "content": "Loved the product! Skin feels amazing.", "date": "2026-05-10 14:23:00", "verified_purchase": true }
+      { "id": 501, "author": "Rina Akter", "author_id": 42, "rating": 5, "headline": "Amazing glow!", "content": "Loved the product! Skin feels amazing.", "image_url": "https://herlan.com/wp-content/uploads/2026/05/review-501.jpg", "date": "2026-05-10 14:23:00", "verified_purchase": true }
     ],
     "pagination": { "page": 1, "per_page": 10, "total": 47, "total_pages": 5 }
   }
@@ -790,7 +790,9 @@ GET /group/products
 <tr><td><code>author</code></td><td>string</td><td>রিভিউয়ারের দেখানো নাম</td></tr>
 <tr><td><code>author_id</code></td><td>integer|null</td><td>WordPress user ID, গেস্ট হলে <code>null</code></td></tr>
 <tr><td><code>rating</code></td><td>integer</td><td>স্টার রেটিং ১–৫</td></tr>
+<tr><td><code>headline</code></td><td>string|null</td><td>রিভিউয়ের হেডলাইন/টাইটেল, না থাকলে <code>null</code></td></tr>
 <tr><td><code>content</code></td><td>string</td><td>রিভিউ টেক্সট</td></tr>
+<tr><td><code>image_url</code></td><td>string|null</td><td>রিভিউয়ের সাথে আপলোড করা ছবির URL, না থাকলে <code>null</code></td></tr>
 <tr><td><code>date</code></td><td>string</td><td>জমা দেওয়ার তারিখ (<code>Y-m-d H:i:s</code>)</td></tr>
 <tr><td><code>verified_purchase</code></td><td>boolean</td><td>রিভিউয়ার এই প্রোডাক্ট কিনেছে কিনা</td></tr>
 </tbody>
@@ -805,20 +807,26 @@ GET /group/products
 <hr />
 
 <h2 id="post-products-id-reviews"><code>POST /products/{id}/reviews</code></h2>
-<p>প্রোডাক্টের জন্য একটা নতুন রিভিউ জমা দেয়। <strong>Bearer token আবশ্যক।</strong> রিভিউয়ারকে অবশ্যই ভেরিফায়েড ক্রেতা (বা shop manager) হতে হবে। প্রতি ইউজার প্রতি প্রোডাক্টে একটাই রিভিউ দেওয়া যায়।</p>
-<h4>Request body</h4>
+<p>প্রোডাক্টের জন্য একটা নতুন রিভিউ জমা দেয়। <strong>Bearer token আবশ্যক।</strong> রিভিউয়ারকে অবশ্যই ভেরিফায়েড ক্রেতা (বা shop manager) হতে হবে। প্রতি ইউজার প্রতি প্রোডাক্টে একটাই রিভিউ দেওয়া যায়। ছবি আপলোড করতে হলে রিকোয়েস্ট অবশ্যই <code>multipart/form-data</code> হিসেবে পাঠাতে হবে (JSON বডি নয়)।</p>
+<h4>Request body (<code>multipart/form-data</code>)</h4>
 <table>
 <thead><tr><th>Field</th><th>Type</th><th>প্রয়োজনীয়?</th><th>নোট</th></tr></thead>
 <tbody>
 <tr><td><code>rating</code></td><td>integer</td><td><strong>হ্যাঁ</strong></td><td>স্টার রেটিং — <code>1</code> থেকে <code>5</code>-এর মধ্যে হতে হবে</td></tr>
 <tr><td><code>content</code></td><td>string</td><td><strong>হ্যাঁ</strong></td><td>রিভিউ টেক্সট</td></tr>
+<tr><td><code>name</code></td><td>string</td><td>না</td><td>রিভিউয়ারের দেখানো নাম, না দিলে অ্যাকাউন্টের display name ব্যবহৃত হয়</td></tr>
+<tr><td><code>headline</code></td><td>string</td><td>না</td><td>রিভিউয়ের হেডলাইন/টাইটেল</td></tr>
+<tr><td><code>image</code></td><td>file</td><td>না</td><td>রিভিউয়ের সাথে ছবি (JPEG/PNG/GIF/WebP, সর্বোচ্চ ৩ MB)</td></tr>
 </tbody>
 </table>
 <h4>উদাহরণ</h4>
 <pre><code class="language-bash">curl -X POST "https://herlan.com/wp-json/herlan/v1/products/1234/reviews" \
   -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"rating": 5, "content": "Excellent product, highly recommended!"}'</code></pre>
+  -F "rating=5" \
+  -F "content=Excellent product, highly recommended!" \
+  -F "name=Rina Akter" \
+  -F "headline=Amazing glow!" \
+  -F "image=@/path/to/photo.jpg"</code></pre>
 <h4>সফল রেসপন্স (<code>201</code>)</h4>
 <pre><code class="language-json">{ "success": true, "message": "Review submitted successfully.", "data": [] }</code></pre>
 <h4>Error কোড</h4>
@@ -828,6 +836,9 @@ GET /group/products
 <tr><td><code>herlan_product_not_found</code></td><td>404</td><td>প্রোডাক্ট নেই বা পাবলিশড না</td></tr>
 <tr><td><code>herlan_review_duplicate</code></td><td>409</td><td>ইউজার আগেই এই প্রোডাক্টে রিভিউ দিয়েছে</td></tr>
 <tr><td><code>herlan_review_not_purchased</code></td><td>403</td><td>ইউজার এই প্রোডাক্ট কেনেনি</td></tr>
+<tr><td><code>herlan_file_too_large</code></td><td>400</td><td>আপলোড করা ছবি ৩ MB-এর চেয়ে বড়</td></tr>
+<tr><td><code>herlan_invalid_file_type</code></td><td>400</td><td>ছবি ছাড়া অন্য ফাইল টাইপ আপলোড করা হয়েছে</td></tr>
+<tr><td><code>herlan_upload_failed</code></td><td>500</td><td>ছবি আপলোড করা যায়নি</td></tr>
 <tr><td><code>herlan_review_failed</code></td><td>500</td><td>রিভিউ সেভ করা যায়নি</td></tr>
 <tr><td><code>herlan_missing_token</code></td><td>401</td><td>কোনো Bearer token পাঠানো হয়নি</td></tr>
 <tr><td><code>herlan_invalid_token</code></td><td>401</td><td>Token অবৈধ বা মেয়াদ শেষ</td></tr>
@@ -901,19 +912,25 @@ GET /group/products
 <hr />
 
 <h2 id="post-products-id-questions"><code>POST /products/{id}/questions</code></h2>
-<p>প্রোডাক্টের জন্য একটা নতুন প্রশ্ন জমা দেয়। <strong>Bearer token আবশ্যক।</strong> সাধারণ ইউজারের প্রশ্ন admin অনুমোদনের আগ পর্যন্ত পাবলিকলি দেখা যায় না। Shop manager-এর প্রশ্ন সাথে সাথেই অনুমোদিত হয়।</p>
+<p>প্রোডাক্টের জন্য একটা নতুন প্রশ্ন জমা দেয়। <strong>Bearer token ঐচ্ছিক</strong> — লগইন করা ইউজার এবং গেস্ট (auth ছাড়া) উভয়ই প্রশ্ন জমা দিতে পারে। গেস্ট হলে <code>name</code> ও <code>email</code> আবশ্যক। লগইন করা থাকলে account-এর নাম/ইমেইল ব্যবহার হয়, তবে চাইলে <code>name</code>/<code>email</code> পাঠিয়ে সেটা override করা যায়। সাধারণ ইউজার ও গেস্ট-এর প্রশ্ন admin অনুমোদনের আগ পর্যন্ত পাবলিকলি দেখা যায় না। Shop manager-এর প্রশ্ন সাথে সাথেই অনুমোদিত হয়।</p>
 <h4>Request body</h4>
 <table>
 <thead><tr><th>Field</th><th>Type</th><th>প্রয়োজনীয়?</th><th>নোট</th></tr></thead>
 <tbody>
 <tr><td><code>question</code></td><td>string</td><td><strong>হ্যাঁ</strong></td><td>প্রশ্নের টেক্সট</td></tr>
+<tr><td><code>name</code></td><td>string</td><td>গেস্ট হলে <strong>হ্যাঁ</strong>, লগইন থাকলে ঐচ্ছিক</td><td>জমাদাতার নাম। লগইন করা থাকলে দিলে account-এর display name override হবে</td></tr>
+<tr><td><code>email</code></td><td>string</td><td>গেস্ট হলে <strong>হ্যাঁ</strong>, লগইন থাকলে ঐচ্ছিক</td><td>বৈধ ইমেইল ফরম্যাট আবশ্যক। লগইন করা থাকলে দিলে account-এর ইমেইল override হবে</td></tr>
 </tbody>
 </table>
-<h4>উদাহরণ</h4>
+<h4>উদাহরণ — লগইন করা ইউজার</h4>
 <pre><code class="language-bash">curl -X POST "https://herlan.com/wp-json/herlan/v1/products/1234/questions" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"question": "Does this come in a travel size?"}'</code></pre>
+<h4>উদাহরণ — গেস্ট (auth ছাড়া)</h4>
+<pre><code class="language-bash">curl -X POST "https://herlan.com/wp-json/herlan/v1/products/1234/questions" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Does this come in a travel size?", "name": "Rafi Islam", "email": "rafi@example.com"}'</code></pre>
 <h4>সফল রেসপন্স (<code>201</code>)</h4>
 <pre><code class="language-json">{ "success": true, "message": "Question submitted and pending approval.", "data": [] }</code></pre>
 <p>Shop manager হলে মেসেজ আসবে <code>"Question submitted successfully."</code> এবং প্রশ্ন সাথে সাথেই পাবলিকলি দেখা যাবে।</p>
@@ -922,9 +939,9 @@ GET /group/products
 <thead><tr><th>Code</th><th>HTTP</th><th>ব্যাখ্যা</th></tr></thead>
 <tbody>
 <tr><td><code>herlan_product_not_found</code></td><td>404</td><td>প্রোডাক্ট নেই বা পাবলিশড না</td></tr>
+<tr><td><code>herlan_question_invalid</code></td><td>422</td><td>গেস্ট হিসেবে <code>name</code> বা বৈধ <code>email</code> পাঠানো হয়নি</td></tr>
 <tr><td><code>herlan_question_failed</code></td><td>500</td><td>প্রশ্ন সেভ করা যায়নি</td></tr>
-<tr><td><code>herlan_missing_token</code></td><td>401</td><td>কোনো Bearer token পাঠানো হয়নি</td></tr>
-<tr><td><code>herlan_invalid_token</code></td><td>401</td><td>Token অবৈধ বা মেয়াদ শেষ</td></tr>
+<tr><td><code>herlan_invalid_token</code></td><td>401</td><td>Token পাঠানো হলে কিন্তু অবৈধ বা মেয়াদ শেষ হলে</td></tr>
 </tbody>
 </table>
 <hr />

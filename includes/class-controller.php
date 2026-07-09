@@ -18,6 +18,23 @@ abstract class Controller
 
     protected ?AuthController $auth = null;
 
+    /** Maps legacy/widget query param names to the canonical keys accepted by /group/products. */
+    private const FILTER_QUERY_ALIASES = [
+        '_brand'      => 'filter_brand',
+        'product-cat' => 'filter_product_cat',
+        '_skin-type'  => 'filter_skin-type',
+        '_age-range'  => 'filter_age-range',
+        '_keywords'   => 'filter_keywords',
+    ];
+
+    private const FILTER_TAXONOMY_KEYS = [
+        'filter_product_cat',
+        'filter_brand',
+        'filter_skin-type',
+        'filter_age-range',
+        'filter_keywords',
+    ];
+
     public function __construct(?AuthController $auth = null)
     {
         $this->auth = $auth;
@@ -335,5 +352,201 @@ abstract class Controller
         if (WC()->session) {
             WC()->session->set('herlan_cash_fetch_failed_until', time() + 60);
         }
+    }
+
+    /**
+     * Resolves a URL's path (e.g. /product-tag/best-selling/) to the registered
+     * taxonomy term it points at, if any. Supports nested category paths by taking
+     * the last path segment.
+     */
+    protected function resolve_term_from_url(?string $url): ?array
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        $path = trim(wp_parse_url($url, PHP_URL_PATH) ?? '', '/');
+
+        if (empty($path)) {
+            return null;
+        }
+
+        // Strip WordPress subdirectory install prefix (e.g. "herlan.com/")
+        $home_path = trim(wp_parse_url(home_url(), PHP_URL_PATH) ?? '', '/');
+        if ($home_path !== '' && strpos($path, $home_path . '/') === 0) {
+            $path = trim(substr($path, strlen($home_path) + 1), '/');
+        }
+
+        if (empty($path)) {
+            return null;
+        }
+
+        // Map URL base slugs to registered taxonomy names
+        $taxonomy_bases = [
+            'product-category' => 'product_cat',
+            'product-tag'      => 'product_tag',
+            'brand'            => 'brand',
+            'skin-type'        => 'skin-type',
+            'age-range'        => 'age-range',
+            'keywords'         => 'keywords',
+        ];
+
+        foreach ($taxonomy_bases as $base => $taxonomy) {
+            if (strpos($path, $base . '/') !== 0) {
+                continue;
+            }
+
+            // Take the last path segment to support nested categories
+            $slug = basename(rtrim(substr($path, strlen($base) + 1), '/'));
+
+            if (empty($slug)) {
+                continue;
+            }
+
+            $term = get_term_by('slug', $slug, $taxonomy);
+
+            if (! $term || is_wp_error($term)) {
+                continue;
+            }
+
+            $link = get_term_link($term);
+
+            $params = [];
+            $query  = wp_parse_url($url, PHP_URL_QUERY);
+            if ($query) {
+                parse_str($query, $params);
+            }
+
+            return [
+                'taxonomy'   => $taxonomy,
+                'term_id'    => $term->term_id,
+                'name'       => $term->name,
+                'slug'       => $term->slug,
+                'link'       => is_wp_error($link) ? null : $link,
+                'url_params' => $params ?: null,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolves a single product permalink (any permalink structure) to its product
+     * ID/slug via url_to_postid(), the same way WordPress rewrite matching does it.
+     */
+    protected function resolve_product_from_url(?string $url): ?array
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        $post_id = url_to_postid($url);
+
+        if (! $post_id || get_post_type($post_id) !== 'product') {
+            return null;
+        }
+
+        return [
+            'product_id'   => $post_id,
+            'product_slug' => get_post_field('post_name', $post_id),
+        ];
+    }
+
+    /**
+     * Parses a shortcut/section URL into the params /group/products understands:
+     * path segments (e.g. /product-tag/best-selling/) resolve to {$prefix}_taxonomy +
+     * {$prefix}_term, and the query string (filter_*, min_price/max_price, or the
+     * WooCommerce price widget's "price=min~max" format) resolves to the filter keys.
+     *
+     * When the URL points at a single product permalink instead of an archive,
+     * target_type is 'product' and product_id/product_slug are populated so callers
+     * can fetch the product directly (e.g. GET /products/{product_id}) instead of
+     * treating it as a /group/products listing query.
+     *
+     * @param string $prefix 'context' for individual content items (banners, shortcuts,
+     *                        custom tags) or 'section' for listing blocks that own their
+     *                        own "View all" (campaigns, product groups/sliders, recommendations).
+     */
+    protected function resolve_shortcut_filters(?string $url, string $prefix = 'context'): array
+    {
+        $result = [
+            "{$prefix}_taxonomy" => null,
+            "{$prefix}_term"     => null,
+            'target_type'        => null,
+            'product_id'         => null,
+            'product_slug'       => null,
+            'min_price'          => null,
+            'max_price'          => null,
+        ];
+
+        foreach (self::FILTER_TAXONOMY_KEYS as $key) {
+            $result[$key] = null;
+        }
+
+        if (empty($url)) {
+            return $result;
+        }
+
+        $term_data = $this->resolve_term_from_url($url);
+        if ($term_data) {
+            $result["{$prefix}_taxonomy"] = $term_data['taxonomy'];
+            $result["{$prefix}_term"]     = $term_data['slug'];
+            $result['target_type']        = 'archive';
+        } else {
+            $product_data = $this->resolve_product_from_url($url);
+            if ($product_data) {
+                $result['target_type']  = 'product';
+                $result['product_id']   = $product_data['product_id'];
+                $result['product_slug'] = $product_data['product_slug'];
+            }
+        }
+
+        $query = wp_parse_url($url, PHP_URL_QUERY);
+        if (! $query) {
+            return $result;
+        }
+
+        parse_str($query, $params);
+
+        foreach (self::FILTER_QUERY_ALIASES as $raw_key => $canonical_key) {
+            if (isset($params[$raw_key]) && ! isset($params[$canonical_key])) {
+                $params[$canonical_key] = $params[$raw_key];
+            }
+        }
+
+        foreach (self::FILTER_TAXONOMY_KEYS as $key) {
+            if (empty($params[$key])) {
+                continue;
+            }
+
+            $slugs = array_values(array_filter(array_map('sanitize_title', explode(',', (string) $params[$key]))));
+
+            if ($slugs) {
+                $result[$key] = $slugs;
+            }
+        }
+
+        if (isset($params['min_price']) && is_numeric($params['min_price'])) {
+            $result['min_price'] = (float) $params['min_price'];
+        }
+
+        if (isset($params['max_price']) && is_numeric($params['max_price'])) {
+            $result['max_price'] = (float) $params['max_price'];
+        }
+
+        // WooCommerce native price-widget format, e.g. "price=10~500".
+        if ($result['min_price'] === null && $result['max_price'] === null && isset($params['price']) && str_contains((string) $params['price'], '~')) {
+            [$min, $max] = array_pad(explode('~', (string) $params['price'], 2), 2, null);
+
+            if (is_numeric($min)) {
+                $result['min_price'] = (float) $min;
+            }
+
+            if (is_numeric($max)) {
+                $result['max_price'] = (float) $max;
+            }
+        }
+
+        return $result;
     }
 }

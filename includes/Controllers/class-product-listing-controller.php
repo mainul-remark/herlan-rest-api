@@ -25,6 +25,7 @@ final class ProductListingController extends Controller
         '_age-range'  => 'filter_age-range',
         '_keywords'   => 'filter_keywords',
         'sort-by'     => 'orderby',
+        'paged'       => 'page',
     ];
 
     private const LEGACY_KEYS = [

@@ -12,23 +12,6 @@ if (! defined('ABSPATH')) {
 
 final class HomeController extends Controller
 {
-    /** Maps legacy/widget query param names to the canonical keys accepted by /group/products. */
-    private const FILTER_QUERY_ALIASES = [
-        '_brand'      => 'filter_brand',
-        'product-cat' => 'filter_product_cat',
-        '_skin-type'  => 'filter_skin-type',
-        '_age-range'  => 'filter_age-range',
-        '_keywords'   => 'filter_keywords',
-    ];
-
-    private const FILTER_TAXONOMY_KEYS = [
-        'filter_product_cat',
-        'filter_brand',
-        'filter_skin-type',
-        'filter_age-range',
-        'filter_keywords',
-    ];
-
     public function register_routes(): void
     {
         register_rest_route($this->namespace, '/home', [
@@ -90,193 +73,6 @@ final class HomeController extends Controller
             'autoplay_duration' => $autoplay_duration,
             'items'             => $items,
         ];
-    }
-
-    private function resolve_term_from_url(?string $url): ?array
-    {
-        if (empty($url)) {
-            return null;
-        }
-
-        $path = trim(wp_parse_url($url, PHP_URL_PATH) ?? '', '/');
-
-        if (empty($path)) {
-            return null;
-        }
-
-        // Strip WordPress subdirectory install prefix (e.g. "herlan.com/")
-        $home_path = trim(wp_parse_url(home_url(), PHP_URL_PATH) ?? '', '/');
-        if ($home_path !== '' && strpos($path, $home_path . '/') === 0) {
-            $path = trim(substr($path, strlen($home_path) + 1), '/');
-        }
-
-        if (empty($path)) {
-            return null;
-        }
-
-        // Map URL base slugs to registered taxonomy names
-        $taxonomy_bases = [
-            'product-category' => 'product_cat',
-            'product-tag'      => 'product_tag',
-            'brand'            => 'brand',
-            'skin-type'        => 'skin-type',
-            'age-range'        => 'age-range',
-            'keywords'         => 'keywords',
-        ];
-
-        foreach ($taxonomy_bases as $base => $taxonomy) {
-            if (strpos($path, $base . '/') !== 0) {
-                continue;
-            }
-
-            // Take the last path segment to support nested categories
-            $slug = basename(rtrim(substr($path, strlen($base) + 1), '/'));
-
-            if (empty($slug)) {
-                continue;
-            }
-
-            $term = get_term_by('slug', $slug, $taxonomy);
-
-            if (! $term || is_wp_error($term)) {
-                continue;
-            }
-
-            $link = get_term_link($term);
-
-            $params = [];
-            $query  = wp_parse_url($url, PHP_URL_QUERY);
-            if ($query) {
-                parse_str($query, $params);
-            }
-
-            return [
-                'taxonomy'   => $taxonomy,
-                'term_id'    => $term->term_id,
-                'name'       => $term->name,
-                'slug'       => $term->slug,
-                'link'       => is_wp_error($link) ? null : $link,
-                'url_params' => $params ?: null,
-            ];
-        }
-
-        return null;
-    }
-
-    /**
-     * Resolves a single product permalink (any permalink structure) to its product
-     * ID/slug via url_to_postid(), the same way WordPress rewrite matching does it.
-     */
-    private function resolve_product_from_url(?string $url): ?array
-    {
-        if (empty($url)) {
-            return null;
-        }
-
-        $post_id = url_to_postid($url);
-
-        if (! $post_id || get_post_type($post_id) !== 'product') {
-            return null;
-        }
-
-        return [
-            'product_id'   => $post_id,
-            'product_slug' => get_post_field('post_name', $post_id),
-        ];
-    }
-
-    /**
-     * Parses a campaign shortcut's URL into the params /group/products understands:
-     * path segments (e.g. /product-tag/best-selling/) resolve to context_taxonomy +
-     * context_term, and the query string (filter_*, min_price/max_price, or the
-     * WooCommerce price widget's "price=min~max" format) resolves to the filter keys.
-     *
-     * When the URL points at a single product permalink instead of an archive,
-     * target_type is 'product' and product_id/product_slug are populated so callers
-     * can fetch the product directly (e.g. GET /products/{product_id}) instead of
-     * treating it as a /group/products listing query.
-     */
-    private function resolve_shortcut_filters(?string $url): array
-    {
-        $result = [
-            'context_taxonomy' => null,
-            'context_term'     => null,
-            'target_type'      => null,
-            'product_id'       => null,
-            'product_slug'     => null,
-            'min_price'        => null,
-            'max_price'        => null,
-        ];
-
-        foreach (self::FILTER_TAXONOMY_KEYS as $key) {
-            $result[$key] = null;
-        }
-
-        if (empty($url)) {
-            return $result;
-        }
-
-        $term_data = $this->resolve_term_from_url($url);
-        if ($term_data) {
-            $result['context_taxonomy'] = $term_data['taxonomy'];
-            $result['context_term']    = $term_data['slug'];
-            $result['target_type']     = 'archive';
-        } else {
-            $product_data = $this->resolve_product_from_url($url);
-            if ($product_data) {
-                $result['target_type']  = 'product';
-                $result['product_id']  = $product_data['product_id'];
-                $result['product_slug'] = $product_data['product_slug'];
-            }
-        }
-
-        $query = wp_parse_url($url, PHP_URL_QUERY);
-        if (! $query) {
-            return $result;
-        }
-
-        parse_str($query, $params);
-
-        foreach (self::FILTER_QUERY_ALIASES as $raw_key => $canonical_key) {
-            if (isset($params[$raw_key]) && ! isset($params[$canonical_key])) {
-                $params[$canonical_key] = $params[$raw_key];
-            }
-        }
-
-        foreach (self::FILTER_TAXONOMY_KEYS as $key) {
-            if (empty($params[$key])) {
-                continue;
-            }
-
-            $slugs = array_values(array_filter(array_map('sanitize_title', explode(',', (string) $params[$key]))));
-
-            if ($slugs) {
-                $result[$key] = $slugs;
-            }
-        }
-
-        if (isset($params['min_price']) && is_numeric($params['min_price'])) {
-            $result['min_price'] = (float) $params['min_price'];
-        }
-
-        if (isset($params['max_price']) && is_numeric($params['max_price'])) {
-            $result['max_price'] = (float) $params['max_price'];
-        }
-
-        // WooCommerce native price-widget format, e.g. "price=10~500".
-        if ($result['min_price'] === null && $result['max_price'] === null && isset($params['price']) && str_contains((string) $params['price'], '~')) {
-            [$min, $max] = array_pad(explode('~', (string) $params['price'], 2), 2, null);
-
-            if (is_numeric($min)) {
-                $result['min_price'] = (float) $min;
-            }
-
-            if (is_numeric($max)) {
-                $result['max_price'] = (float) $max;
-            }
-        }
-
-        return $result;
     }
 
     private function promotional_block(): array
@@ -382,16 +178,18 @@ final class HomeController extends Controller
             }
 
             $product_ids = $this->fetch_group_product_ids($tag_slug, $featured_slug);
+            $parsed      = $this->resolve_shortcut_filters($link, 'section');
 
-            $items[] = [
+            $items[] = array_merge([
                 'title'        => $title,
                 'taxonomy'     => 'product_tag',
                 'term'         => $term_data,
                 'link'         => $link,
                 'product_tag'  => $tag_slug,
                 'featured_tag' => $featured_slug ?: null,
-                'products'     => $this->format_group_products($product_ids),
-            ];
+            ], $parsed, [
+                'products' => $this->format_group_products($product_ids),
+            ]);
         }
 
         return [
@@ -546,13 +344,15 @@ final class HomeController extends Controller
                 $bg_url = $this->resolve_image_url($bg_raw);
             }
 
-            $result[] = [
+            $parsed = $this->resolve_shortcut_filters($tag_url, 'section');
+
+            $result[] = array_merge([
                 'title'            => $campaign['title'] ?? '',
                 'product_tag'      => $tag_slug,
                 'tag_url'          => $tag_url,
                 'see_all_text'     => $campaign['see_all_text'] ?? null,
                 'background_image' => $bg_url,
-            ];
+            ], $parsed);
         }
 
         return $result;
@@ -590,15 +390,16 @@ final class HomeController extends Controller
         return array_map(function (array $slider): array {
             $bg_id  = $slider['background_image'] ?? null;
             $bg_url = $bg_id ? wp_get_attachment_image_url((int) $bg_id, 'full') : null;
+            $url    = $slider['url'] ?? null;
 
-            return [
+            return array_merge([
                 'title'            => $slider['title'] ?? '',
                 'product_type'     => $slider['product_type'] ?? null,
                 'taxonomy_type'    => $slider['taxonomy_type'] ?? null,
                 'term_slug'        => $slider['term_slug'] ?? null,
-                'url'              => $slider['url'] ?? null,
+                'url'              => $url,
                 'background_image' => $bg_url,
-            ];
+            ], $this->resolve_shortcut_filters($url, 'section'));
         }, $raw);
     }
 
