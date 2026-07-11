@@ -75,6 +75,48 @@ final class HomeController extends Controller
         ];
     }
 
+//    private function promotional_block(): array
+//    {
+//        $block   = get_field('promotional_block', 'option') ?: [];
+//        $enabled = ! empty($block['status']);
+//
+//        if (! $enabled) {
+//            return ['enabled' => false, 'posts' => []];
+//        }
+//
+//        $query = new \WP_Query([
+//            'post_type'      => 'promotional_posts',
+//            'posts_per_page' => -1,
+//            'post_status'    => 'publish',
+//            'fields'         => 'ids',
+//            'orderby'        => 'menu_order',
+//            'order'          => 'ASC',
+//        ]);
+//
+//        $posts = array_map(function (int $id): array {
+//            $thumb_id = (int) get_post_thumbnail_id($id);
+////            return [
+////                'id'       => $id,
+////                'title'    => get_field('title', $id) ?: get_the_title($id),
+////                'subtitle' => get_field('subtitle', $id) ?: null,
+////                'image'    => $thumb_id ? $this->attachment_data($thumb_id) : null,
+////                'url'      => get_field('external_url', $id) ?: null,
+////            ];
+//            $url      = get_field('external_url', $id) ?: null;
+//            $parsed   = $this->resolve_shortcut_filters($url);
+//
+//            return array_merge([
+//                'id'       => $id,
+//                'title'    => get_field('title', $id) ?: get_the_title($id),
+//                'subtitle' => get_field('subtitle', $id) ?: null,
+//                'image'    => $thumb_id ? $this->attachment_data($thumb_id) : null,
+//                'url'      => $url,
+//            ], $parsed);
+//        }, $query->posts);
+//
+//        return ['enabled' => true, 'posts' => $posts];
+//    }
+
     private function promotional_block(): array
     {
         $block   = get_field('promotional_block', 'option') ?: [];
@@ -84,35 +126,37 @@ final class HomeController extends Controller
             return ['enabled' => false, 'posts' => []];
         }
 
-        $query = new \WP_Query([
-            'post_type'      => 'promotional_posts',
-            'posts_per_page' => -1,
-            'post_status'    => 'publish',
-            'fields'         => 'ids',
-            'orderby'        => 'menu_order',
-            'order'          => 'ASC',
-        ]);
+        $items = get_option('herlan_promotional_posts', []);
 
-        $posts = array_map(function (int $id): array {
-            $thumb_id = (int) get_post_thumbnail_id($id);
-//            return [
-//                'id'       => $id,
-//                'title'    => get_field('title', $id) ?: get_the_title($id),
-//                'subtitle' => get_field('subtitle', $id) ?: null,
-//                'image'    => $thumb_id ? $this->attachment_data($thumb_id) : null,
-//                'url'      => get_field('external_url', $id) ?: null,
-//            ];
-            $url      = get_field('external_url', $id) ?: null;
-            $parsed   = $this->resolve_shortcut_filters($url);
+        if (! is_array($items) || empty($items)) {
+            return ['enabled' => true, 'posts' => []];
+        }
+
+        $items = array_values(array_filter($items, static function ($item): bool {
+            return is_array($item) && (($item['active'] ?? '0') === '1');
+        }));
+
+        $posts = array_map(function (array $item): array {
+            $title     = sanitize_text_field($item['title'] ?? '');
+            $subtitle  = sanitize_text_field($item['subtitle'] ?? '');
+            $image_url = esc_url_raw($item['image_url'] ?? '');
+            $url       = esc_url_raw($item['post_url'] ?? '') ?: null;
+            $parsed    = $this->resolve_shortcut_filters($url);
 
             return array_merge([
-                'id'       => $id,
-                'title'    => get_field('title', $id) ?: get_the_title($id),
-                'subtitle' => get_field('subtitle', $id) ?: null,
-                'image'    => $thumb_id ? $this->attachment_data($thumb_id) : null,
+                'id'       => 0,
+                'title'    => $title,
+                'subtitle' => $subtitle !== '' ? $subtitle : null,
+                'image'    => $image_url !== '' ? [
+                    'id'     => 0,
+                    'src'    => $image_url,
+                    'width'  => 0,
+                    'height' => 0,
+                    'alt'    => '',
+                ] : null,
                 'url'      => $url,
             ], $parsed);
-        }, $query->posts);
+        }, $items);
 
         return ['enabled' => true, 'posts' => $posts];
     }
@@ -318,7 +362,32 @@ final class HomeController extends Controller
             'permalink' => $product->get_permalink(),
             'price'     => $product->get_price(),
             'image'     => $image_id ? $this->attachment_data($image_id) : null,
+            'color'     => $this->linked_product_color($product),
         ];
+    }
+
+    private function linked_product_color(\WC_Product $product): ?string
+    {
+        foreach ($product->get_attributes() as $attribute) {
+            if (! $attribute->is_taxonomy()) {
+                continue;
+            }
+
+            $terms = wc_get_product_terms($product->get_id(), $attribute->get_name(), ['fields' => 'all']);
+
+            foreach ($terms as $term) {
+                if (! $term instanceof \WP_Term) {
+                    continue;
+                }
+
+                $color = (string) get_term_meta($term->term_id, 'wpcvs_color', true);
+                if ($color !== '') {
+                    return $color;
+                }
+            }
+        }
+
+        return null;
     }
 
     private function campaigns(): array

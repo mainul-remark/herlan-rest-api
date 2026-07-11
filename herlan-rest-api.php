@@ -3,7 +3,7 @@
  * Plugin Name: Herlan REST API
  * Description: Mobile application REST API for Herlan Live.
  * Version: 0.1.0
- * Author: Herlan
+ * Author: Mainul Islam
  * Text Domain: herlan-rest-api
  */
 
