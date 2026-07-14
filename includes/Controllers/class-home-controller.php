@@ -316,7 +316,11 @@ final class HomeController extends Controller
         return $products;
     }
 
-    /** WPC Linked Variation group (e.g. colour/shade variants sold as separate products) for a single product. */
+    /**
+     * WPC Linked Variation group (e.g. colour/shade variants sold as separate products) for a single product.
+     * Mirrors herlan_loop_product_swatches() in the theme: resolves whichever attribute the link group
+     * uses for swatches/images, then returns each linked product's id + swatch type + type-specific value.
+     */
     private function linked_products_summary(\WC_Product $product): array
     {
         if (! class_exists('WPCleverWpclv')) {
@@ -325,7 +329,13 @@ final class HomeController extends Controller
 
         $link_data = \WPCleverWpclv::get_linked_data($product, 'home');
 
-        if (empty($link_data)) {
+        if (empty($link_data) || ! is_array($link_data)) {
+            return ['total' => 0, 'list' => []];
+        }
+
+        [$mode, $taxonomy] = $this->linked_products_mode($link_data);
+
+        if ($mode === null) {
             return ['total' => 0, 'list' => []];
         }
 
@@ -345,49 +355,95 @@ final class HomeController extends Controller
                 continue;
             }
 
-            $list[] = $this->linked_product_trimmed($linked_product);
+            $item = $this->linked_product_typed($linked_product, $mode, $taxonomy);
+
+            if ($item !== null) {
+                $list[] = $item;
+            }
         }
 
         return ['total' => count($list), 'list' => $list];
     }
 
-    private function linked_product_trimmed(\WC_Product $product): array
+    /** Determines the swatch mode ('swatch' or 'image') and attribute taxonomy configured on a WPC link group. */
+    private function linked_products_mode(array $link_data): array
     {
-        $image_id = (int) $product->get_image_id();
+        $link_attributes = $link_data['attributes'] ?? [];
+        $link_swatches    = $link_data['swatches'] ?? [];
+        $link_images      = $link_data['images'] ?? [];
 
-        return [
-            'id'        => $product->get_id(),
-            'name'      => $product->get_name(),
-            'slug'      => $product->get_slug(),
-            'permalink' => $product->get_permalink(),
-            'price'     => $product->get_price(),
-            'image'     => $image_id ? $this->attachment_data($image_id) : null,
-            'color'     => $this->linked_product_color($product),
-        ];
-    }
+        $selected_attribute_id = 0;
+        $mode = null;
 
-    private function linked_product_color(\WC_Product $product): ?string
-    {
-        foreach ($product->get_attributes() as $attribute) {
-            if (! $attribute->is_taxonomy()) {
-                continue;
+        foreach ($link_attributes as $attr_ref) {
+            if (in_array($attr_ref, $link_swatches, true)) {
+                $selected_attribute_id = (int) str_replace('id:', '', $attr_ref);
+                $mode = 'swatch';
+                break;
             }
+        }
 
-            $terms = wc_get_product_terms($product->get_id(), $attribute->get_name(), ['fields' => 'all']);
-
-            foreach ($terms as $term) {
-                if (! $term instanceof \WP_Term) {
-                    continue;
-                }
-
-                $color = (string) get_term_meta($term->term_id, 'wpcvs_color', true);
-                if ($color !== '') {
-                    return $color;
+        if ($selected_attribute_id === 0) {
+            foreach ($link_attributes as $attr_ref) {
+                if (in_array($attr_ref, $link_images, true)) {
+                    $selected_attribute_id = (int) str_replace('id:', '', $attr_ref);
+                    $mode = 'image';
+                    break;
                 }
             }
         }
 
-        return null;
+        if ($selected_attribute_id === 0) {
+            return [null, null];
+        }
+
+        $attribute = wc_get_attribute($selected_attribute_id);
+
+        if (! $attribute) {
+            return [null, null];
+        }
+
+        $taxonomy = $attribute->slug;
+        if (strpos($taxonomy, 'pa_') !== 0) {
+            $taxonomy = 'pa_' . $taxonomy;
+        }
+
+        return [$mode, $taxonomy];
+    }
+
+    /** Resolves a single linked product's {id, type, label|image|color}, or null if it has no swatch term (dropped, same as the theme). */
+    private function linked_product_typed(\WC_Product $product, string $mode, string $taxonomy): ?array
+    {
+        $id = $product->get_id();
+
+        if ($mode === 'image') {
+            $thumbnail_id = get_post_thumbnail_id($id);
+            $image_url    = $thumbnail_id
+                ? wp_get_attachment_image_url($thumbnail_id, 'woocommerce_thumbnail')
+                : wc_placeholder_img_src();
+
+            return ['id' => $id, 'type' => 'image', 'image' => $image_url];
+        }
+
+        $terms = wp_get_post_terms($id, $taxonomy);
+
+        if (empty($terms) || is_wp_error($terms)) {
+            return null;
+        }
+
+        $term = $terms[0];
+
+        $hex = get_term_meta($term->term_id, 'wpcvs_color', true);
+        if (! empty($hex)) {
+            return ['id' => $id, 'type' => 'color', 'color' => $hex];
+        }
+
+        $image_id = get_term_meta($term->term_id, 'wpcvs_image', true);
+        if ($image_id) {
+            return ['id' => $id, 'type' => 'image', 'image' => wp_get_attachment_thumb_url($image_id)];
+        }
+
+        return ['id' => $id, 'type' => 'label', 'label' => $term->name];
     }
 
     private function campaigns(): array
