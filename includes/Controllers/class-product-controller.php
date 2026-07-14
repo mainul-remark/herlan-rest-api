@@ -592,16 +592,17 @@ final class ProductController extends Controller
     /**
      * Summarizes an "Easy Product Bundles" product's slots (e.g. a "buy 1 of these
      * 15 shades, get this specific product free" offer) so a client can detect the
-     * offer and know which slots need a selection before add-to-cart.
-     *
-     * Slot product lists are not inlined here (they can be large and support
-     * search/pagination) — use GET /products/{id}/bundle-items?index={slot} instead.
+     * offer, know which slots need a selection before add-to-cart, and render each
+     * selectable slot's full option list without a follow-up call to
+     * GET /products/{id}/bundle-items?index={slot} (that endpoint still exists for
+     * paginating/searching a slot's options after the fact).
      */
     private function bundle_info(WC_Product $product): array
     {
         $items = method_exists($product, 'get_items') ? (array) $product->get_items() : [];
         $slots = [];
         $has_free_slot = false;
+        $can_fetch_item_products = method_exists($product, 'get_item_products');
 
         foreach ($items as $index => $item) {
             $discount_type = $item['discount_type'] ?? 'none';
@@ -609,6 +610,7 @@ final class ProductController extends Controller
             $is_free = ('percentage' === $discount_type && $discount >= 100.0);
             $is_selectable = ! empty($item['products']) && is_array($item['products']);
             $fixed_product_id = ! $is_selectable && ! empty($item['product']) ? absint($item['product']) : 0;
+            $options_count = $is_selectable ? count($item['products']) : ($fixed_product_id ? 1 : 0);
 
             if ($is_free) {
                 $has_free_slot = true;
@@ -626,9 +628,20 @@ final class ProductController extends Controller
                 'quantity' => (int) ($item['quantity'] ?? 1),
                 'min_quantity' => isset($item['min_quantity']) && '' !== $item['min_quantity'] ? (int) $item['min_quantity'] : null,
                 'max_quantity' => isset($item['max_quantity']) && '' !== $item['max_quantity'] ? (int) $item['max_quantity'] : null,
-                'options_count' => $is_selectable ? count($item['products']) : ($fixed_product_id ? 1 : 0),
+                'options_count' => $options_count,
+                'products' => [],
                 'product' => null,
             ];
+
+            if ($is_selectable && $can_fetch_item_products) {
+                $result = $product->get_item_products([
+                    'index' => (int) $index,
+                    'page' => 1,
+                    'limit' => $options_count,
+                    'search' => '',
+                ]);
+                $slot['products'] = $result['products'] ?? [];
+            }
 
             if ($fixed_product_id) {
                 $fixed_product = wc_get_product($fixed_product_id);
