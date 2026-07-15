@@ -94,6 +94,7 @@
 <a class="level-3" href="#get-orders">GET /orders</a>
 <a class="level-3" href="#get-orders-id">GET /orders/{id}</a>
 <a class="level-3" href="#get-orders-id-invoice">GET /orders/{id}/invoice</a>
+<a class="level-3" href="#post-orders-track">POST /orders/track</a>
 <a class="level-3" href="#get-wishlist">GET /wishlist</a>
 <a class="level-3" href="#post-wishlist">POST /wishlist</a>
 <a class="level-3" href="#delete-wishlist-product-id">DELETE /wishlist/{product_id}</a>
@@ -4344,6 +4345,165 @@ Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
   "https://herlan.com/wp-json/herlan/v1/orders/123/invoice" -o invoice-123.pdf</code></pre>
 <p><strong>Guest checkout order:</strong></p>
 <pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/orders/123/invoice?order_key=wc_order_XXXXXXXXXXXXX" -o invoice-123.pdf</code></pre>
+<h3 id="post-orders-track"><code>POST /orders/track</code></h3>
+<p>Public order lookup by order number + billing email/phone — no authentication required. Powers the site's &quot;Track Order&quot; page (<code>/track-order/</code>) for both guests and logged-in customers.</p>
+<h4>Body parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>order_number</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Order number, <code>#</code> prefix optional</td>
+</tr>
+<tr>
+<td><code>billing_contact</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Billing email or phone number on the order</td>
+</tr>
+</tbody>
+</table>
+<p>The order is matched by ID first, then by <code>_order_number</code> meta (for custom order-number plugins). It's only returned if <code>billing_contact</code> matches the order's billing email (case-insensitive) or billing phone (digits-only comparison). A non-matching contact returns the same <code>404 herlan_order_not_found</code> as a non-existent order, so the endpoint can't be used to confirm whether an order number exists.</p>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "id": 4821,
+    "number": "4821",
+    "status": "processing",
+    "status_label": "Processing",
+    "status_color": "#2563eb",
+    "status_bg": "#eff6ff",
+    "date_created": "2026-07-10T09:12:00+06:00",
+    "currency": "BDT",
+    "subtotal": "1450.00",
+    "shipping_total": "60.00",
+    "discount_total": "0.00",
+    "total": "1510.00",
+    "payment_method_title": "Cash on Delivery",
+    "shipping_address": {},
+    "billing_address": {},
+    "tracking_number": "",
+    "tracking_url": "",
+    "line_items": []
+  }
+}</code></pre>
+<p>Response fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Order ID</td>
+</tr>
+<tr>
+<td><code>number</code></td>
+<td>string</td>
+<td>Order number</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>Order status slug</td>
+</tr>
+<tr>
+<td><code>status_label</code></td>
+<td>string</td>
+<td>Human-readable status</td>
+</tr>
+<tr>
+<td><code>status_color</code> / <code>status_bg</code></td>
+<td>string</td>
+<td>Suggested badge colors</td>
+</tr>
+<tr>
+<td><code>date_created</code></td>
+<td>string|null</td>
+<td>ISO 8601</td>
+</tr>
+<tr>
+<td><code>currency</code></td>
+<td>string</td>
+<td>Currency code</td>
+</tr>
+<tr>
+<td><code>subtotal</code></td>
+<td>string</td>
+<td>Line-item subtotal</td>
+</tr>
+<tr>
+<td><code>shipping_total</code></td>
+<td>string</td>
+<td>Shipping total</td>
+</tr>
+<tr>
+<td><code>discount_total</code></td>
+<td>string</td>
+<td>Discount total</td>
+</tr>
+<tr>
+<td><code>total</code></td>
+<td>string</td>
+<td>Grand total</td>
+</tr>
+<tr>
+<td><code>payment_method_title</code></td>
+<td>string</td>
+<td>Payment method label</td>
+</tr>
+<tr>
+<td><code>shipping_address</code></td>
+<td>object</td>
+<td>WooCommerce shipping address</td>
+</tr>
+<tr>
+<td><code>billing_address</code></td>
+<td>object</td>
+<td>WooCommerce billing address</td>
+</tr>
+<tr>
+<td><code>tracking_number</code></td>
+<td>string</td>
+<td>Empty string if none found</td>
+</tr>
+<tr>
+<td><code>tracking_url</code></td>
+<td>string</td>
+<td>Empty string if none found</td>
+</tr>
+<tr>
+<td><code>line_items</code></td>
+<td>array</td>
+<td>Same shape as <code>GET /orders/{id}</code></td>
+</tr>
+</tbody>
+</table>
+<p>Errors:</p>
+<ul>
+<li><code>404 herlan_order_not_found</code></li>
+<li><code>500 herlan_woocommerce_unavailable</code></li>
+</ul>
+<h4>Example request</h4>
+<pre><code class="language-bash">curl -X POST "https://herlan.com/wp-json/herlan/v1/orders/track" \
+  -d "order_number=4821" \
+  -d "billing_contact=01712345678"</code></pre>
 <h3 id="get-wishlist"><code>GET /wishlist</code></h3>
 <p>Returns the authenticated user's wishlist items.</p>
 <p>Query parameters:</p>
@@ -6046,6 +6206,12 @@ Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
 <td><code>/orders/{id}/invoice</code></td>
 <td>Owner or guest <code>order_key</code></td>
 <td>Download invoice (PDF/HTML)</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/orders/track</code></td>
+<td>No</td>
+<td>Public order lookup by order number + billing email/phone</td>
 </tr>
 <tr>
 <td><code>GET</code></td>

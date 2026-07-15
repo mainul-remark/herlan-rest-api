@@ -318,8 +318,10 @@ final class HomeController extends Controller
 
     /**
      * WPC Linked Variation group (e.g. colour/shade variants sold as separate products) for a single product.
-     * Mirrors herlan_loop_product_swatches() in the theme: resolves whichever attribute the link group
-     * uses for swatches/images, then returns each linked product's id + swatch type + type-specific value.
+     * Mirrors WPCleverWpclv::term()/get_linked_data() in wpc-linked-variation.php: picks whichever single
+     * attribute the link group is configured to display with, in the plugin's own priority order
+     * (images > swatches > dropdown > button-default), then returns each linked product's id + display
+     * type + type-specific value, plus which attribute/term it was resolved from.
      */
     private function linked_products_summary(\WC_Product $product): array
     {
@@ -333,7 +335,7 @@ final class HomeController extends Controller
             return ['total' => 0, 'list' => []];
         }
 
-        [$mode, $taxonomy] = $this->linked_products_mode($link_data);
+        [$mode, $taxonomy, $attribute_label, $attribute_type] = $this->linked_products_mode($link_data);
 
         if ($mode === null) {
             return ['total' => 0, 'list' => []];
@@ -355,7 +357,7 @@ final class HomeController extends Controller
                 continue;
             }
 
-            $item = $this->linked_product_typed($linked_product, $mode, $taxonomy);
+            $item = $this->linked_product_typed($linked_product, $mode, $taxonomy, $attribute_label, $attribute_type);
 
             if ($item !== null) {
                 $list[] = $item;
@@ -365,42 +367,46 @@ final class HomeController extends Controller
         return ['total' => count($list), 'list' => $list];
     }
 
-    /** Determines the swatch mode ('swatch' or 'image') and attribute taxonomy configured on a WPC link group. */
+    /**
+     * Determines the display mode ('image'|'swatch'|'dropdown'|'button'), attribute taxonomy, attribute
+     * label, and WooCommerce attribute type (color|image|button) for the single attribute a WPC link
+     * group is configured to display with. Priority matches WPCleverWpclv's own per-attribute checks:
+     * images, then swatches (only if WPC Variation Swatches is active), then dropdown, else button.
+     */
     private function linked_products_mode(array $link_data): array
     {
         $link_attributes = $link_data['attributes'] ?? [];
-        $link_swatches    = $link_data['swatches'] ?? [];
-        $link_images      = $link_data['images'] ?? [];
 
-        $selected_attribute_id = 0;
-        $mode = null;
-
-        foreach ($link_attributes as $attr_ref) {
-            if (in_array($attr_ref, $link_swatches, true)) {
-                $selected_attribute_id = (int) str_replace('id:', '', $attr_ref);
-                $mode = 'swatch';
-                break;
-            }
+        if (empty($link_attributes)) {
+            return [null, null, null, null];
         }
 
-        if ($selected_attribute_id === 0) {
+        $link_images   = $link_data['images'] ?? [];
+        $link_swatches = class_exists('WPCleverWpcvs') ? ($link_data['swatches'] ?? []) : [];
+        $link_dropdown = $link_data['dropdown'] ?? [];
+
+        $selected_attr_ref = null;
+        $mode = null;
+
+        foreach (['image' => $link_images, 'swatch' => $link_swatches, 'dropdown' => $link_dropdown] as $candidate_mode => $set) {
             foreach ($link_attributes as $attr_ref) {
-                if (in_array($attr_ref, $link_images, true)) {
-                    $selected_attribute_id = (int) str_replace('id:', '', $attr_ref);
-                    $mode = 'image';
-                    break;
+                if (in_array($attr_ref, $set, true)) {
+                    $selected_attr_ref = $attr_ref;
+                    $mode = $candidate_mode;
+                    break 2;
                 }
             }
         }
 
-        if ($selected_attribute_id === 0) {
-            return [null, null];
+        if ($selected_attr_ref === null) {
+            $selected_attr_ref = $link_attributes[0];
+            $mode = 'button';
         }
 
-        $attribute = wc_get_attribute($selected_attribute_id);
+        $attribute = wc_get_attribute((int) str_replace('id:', '', $selected_attr_ref));
 
         if (! $attribute) {
-            return [null, null];
+            return [null, null, null, null];
         }
 
         $taxonomy = $attribute->slug;
@@ -408,13 +414,20 @@ final class HomeController extends Controller
             $taxonomy = 'pa_' . $taxonomy;
         }
 
-        return [$mode, $taxonomy];
+        return [$mode, $taxonomy, $attribute->name, $attribute->type ?: 'select'];
     }
 
-    /** Resolves a single linked product's {id, type, label|image|color}, or null if it has no swatch term (dropped, same as the theme). */
-    private function linked_product_typed(\WC_Product $product, string $mode, string $taxonomy): ?array
+    /**
+     * Resolves a single linked product's {id, type, color|image|label, attribute, term}.
+     * Returns null when the linked product has no term for the group's attribute (dropped, same as
+     * the plugin's own term-driven loop) — except in 'image' mode, which always shows the product's
+     * own thumbnail regardless of term, matching the theme's loop swatch behaviour.
+     */
+    private function linked_product_typed(\WC_Product $product, string $mode, string $taxonomy, string $attribute_label, string $attribute_type): ?array
     {
-        $id = $product->get_id();
+        $id    = $product->get_id();
+        $terms = wp_get_post_terms($id, $taxonomy);
+        $term  = (! empty($terms) && ! is_wp_error($terms)) ? $terms[0] : null;
 
         if ($mode === 'image') {
             $thumbnail_id = get_post_thumbnail_id($id);
@@ -422,28 +435,71 @@ final class HomeController extends Controller
                 ? wp_get_attachment_image_url($thumbnail_id, 'woocommerce_thumbnail')
                 : wc_placeholder_img_src();
 
-            return ['id' => $id, 'type' => 'image', 'image' => $image_url];
+            return [
+                'id'        => $id,
+                'type'      => 'image',
+                'image'     => $image_url,
+                'attribute' => $attribute_label,
+                'term'      => $term ? $term->name : null,
+            ];
         }
 
-        $terms = wp_get_post_terms($id, $taxonomy);
-
-        if (empty($terms) || is_wp_error($terms)) {
+        if ($term === null) {
             return null;
         }
 
-        $term = $terms[0];
-
-        $hex = get_term_meta($term->term_id, 'wpcvs_color', true);
-        if (! empty($hex)) {
-            return ['id' => $id, 'type' => 'color', 'color' => $hex];
+        if ($mode === 'dropdown') {
+            return [
+                'id'        => $id,
+                'type'      => 'dropdown',
+                'label'     => $term->name,
+                'attribute' => $attribute_label,
+                'term'      => $term->name,
+            ];
         }
 
-        $image_id = get_term_meta($term->term_id, 'wpcvs_image', true);
-        if ($image_id) {
-            return ['id' => $id, 'type' => 'image', 'image' => wp_get_attachment_thumb_url($image_id)];
+        if ($mode === 'button') {
+            return [
+                'id'        => $id,
+                'type'      => 'button',
+                'label'     => $term->name,
+                'attribute' => $attribute_label,
+                'term'      => $term->name,
+            ];
         }
 
-        return ['id' => $id, 'type' => 'label', 'label' => $term->name];
+        // $mode === 'swatch' — sub-type driven by the attribute's own WooCommerce type (color|image|button)
+        $swatch_type = in_array($attribute_type, ['button', 'color', 'image'], true) ? $attribute_type : 'button';
+
+        if ($swatch_type === 'color') {
+            return [
+                'id'        => $id,
+                'type'      => 'color',
+                'color'     => (string) get_term_meta($term->term_id, 'wpcvs_color', true),
+                'attribute' => $attribute_label,
+                'term'      => $term->name,
+            ];
+        }
+
+        if ($swatch_type === 'image') {
+            $image_id = get_term_meta($term->term_id, 'wpcvs_image', true);
+
+            return [
+                'id'        => $id,
+                'type'      => 'image',
+                'image'     => $image_id ? wp_get_attachment_thumb_url($image_id) : wc_placeholder_img_src(),
+                'attribute' => $attribute_label,
+                'term'      => $term->name,
+            ];
+        }
+
+        return [
+            'id'        => $id,
+            'type'      => 'button',
+            'label'     => (string) get_term_meta($term->term_id, 'wpcvs_button', true) ?: $term->name,
+            'attribute' => $attribute_label,
+            'term'      => $term->name,
+        ];
     }
 
     private function campaigns(): array
