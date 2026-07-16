@@ -909,6 +909,7 @@ final class ProductListingController extends Controller
             'image'          => $product->get_image_id() ? $this->image($product->get_image_id()) : null,
             'categories'     => $this->terms($id, 'product_cat'),
             'tags'           => $this->terms($id, 'product_tag'),
+            'linked_products' => $this->linked_products_summary($product),
             // 'taxonomies'  => $this->listing_taxonomies($id), // uncomment when filter drawer needs per-product taxonomy data
         ];
     }
