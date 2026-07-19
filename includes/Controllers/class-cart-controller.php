@@ -202,6 +202,16 @@ final class CartController extends Controller
         $bundle_request_key = $this->apply_bundle_items_to_request($bundle_items);
 
         $cart_item_key = WC()->cart->add_to_cart($product_id, $quantity, $variation_id, $variation);
+        // WC_Cart::add_to_cart() does not apply this filter itself - WooCommerce's own callers
+        // (WC_Form_Handler, WC_AJAX, the Store API) apply it before calling add_to_cart(), which is
+        // how plugins such as Easy Product Bundles validate/reject incomplete submissions. Skipping
+        // it let a malformed bundle_items payload silently add just the parent product, with no
+        // bundle contents and no error.
+//        $passed_validation = apply_filters('woocommerce_add_to_cart_validation', true, $product_id, $quantity, $variation_id, $variation);
+//
+//        $cart_item_key = $passed_validation
+//            ? WC()->cart->add_to_cart($product_id, $quantity, $variation_id, $variation)
+//            : false;
 
         $this->clear_bundle_items_from_request($bundle_request_key);
 
@@ -706,6 +716,14 @@ final class CartController extends Controller
         $cart  = WC()->cart;
         $items = [];
 
+        // Must run before reading item prices below: plugins such as
+        // easy-product-bundles-for-woocommerce zero out bundle child item prices
+        // via their `woocommerce_before_calculate_totals` hook, which only fires
+        // here. On a fresh cart hydration (no woocommerce_add_to_cart action),
+        // that hook hasn't run yet, so prices read beforehand would still be
+        // the individual product prices instead of the bundle-adjusted ones.
+        $cart->calculate_totals();
+
         foreach ($cart->get_cart() as $key => $item) {
             $product      = $item['data'] instanceof WC_Product ? $item['data'] : wc_get_product($item['product_id']);
             $is_free_gift = ! empty($item['free_gift']);
@@ -735,8 +753,6 @@ final class CartController extends Controller
                 'selected_attribute_name' => $this->get_item_attribute_name($item),
             ];
         }
-
-        $cart->calculate_totals();
 
         return [
             'cart_token'    => $this->get_cart_token(),
