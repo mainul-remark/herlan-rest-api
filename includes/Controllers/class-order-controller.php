@@ -17,13 +17,17 @@ if (! defined('ABSPATH')) {
 final class OrderController extends Controller
 {
     private const ORDER_STATUS_LABELS = [
-        'pending'    => ['label' => 'Pending Payment', 'color' => '#6b7280', 'bg' => '#f3f4f6'],
-        'processing' => ['label' => 'Processing',      'color' => '#2563eb', 'bg' => '#eff6ff'],
-        'on-hold'    => ['label' => 'On Hold',         'color' => '#d97706', 'bg' => '#fffbeb'],
-        'completed'  => ['label' => 'Delivered',       'color' => '#059669', 'bg' => '#ecfdf5'],
-        'cancelled'  => ['label' => 'Cancelled',       'color' => '#dc2626', 'bg' => '#fef2f2'],
-        'refunded'   => ['label' => 'Refunded',        'color' => '#7c3aed', 'bg' => '#f5f3ff'],
-        'failed'     => ['label' => 'Failed',          'color' => '#dc2626', 'bg' => '#fef2f2'],
+        'pending'           => ['label' => 'Pending Payment', 'color' => '#6b7280', 'bg' => '#f3f4f6'],
+        'orderplaced'       => ['label' => 'Order Placed',    'color' => '#2563eb', 'bg' => '#eff6ff'],
+        'confirmed'         => ['label' => 'Confirmed',       'color' => '#3bb54a', 'bg' => '#ecfdf5'],
+        'processing'        => ['label' => 'Processing',      'color' => '#2563eb', 'bg' => '#eff6ff'],
+        'on-hold'           => ['label' => 'On Hold',         'color' => '#d97706', 'bg' => '#fffbeb'],
+        'completed'         => ['label' => 'Delivered',       'color' => '#059669', 'bg' => '#ecfdf5'],
+        'orderreturn'       => ['label' => 'Return',          'color' => '#7c3aed', 'bg' => '#f5f3ff'],
+        'ordernotreachable' => ['label' => 'Not Reachable',   'color' => '#dc2626', 'bg' => '#fef2f2'],
+        'cancelled'         => ['label' => 'Cancelled',       'color' => '#dc2626', 'bg' => '#fef2f2'],
+        'refunded'          => ['label' => 'Refunded',        'color' => '#7c3aed', 'bg' => '#f5f3ff'],
+        'failed'            => ['label' => 'Failed',          'color' => '#dc2626', 'bg' => '#fef2f2'],
     ];
 
     public function register_routes(): void
@@ -267,12 +271,20 @@ final class OrderController extends Controller
     /**
      * Full list of order statuses with an `active` flag on the one matching
      * the given order's current status, for rendering a status stepper.
+     *
+     * Sourced from wc_get_order_statuses() (the same filterable list WooCommerce
+     * and the theme's custom statuses feed into) rather than a hardcoded list,
+     * so custom statuses like confirmed/orderplaced/orderreturn/ordernotreachable
+     * are never silently missing from the response.
      */
     private function build_order_status_list(string $current_status): array
     {
         $list = [];
 
-        foreach (self::ORDER_STATUS_LABELS as $key => $info) {
+        foreach (wc_get_order_statuses() as $key => $label) {
+            $key  = str_starts_with($key, 'wc-') ? substr($key, 3) : $key;
+            $info = self::ORDER_STATUS_LABELS[$key] ?? ['label' => $label, 'color' => '#6b7280', 'bg' => '#f3f4f6'];
+
             $list[] = [
                 'key'    => $key,
                 'label'  => $info['label'],
