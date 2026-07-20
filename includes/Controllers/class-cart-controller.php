@@ -737,20 +737,33 @@ final class CartController extends Controller
                 $image    = $image ?: null;
             }
 
+            // "Easy Product Bundles" stamps these keys onto the raw WC cart item (not exposed
+            // by WooCommerce itself) to link a bundle parent to its child slot items. See
+            // easy-product-bundles-for-woocommerce/src/Helpers.php: is_cart_item_bundle() /
+            // is_cart_item_bundle_item().
+            $is_bundle_parent      = isset($item['asnp_wepb_items']);
+            $is_bundle_child       = isset($item['asnp_wepb_parent_id']);
+            $is_bundle_item_free   = $is_bundle_child && isset($item['asnp_wepb_price']) && (float) $item['asnp_wepb_price'] <= 0.0;
+
             $items[] = [
-                'key'                    => $key,
-                'product_id'             => (int) $item['product_id'],
-                'variation_id'           => (int) ($item['variation_id'] ?? 0),
-                'name'                   => $product ? wp_strip_all_tags($product->get_name()) : '',
-                'sku'                    => $product ? $product->get_sku() : '',
-                'quantity'               => (int) $item['quantity'],
-                'price'                  => $is_free_gift ? '0.00' : ($product ? wc_format_decimal(wc_get_price_to_display($product), 2) : '0.00'),
-                'subtotal'               => $is_free_gift ? '0.00' : wc_format_decimal($item['line_subtotal'] ?? 0, 2),
-                'image'                  => $image,
-                'is_free_gift'           => $is_free_gift,
-                'is_editable'            => $this->item_is_editable($item),
-                'selected_color'         => $this->get_item_color_swatch($item),
+                'key'                     => $key,
+                'product_id'              => (int) $item['product_id'],
+                'variation_id'            => (int) ($item['variation_id'] ?? 0),
+                'name'                    => $product ? wp_strip_all_tags($product->get_name()) : '',
+                'sku'                     => $product ? $product->get_sku() : '',
+                'quantity'                => (int) $item['quantity'],
+                'price'                   => $is_free_gift ? '0.00' : ($product ? wc_format_decimal(wc_get_price_to_display($product), 2) : '0.00'),
+                'subtotal'                => $is_free_gift ? '0.00' : wc_format_decimal($item['line_subtotal'] ?? 0, 2),
+                'image'                   => $image,
+                'is_free_gift'            => $is_free_gift,
+                'is_editable'             => $this->item_is_editable($item),
+                'selected_color'          => $this->get_item_color_swatch($item),
                 'selected_attribute_name' => $this->get_item_attribute_name($item),
+                'is_bundle_parent'        => $is_bundle_parent,
+                'is_bundle_child'         => $is_bundle_child,
+                'bundle_parent_key'       => $is_bundle_child ? (string) $item['asnp_wepb_parent_key'] : null,
+                'bundle_child_keys'       => $is_bundle_parent ? array_values((array) $item['asnp_wepb_items_key']) : [],
+                'is_bundle_item_free'     => $is_bundle_item_free,
             ];
         }
 
