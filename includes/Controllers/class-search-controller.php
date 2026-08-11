@@ -163,7 +163,7 @@ final class SearchController extends Controller
             'in_stock'       => $product->is_in_stock(),
             'average_rating' => $product->get_average_rating(),
             'rating_count'   => $product->get_rating_count(),
-            'image'          => $this->product_image($product->get_image_id()),
+            'image'          => $this->product_image($this->effective_image_id($product)),
             'categories'     => $this->product_terms($id, 'product_cat'),
         ];
     }

@@ -303,7 +303,7 @@ final class HomeController extends Controller
                 continue;
             }
 
-            $image_id = (int) $product->get_image_id();
+            $image_id = $this->effective_image_id($product);
 
             $products[] = [
                 'id'              => $id,

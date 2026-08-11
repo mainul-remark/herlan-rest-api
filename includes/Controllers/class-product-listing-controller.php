@@ -888,6 +888,7 @@ final class ProductListingController extends Controller
     private function format_product_card(WC_Product $product): array
     {
         $id = $product->get_id();
+        $image_id = $this->effective_image_id($product);
 
         return [
             'id'             => $id,
@@ -906,7 +907,7 @@ final class ProductListingController extends Controller
             'average_rating' => $product->get_average_rating(),
             'rating_count'   => $product->get_rating_count(),
             'brand'          => $this->first_term($id, 'brand'),
-            'image'          => $product->get_image_id() ? $this->image($product->get_image_id()) : null,
+            'image'          => $image_id ? $this->image($image_id) : null,
             'categories'     => $this->terms($id, 'product_cat'),
             'tags'           => $this->terms($id, 'product_tag'),
             'linked_products' => $this->linked_products_summary($product),

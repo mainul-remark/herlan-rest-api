@@ -128,6 +128,29 @@ abstract class Controller
     }
 
     /**
+     * The image id to show for a product in browsing/discovery contexts
+     * (product detail, listing, home screen, search) — the Herlan Suite Image
+     * Swap module's configured override if one applies, else the product's
+     * own featured image. Deliberately NOT used in cart/checkout/order/
+     * wishlist controllers, where the image should reflect what the customer
+     * actually has/bought, not a marketing override.
+     *
+     * Guarded by class_exists() since Herlan Suite (a separate plugin) or its
+     * Image Swap module may not be active.
+     */
+    protected function effective_image_id(\WC_Product $product): int
+    {
+        if (class_exists('HIS_Settings')) {
+            $swap_id = \HIS_Settings::resolve_feed_swap_image_id($product);
+            if ($swap_id) {
+                return $swap_id;
+            }
+        }
+
+        return (int) $product->get_image_id();
+    }
+
+    /**
      * Casts a value to float, stripping thousands-separator commas first
      * (the loyalty API returns amounts like "273,600" as strings).
      */

@@ -820,6 +820,8 @@ final class ProductController extends Controller
 
     private function linked_product_summary(WC_Product $product): array
     {
+        $image_id = $this->effective_image_id($product);
+
         return [
             'id' => $product->get_id(),
             'name' => $product->get_name(),
@@ -831,7 +833,7 @@ final class ProductController extends Controller
             'sale_price' => $product->get_sale_price(),
             'on_sale' => $product->is_on_sale(),
             'stock_status' => $product->get_stock_status(),
-            'image' => $product->get_image_id() ? $this->image($product->get_image_id(), 0) : null,
+            'image' => $image_id ? $this->image($image_id, 0) : null,
         ];
     }
 
@@ -962,6 +964,8 @@ final class ProductController extends Controller
 
     private function product_card(WC_Product $product): array
     {
+        $image_id = $this->effective_image_id($product);
+
         return [
             'id' => $product->get_id(),
             'name' => $product->get_name(),
@@ -978,7 +982,7 @@ final class ProductController extends Controller
             'average_rating' => $product->get_average_rating(),
             'rating_count' => $product->get_rating_count(),
             'brand' => $this->first_term($product->get_id(), 'brand'),
-            'image' => $product->get_image_id() ? $this->image($product->get_image_id(), 0) : null,
+            'image' => $image_id ? $this->image($image_id, 0) : null,
         ];
     }
 
@@ -1094,6 +1098,8 @@ final class ProductController extends Controller
             $variation = wc_get_product($variation_id);
 
             if ($variation instanceof WC_Product) {
+                $variation_image_id = $this->effective_image_id($variation);
+
                 $variations[] = [
                     'id' => $variation->get_id(),
                     'sku' => $variation->get_sku(),
@@ -1104,7 +1110,7 @@ final class ProductController extends Controller
                     'stock_status' => $variation->get_stock_status(),
                     'stock_quantity' => $variation->get_stock_quantity(),
                     'attributes' => $variation->get_attributes(),
-                    'image' => $variation->get_image_id() ? $this->image($variation->get_image_id(), 0) : null,
+                    'image' => $variation_image_id ? $this->image($variation_image_id, 0) : null,
                 ];
             }
         }
@@ -1116,8 +1122,9 @@ final class ProductController extends Controller
     {
         $images = [];
 
-        if ($product->get_image_id()) {
-            $images[] = $this->image($product->get_image_id(), 0);
+        $featured_image_id = $this->effective_image_id($product);
+        if ($featured_image_id) {
+            $images[] = $this->image($featured_image_id, 0);
         }
 
         $position = 1;
