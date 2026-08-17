@@ -46,9 +46,61 @@ final class Plugin
     {
         add_filter('determine_current_user', [$this, 'bypass_jwt_auth_for_herlan_routes'], 1);
         add_filter('rest_pre_dispatch', [$this, 'bypass_jwt_auth_pre_dispatch_for_herlan_routes'], 1, 3);
+        add_filter('rest_pre_dispatch', [$this, 'validate_woo_consumer_key'], 5, 3);
         add_filter('rest_authentication_errors', [$this, 'bypass_auth_errors_for_herlan_routes'], PHP_INT_MAX);
         add_action('rest_api_init', [$this, 'register_routes']);
         (new PaymentReturnRedirect())->boot();
+    }
+
+    /**
+     * Requires a valid WooCommerce REST API key pair (Woo-Consumer-Key /
+     * Woo-Consumer-Secret headers) on every herlan/v1 request, validated
+     * against wp_woocommerce_api_keys — the same credentials generated under
+     * WooCommerce → Settings → Advanced → REST API.
+     */
+    public function validate_woo_consumer_key($result, $server, $request)
+    {
+        if (null !== $result) {
+            return $result;
+        }
+
+        if (! $request instanceof \WP_REST_Request || ! str_starts_with($request->get_route(), '/' . self::REST_NAMESPACE . '/')) {
+            return $result;
+        }
+
+        if (! function_exists('wc_api_hash')) {
+            // WooCommerce isn't active — nothing to validate against.
+            return $result;
+        }
+
+        $consumer_key    = trim((string) $request->get_header('woo-consumer-key'));
+        $consumer_secret = trim((string) $request->get_header('woo-consumer-secret'));
+
+        if ($consumer_key === '' || $consumer_secret === '') {
+            return new \WP_Error(
+                'herlan_forbidden_woo_key',
+                __('Missing WooCommerce consumer key/secret.', 'herlan-rest-api'),
+                ['status' => 403]
+            );
+        }
+
+        global $wpdb;
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT consumer_secret FROM {$wpdb->prefix}woocommerce_api_keys WHERE consumer_key = %s",
+                wc_api_hash($consumer_key)
+            )
+        );
+
+        if (! $row || ! hash_equals((string) $row->consumer_secret, $consumer_secret)) {
+            return new \WP_Error(
+                'herlan_forbidden_woo_key',
+                __('Invalid WooCommerce consumer key or secret.', 'herlan-rest-api'),
+                ['status' => 403]
+            );
+        }
+
+        return $result;
     }
 
     public function bypass_jwt_auth_for_herlan_routes($user)

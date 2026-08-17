@@ -47,6 +47,7 @@
 <a href="#base-url">Base URL</a>
 <a href="#response-format">Response format</a>
 <a href="#authentication">Authentication</a>
+<a class="level-3" href="#woo-consumer-key">WooCommerce Consumer Key/Secret</a>
 <a href="#user-object">User object</a>
 <a href="#product-listing-api">Product Listing API</a>
 <a class="level-3" href="#how-it-works">How it works</a>
@@ -157,6 +158,22 @@
 <li>Herlan mobile tokens currently live for 30 days.</li>
 <li>The plugin also accepts compatible auth-popup bearer tokens when present.</li>
 </ul>
+<h3 id="woo-consumer-key">WooCommerce Consumer Key/Secret</h3>
+<p>Every request to <code>/herlan/v1/*</code> &mdash; public or protected &mdash; must also include a valid WooCommerce REST API key pair:</p>
+<pre><code class="language-http">Woo-Consumer-Key: ck_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Woo-Consumer-Secret: cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</code></pre>
+<p>Generate a key pair from <strong>WordPress Admin &rarr; WooCommerce &rarr; Settings &rarr; Advanced &rarr; REST API &rarr; Add key</strong>. These are WooCommerce's own credentials &mdash; validated directly against <code>wp_woocommerce_api_keys</code> &mdash; not something generated or stored by this plugin.</p>
+<p>Missing or invalid key/secret returns <code>403 herlan_forbidden_woo_key</code>.</p>
+<p><strong>Example (protected endpoint):</strong></p>
+<pre><code class="language-http">GET /wp-json/herlan/v1/user/me
+Woo-Consumer-Key: ck_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Woo-Consumer-Secret: cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Authorization: Bearer USER_ID_BASE64.SECRET</code></pre>
+<p><strong>Example (public endpoint):</strong></p>
+<pre><code class="language-http">GET /wp-json/herlan/v1/home
+Woo-Consumer-Key: ck_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Woo-Consumer-Secret: cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</code></pre>
+<p>The curl examples elsewhere in this document omit these two headers for brevity &mdash; add them to every call as shown above.</p>
 <h2 id="user-object">User object</h2>
 <p>Several endpoints return the same user shape:</p>
 <pre><code class="language-json">{
@@ -6095,10 +6112,14 @@ Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
 </tbody>
 </table>
 <h2 id="common-auth-errors">Common auth errors</h2>
-<p>Protected endpoints may return:</p>
+<p>Protected endpoints (Bearer token required) may return:</p>
 <ul>
 <li><code>401 herlan_missing_token</code></li>
 <li><code>401 herlan_invalid_token</code></li>
+</ul>
+<p>Any endpoint, public or protected, may also return this if the WooCommerce consumer key/secret headers are missing or invalid (see <a href="#woo-consumer-key">WooCommerce Consumer Key/Secret</a>):</p>
+<ul>
+<li><code>403 herlan_forbidden_woo_key</code></li>
 </ul>
 <h2 id="route-inventory">Route inventory</h2>
 <table>
