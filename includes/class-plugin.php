@@ -46,7 +46,10 @@ final class Plugin
     {
         add_filter('determine_current_user', [$this, 'bypass_jwt_auth_for_herlan_routes'], 1);
         add_filter('rest_pre_dispatch', [$this, 'bypass_jwt_auth_pre_dispatch_for_herlan_routes'], 1, 3);
-        add_filter('rest_pre_dispatch', [$this, 'validate_woo_consumer_key'], 5, 3);
+        // Priority PHP_INT_MAX: must run after every other rest_pre_dispatch filter (e.g. ACF's
+        // ACF_Rest_Api::initialize() unconditionally returns null, clobbering any earlier result),
+        // so this check has the final say regardless of what other plugins do on this hook.
+        add_filter('rest_pre_dispatch', [$this, 'validate_woo_consumer_key'], PHP_INT_MAX, 3);
         add_filter('rest_authentication_errors', [$this, 'bypass_auth_errors_for_herlan_routes'], PHP_INT_MAX);
         add_action('rest_api_init', [$this, 'register_routes']);
         (new PaymentReturnRedirect())->boot();
