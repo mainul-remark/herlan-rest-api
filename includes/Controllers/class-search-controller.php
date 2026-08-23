@@ -26,12 +26,18 @@ if (! defined('ABSPATH')) {
  */
 final class SearchController extends Controller
 {
+    /** User meta key storing the per-user recent search history (JSON-decoded to an array). */
+    private const HISTORY_META_KEY = '_herlan_search_history';
+
+    /** Max number of phrases kept in a user's search history. */
+    private const HISTORY_MAX_ITEMS = 15;
+
     public function register_routes(): void
     {
         register_rest_route($this->namespace, '/search', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [$this, 'search'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'maybe_authenticate'],
             'args'                => [
                 's' => [
                     'required'          => true,
@@ -54,6 +60,43 @@ final class SearchController extends Controller
                     'minimum'           => 1,
                     'description'       => 'Page number.',
                 ],
+                'remember' => [
+                    'required'          => false,
+                    'type'              => 'boolean',
+                    'default'           => false,
+                    'description'       => 'When true and the request is authenticated, save this phrase into the user\'s search history (used for submitted searches, not autocomplete keystrokes).',
+                ],
+            ],
+        ]);
+
+        register_rest_route($this->namespace, '/search/popular-history', [
+            [
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => [$this, 'popular_and_history'],
+                'permission_callback' => [$this, 'maybe_authenticate'],
+                'args'                => [
+                    'limit' => [
+                        'required'    => false,
+                        'type'        => 'integer',
+                        'default'     => 10,
+                        'minimum'     => 1,
+                        'maximum'     => 30,
+                        'description' => 'Number of popular phrases to return.',
+                    ],
+                    'days' => [
+                        'required'    => false,
+                        'type'        => 'integer',
+                        'default'     => 30,
+                        'minimum'     => 1,
+                        'maximum'     => 90,
+                        'description' => 'Lookback window (in days) for popular phrases.',
+                    ],
+                ],
+            ],
+            [
+                'methods'             => WP_REST_Server::DELETABLE,
+                'callback'            => [$this, 'clear_history'],
+                'permission_callback' => [$this, 'can_access'],
             ],
         ]);
     }
@@ -67,6 +110,7 @@ final class SearchController extends Controller
         $phrase   = (string) $request->get_param('s');
         $per_page = min(50, max(1, (int) $request->get_param('per_page')));
         $page     = max(1, (int) $request->get_param('page'));
+        $remember = (bool) $request->get_param('remember');
 
         if (mb_strlen($phrase) < 2) {
             return Response::success([
@@ -86,6 +130,13 @@ final class SearchController extends Controller
             }
         }
 
+        if ($remember) {
+            $user = $this->current_user($request);
+            if ($user) {
+                $this->remember_search_phrase($user->ID, $phrase);
+            }
+        }
+
         $total_pages = $per_page > 0 ? (int) ceil($total / $per_page) : 1;
 
         return Response::success([
@@ -93,6 +144,124 @@ final class SearchController extends Controller
             'products'   => $products,
             'pagination' => $this->pagination_block($total, $page, $per_page),
         ]);
+    }
+
+    /**
+     * GET /wp-json/herlan/v1/search/popular-history
+     *
+     * Site-wide popular searches (from the FiboSearch / Ajax Search for WooCommerce
+     * analytics table) plus the current user's own recent search history, in one
+     * response. History is an empty array for guests / unauthenticated requests.
+     */
+    public function popular_and_history(WP_REST_Request $request)
+    {
+        $limit = min(30, max(1, (int) $request->get_param('limit')));
+        $days  = min(90, max(1, (int) $request->get_param('days')));
+        $user  = $this->current_user($request);
+
+        return Response::success([
+            'popular' => $this->get_popular_searches($limit, $days),
+            'history' => $user ? $this->get_search_history($user->ID) : [],
+        ]);
+    }
+
+    /**
+     * DELETE /wp-json/herlan/v1/search/popular-history
+     *
+     * Clears the authenticated user's own search history. Does not affect the
+     * site-wide popular searches data.
+     */
+    public function clear_history(WP_REST_Request $request)
+    {
+        $user = $this->current_user($request);
+
+        delete_user_meta($user->ID, self::HISTORY_META_KEY);
+
+        return Response::success([], 200, __('Search history cleared.', 'herlan-rest-api'));
+    }
+
+    /**
+     * Top search phrases over the last $days, sourced from the FiboSearch analytics
+     * table (wp_dgwt_wcas_stats). Filters out short/keystroke-noise phrases and
+     * phrases that returned no results, so it reflects real popular searches rather
+     * than raw autocomplete logging. Returns an empty array if the Analytics module
+     * isn't installed/enabled.
+     */
+    private function get_popular_searches(int $limit, int $days): array
+    {
+        if (! class_exists('\DgoraWcas\Analytics\Database') || ! \DgoraWcas\Analytics\Database::exist()) {
+            return [];
+        }
+
+        global $wpdb;
+
+        $table    = \DgoraWcas\Analytics\Database::getTableName();
+        $since    = gmdate('Y-m-d H:i:s', strtotime("-{$days} days"));
+
+        //phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared
+        $sql = $wpdb->prepare(
+            "SELECT phrase, COUNT(*) AS qty
+             FROM {$table}
+             WHERE created_at > %s
+             AND hits > 0
+             AND CHAR_LENGTH(phrase) >= 3
+             GROUP BY phrase
+             ORDER BY qty DESC, phrase ASC
+             LIMIT %d",
+            $since,
+            $limit
+        );
+        //phpcs:enable
+
+        $rows = $wpdb->get_results($sql, ARRAY_A);
+
+        if (! is_array($rows)) {
+            return [];
+        }
+
+        return array_map(static fn ($row) => [
+            'phrase' => (string) $row['phrase'],
+            'count'  => (int) $row['qty'],
+        ], $rows);
+    }
+
+    /**
+     * The user's stored search history, most-recent-first.
+     */
+    private function get_search_history(int $user_id): array
+    {
+        $history = get_user_meta($user_id, self::HISTORY_META_KEY, true);
+
+        return is_array($history) ? array_values($history) : [];
+    }
+
+    /**
+     * Save a searched phrase into the user's history: dedupes (moves an existing
+     * phrase to the front instead of duplicating it), then caps the list length.
+     */
+    private function remember_search_phrase(int $user_id, string $phrase): void
+    {
+        $phrase = trim($phrase);
+
+        if ($phrase === '') {
+            return;
+        }
+
+        $history = $this->get_search_history($user_id);
+
+        $history = array_values(array_filter(
+            $history,
+            static fn ($item) => ! isset($item['phrase']) || mb_strtolower((string) $item['phrase']) !== mb_strtolower($phrase)
+        ));
+
+        array_unshift($history, [
+            'phrase'      => $phrase,
+            'searched_at' => gmdate('c'),
+        ]);
+
+        $history = array_slice($history, 0, self::HISTORY_MAX_ITEMS);
+
+        update_user_meta($user_id, self::HISTORY_META_KEY, $history);
     }
 
     /**

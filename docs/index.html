@@ -76,6 +76,8 @@
 <a class="level-3" href="#get-taxonomies">GET /taxonomies</a>
 <a href="#search-api">Search API</a>
 <a class="level-3" href="#get-search">GET /search</a>
+<a class="level-3" href="#get-search-popular-history">GET /search/popular-history</a>
+<a class="level-3" href="#delete-search-popular-history">DELETE /search/popular-history</a>
 <a href="#store-locator-endpoints">Store Locator endpoints</a>
 <a class="level-3" href="#get-stores">GET /stores</a>
 <a class="level-3" href="#get-stores-id">GET /stores/{id}</a>
@@ -2735,6 +2737,13 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 <td><code>1</code></td>
 <td>Page number</td>
 </tr>
+<tr>
+<td><code>remember</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>false</code></td>
+<td>When <code>true</code> <em>and</em> the request is authenticated (<code>Authorization: Bearer</code> header present), saves <code>s</code> into the caller's search history, retrievable from <code>GET /search/popular-history</code>. Pass this only when the user actually submits a search (e.g. taps the search button or a result) &mdash; not on every autocomplete keystroke, or the history fills up with partial phrases. Ignored for guests.</td>
+</tr>
 </tbody>
 </table>
 <h4>Response shape</h4>
@@ -2884,6 +2893,7 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 <li>Queries shorter than 2 characters return an empty <code>products</code> array immediately (no search is performed).</li>
 <li>Search results match those of the website autocomplete. If the FiboSearch plugin is unavailable the endpoint falls back to native WooCommerce search.</li>
 <li>For full product detail (description, gallery, variations, etc.) call <code>GET /products/{id}</code> using the returned <code>id</code>.</li>
+<li>Pass <code>remember=true</code> with an <code>Authorization</code> header to save the phrase into the caller's search history — see <a href="#get-search-popular-history"><code>GET /search/popular-history</code></a>.</li>
 </ul>
 <h4>Example requests</h4>
 <p><strong>Basic search:</strong></p>
@@ -2909,6 +2919,121 @@ curl "https://herlan.com/wp-json/herlan/v1/group/products?context_taxonomy=brand
 </tr>
 </tbody>
 </table>
+<hr />
+<h3 id="get-search-popular-history"><code>GET /search/popular-history</code></h3>
+<p>Returns two things in a single response: site-wide <strong>popular searches</strong> and the caller's own <strong>search history</strong>, so the mobile app can render both lists (e.g. on the empty search screen) with one request.</p>
+<ul>
+<li><strong>Popular searches</strong> are sourced from the FiboSearch (Ajax Search for WooCommerce) analytics table &mdash; the same phrase log the website's Search Analytics dashboard uses. Only phrases that returned results and are at least 3 characters long are counted, to filter out raw autocomplete keystroke noise. Returns an empty array if the FiboSearch Analytics module isn't installed/enabled.</li>
+<li><strong>Search history</strong> is per-user, built from calls to <code>GET /search</code> made with <code>remember=true</code> (see above). This is <em>not</em> the same as FiboSearch's own &quot;recent searches&quot; feature, which lives only in the website visitor's browser <code>localStorage</code> and is never sent to the server &mdash; this history is stored server-side against the authenticated user's account, so it's available across devices.</li>
+</ul>
+<p>No authentication is required to call this endpoint, but <code>history</code> is only populated for authenticated requests (valid <code>Authorization: Bearer</code> header) &mdash; guests always get an empty <code>history</code> array.</p>
+<h4>Request parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>limit</code></td>
+<td>integer</td>
+<td>No</td>
+<td><code>10</code></td>
+<td>Number of popular phrases to return (max <code>30</code>)</td>
+</tr>
+<tr>
+<td><code>days</code></td>
+<td>integer</td>
+<td>No</td>
+<td><code>30</code></td>
+<td>Lookback window in days for popular phrases (max <code>90</code>)</td>
+</tr>
+</tbody>
+</table>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "",
+  "data": {
+    "popular": [
+      { "phrase": "lipstick", "count": 6463 },
+      { "phrase": "shampoo", "count": 2252 },
+      { "phrase": "foundation", "count": 2082 }
+    ],
+    "history": [
+      { "phrase": "lily lipstick", "searched_at": "2026-08-20T11:05:07+00:00" },
+      { "phrase": "sunscreen", "searched_at": "2026-08-19T09:12:44+00:00" }
+    ]
+  }
+}</code></pre>
+<p><code>popular[]</code> fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>phrase</code></td>
+<td>string</td>
+<td>Searched phrase</td>
+</tr>
+<tr>
+<td><code>count</code></td>
+<td>integer</td>
+<td>Number of times searched in the lookback window</td>
+</tr>
+</tbody>
+</table>
+<p><code>history[]</code> fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>phrase</code></td>
+<td>string</td>
+<td>Searched phrase, as originally submitted</td>
+</tr>
+<tr>
+<td><code>searched_at</code></td>
+<td>string</td>
+<td>ISO 8601 UTC timestamp</td>
+</tr>
+</tbody>
+</table>
+<p>History is most-recent-first, deduplicated (re-searching a phrase moves it back to the front instead of adding a duplicate), and capped at the 15 most recent phrases per user.</p>
+<h4>Example requests</h4>
+<p><strong>Guest / no history:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/search/popular-history"</code></pre>
+<p><strong>Authenticated, with a wider popular-searches window:</strong></p>
+<pre><code class="language-bash">curl "https://herlan.com/wp-json/herlan/v1/search/popular-history?limit=15&amp;days=7" \
+  -H "Authorization: Bearer USER_ID_BASE64.SECRET"</code></pre>
+<hr />
+<h3 id="delete-search-popular-history"><code>DELETE /search/popular-history</code></h3>
+<p>Clears the authenticated caller's own search history (&quot;Clear search history&quot; button). Does not affect the site-wide popular searches data. Requires authentication.</p>
+<h4>Response shape</h4>
+<pre><code class="language-json">{
+  "success": true,
+  "message": "Search history cleared.",
+  "data": []
+}</code></pre>
+<h4>Example request</h4>
+<pre><code class="language-bash">curl -X DELETE "https://herlan.com/wp-json/herlan/v1/search/popular-history" \
+  -H "Authorization: Bearer USER_ID_BASE64.SECRET"</code></pre>
 <hr />
 <h2 id="store-locator-endpoints">Store Locator endpoints</h2>
 <h3 id="get-stores"><code>GET /stores</code></h3>
@@ -6239,6 +6364,18 @@ Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
 <td><code>/search</code></td>
 <td>No</td>
 <td><strong>Product search (JSON, same engine as website autocomplete)</strong></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/search/popular-history</code></td>
+<td>No (history requires auth)</td>
+<td>Popular searches + the caller's own search history</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/search/popular-history</code></td>
+<td>Yes</td>
+<td>Clear the caller's search history</td>
 </tr>
 <tr>
 <td><code>GET</code></td>

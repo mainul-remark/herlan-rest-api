@@ -153,7 +153,7 @@ final class Plugin
         (new CartController($auth))->register_routes();
         (new CheckoutController($auth))->register_routes();
         (new PaymentController($auth))->register_routes();
-        (new SearchController())->register_routes();
+        (new SearchController($auth))->register_routes();
         (new StoreController())->register_routes();
         (new BlogController())->register_routes();
     }
