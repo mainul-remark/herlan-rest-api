@@ -30,6 +30,12 @@ final class OrderController extends Controller
         'failed'            => ['label' => 'Failed',          'color' => '#dc2626', 'bg' => '#fef2f2'],
     ];
 
+    /** Statuses that end the stepper on step 3 in a failure/exception state rather than "Delivered". */
+    private const TERMINAL_TRACKING_STATUSES = ['cancelled', 'refunded', 'failed', 'ordernotreachable'];
+
+    /** Static labels for the 4 tracking steps; step 3's label is overridden when terminal (see build_order_status_list()). */
+    private const TRACKING_STEP_LABELS = ['Order Placed', 'Confirmed', 'Processing', 'Delivered'];
+
     public function register_routes(): void
     {
         register_rest_route($this->namespace, '/orders', [
@@ -181,10 +187,20 @@ final class OrderController extends Controller
         return $order_phone_digits !== '' && $order_phone_digits === $contact_digits;
     }
 
+    /**
+     * Human-readable label/color/bg for a status, shared across the order
+     * list, order detail, and tracking responses so all three render the
+     * same status badge instead of only tracking having one.
+     */
+    private function status_info(string $status): array
+    {
+        return self::ORDER_STATUS_LABELS[$status] ?? ['label' => ucfirst($status), 'color' => '#6b7280', 'bg' => '#f3f4f6'];
+    }
+
     private function format_tracking(WC_Order $order): array
     {
         $status      = $order->get_status();
-        $status_info = self::ORDER_STATUS_LABELS[$status] ?? ['label' => ucfirst($status), 'color' => '#6b7280', 'bg' => '#f3f4f6'];
+        $status_info = $this->status_info($status);
 
         $tracking_number = '';
         $tracking_url    = '';
@@ -228,11 +244,17 @@ final class OrderController extends Controller
 
     private function order_summary(WC_Order $order): array
     {
+        $status      = $order->get_status();
+        $status_info = $this->status_info($status);
+
         return [
             'id'                   => $order->get_id(),
             'number'               => $order->get_order_number(),
-            'status'               => $order->get_status(),
-            'order_status'         => $this->build_order_status_list($order->get_status()),
+            'status'               => $status,
+            'status_label'         => $status_info['label'],
+            'status_color'         => $status_info['color'],
+            'status_bg'            => $status_info['bg'],
+            'order_status'         => $this->build_order_status_list($status),
             'date_created'         => $order->get_date_created()?->format('c'),
             'currency'             => $order->get_currency(),
             'total'                => $order->get_total(),
@@ -244,11 +266,17 @@ final class OrderController extends Controller
 
     private function format_order(WC_Order $order): array
     {
+        $status      = $order->get_status();
+        $status_info = $this->status_info($status);
+
         return [
             'id'                   => $order->get_id(),
             'number'               => $order->get_order_number(),
-            'status'               => $order->get_status(),
-            'order_status'         => $this->build_order_status_list($order->get_status()),
+            'status'               => $status,
+            'status_label'         => $status_info['label'],
+            'status_color'         => $status_info['color'],
+            'status_bg'            => $status_info['bg'],
+            'order_status'         => $this->build_order_status_list($status),
             'date_created'         => $order->get_date_created()?->format('c'),
             'date_modified'        => $order->get_date_modified()?->format('c'),
             'currency'             => $order->get_currency(),
@@ -269,32 +297,69 @@ final class OrderController extends Controller
     }
 
     /**
-     * Full list of order statuses with an `active` flag on the one matching
-     * the given order's current status, for rendering a status stepper.
-     *
-     * Sourced from wc_get_order_statuses() (the same filterable list WooCommerce
-     * and the theme's custom statuses feed into) rather than a hardcoded list,
-     * so custom statuses like confirmed/orderplaced/orderreturn/ordernotreachable
-     * are never silently missing from the response.
+     * The 4-step order tracking stepper (Placed → Confirmed → Processing →
+     * Delivered/terminal), matching the website's own tracking page exactly
+     * (theme's page-track-order.php renderStepper()/TERMINAL/switch) — not a
+     * flat dump of every registered order status. wc_get_order_statuses()
+     * returns ~11 admin-facing statuses (including on-hold, orderreturn,
+     * cancelled, refunded, failed as siblings), which doesn't correspond to
+     * a linear customer-facing progress stepper at all.
      */
     private function build_order_status_list(string $current_status): array
     {
-        $list = [];
+        $step_index    = $this->tracking_step_index($current_status);
+        $is_terminal   = in_array($current_status, self::TERMINAL_TRACKING_STATUSES, true);
+        $current_info  = self::ORDER_STATUS_LABELS[$current_status] ?? ['label' => ucfirst($current_status), 'color' => '#6b7280', 'bg' => '#f3f4f6'];
 
-        foreach (wc_get_order_statuses() as $key => $label) {
-            $key  = str_starts_with($key, 'wc-') ? substr($key, 3) : $key;
-            $info = self::ORDER_STATUS_LABELS[$key] ?? ['label' => $label, 'color' => '#6b7280', 'bg' => '#f3f4f6'];
+        $steps = [];
 
-            $list[] = [
-                'key'    => $key,
-                'label'  => $info['label'],
-                'color'  => $info['color'],
-                'bg'     => $info['bg'],
-                'active' => $key === $current_status,
+        for ($i = 0; $i < 4; $i++) {
+            $label = self::TRACKING_STEP_LABELS[$i];
+            $state = 'upcoming';
+
+            if ($i < $step_index) {
+                $state = 'done';
+            } elseif ($i === $step_index) {
+                if ($current_status === 'completed') {
+                    $state = 'done';
+                } elseif ($is_terminal) {
+                    $state = 'terminal';
+                    $label = $current_info['label'];
+                } else {
+                    $state = 'active';
+                }
+            }
+
+            $steps[] = [
+                'index' => $i,
+                'label' => $label,
+                'state' => $state,
             ];
         }
 
-        return $list;
+        return $steps;
+    }
+
+    /**
+     * Step index: 0=placed, 1=confirmed, 2=processing, 3=delivered/terminal.
+     * Mirrors page-track-order.php's renderStepper() switch exactly.
+     */
+    private function tracking_step_index(string $status): int
+    {
+        switch ($status) {
+            case 'pending':
+            case 'on-hold':
+            case 'orderplaced':
+                return 0;
+            case 'confirmed':
+                return 1;
+            case 'processing':
+                return 2;
+            case 'completed':
+                return 3;
+            default:
+                return in_array($status, self::TERMINAL_TRACKING_STATUSES, true) ? 3 : 2;
+        }
     }
 
     private function format_line_items(WC_Order $order): array

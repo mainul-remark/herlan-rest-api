@@ -3,6 +3,7 @@
 namespace HerlanRestApi\Controllers;
 
 use HerlanRestApi\Controller;
+use HerlanRestApi\Support\Cache;
 use HerlanRestApi\Support\Response;
 use WP_REST_Server;
 
@@ -12,6 +13,8 @@ if (! defined('ABSPATH')) {
 
 final class HomeController extends Controller
 {
+    private const CACHE_TTL = 15 * MINUTE_IN_SECONDS;
+
     public function register_routes(): void
     {
         register_rest_route($this->namespace, '/home', [
@@ -21,9 +24,26 @@ final class HomeController extends Controller
         ]);
     }
 
+    /**
+     * Rebuilds and re-caches the home bundle regardless of whether a cached
+     * copy exists. Hooked to a cron event (see Plugin::boot()) that fires
+     * every 10 minutes — inside the 15-minute TTL — so the transient never
+     * actually expires under normal traffic and no real visitor's request
+     * pays for the ~40-round product-groups rebuild.
+     */
+    public static function warm_cache(): void
+    {
+        (new self())->build_bundle(true);
+    }
+
     public function index()
     {
-        return Response::success([
+        return Response::success($this->build_bundle(false));
+    }
+
+    private function build_bundle(bool $force): array
+    {
+        $builder = fn () => [
             'hero_slider'        => $this->hero_slider(),
             'promotional_block'  => $this->promotional_block(),
             'campaign_shortcuts' => $this->campaign_shortcuts(),
@@ -35,7 +55,11 @@ final class HomeController extends Controller
             'home_video'         => $this->home_video(),
             'brands'             => $this->brands(),
             'shop_by_category'   => $this->shop_by_category(),
-        ]);
+        ];
+
+        return $force
+            ? Cache::warm('home_bundle', [], self::CACHE_TTL, $builder)
+            : Cache::remember('home_bundle', [], self::CACHE_TTL, $builder);
     }
 
     private function hero_slider(): array
@@ -175,7 +199,7 @@ final class HomeController extends Controller
             return array_merge([
                 'name'      => $item['name'] ?? '',
                 'url'       => $url,
-                'post_type' => $item['post_type'] ?: null,
+                'post_type' => $item['post_type'] ?? null,
             ], $this->resolve_shortcut_filters($url));
         }, $raw);
 
@@ -192,7 +216,10 @@ final class HomeController extends Controller
         $groups        = get_field('product_groups', 'option') ?: [];
         $section_title = (string) (get_field('product_groups_section_title', 'option') ?: '');
 
-        $items = [];
+        // Phase 1: resolve every group's term + product-ID pool first, without
+        // formatting any product yet.
+        $group_defs       = [];
+        $all_product_ids  = [];
 
         foreach ($groups as $g) {
             $tag_slug      = $g['group_product_tag'] ?? '';
@@ -221,17 +248,38 @@ final class HomeController extends Controller
                 }
             }
 
-            $product_ids = $this->fetch_group_product_ids($tag_slug, $featured_slug);
-            $parsed      = $this->resolve_shortcut_filters($link, 'section');
+            $product_ids       = $this->fetch_group_product_ids($tag_slug, $featured_slug);
+            $all_product_ids   = array_merge($all_product_ids, $product_ids);
 
-            $items[] = array_merge([
+            $group_defs[] = [
                 'title'        => $title,
                 'taxonomy'     => 'product_tag',
                 'term'         => $term_data,
                 'link'         => $link,
                 'product_tag'  => $tag_slug,
                 'featured_tag' => $featured_slug ?: null,
-            ], $parsed, [
+                'product_ids'  => $product_ids,
+            ];
+        }
+
+        // Phase 2: with every group's product IDs known, prime the post/postmeta/term
+        // cache for the full set in one batch (a handful of queries total) instead of
+        // letting each of the ~40 groups' wc_get_product() calls hit the DB one at a
+        // time — this is the dominant cost behind a cold home-bundle rebuild.
+        $all_product_ids = array_values(array_unique(array_map('intval', $all_product_ids)));
+
+        if ($all_product_ids && function_exists('_prime_post_caches')) {
+            _prime_post_caches($all_product_ids, true, true);
+        }
+
+        $items = [];
+
+        foreach ($group_defs as $def) {
+            $product_ids = $def['product_ids'];
+            unset($def['product_ids']);
+
+            $parsed  = $this->resolve_shortcut_filters($def['link'], 'section');
+            $items[] = array_merge($def, $parsed, [
                 'products' => $this->format_group_products($product_ids),
             ]);
         }

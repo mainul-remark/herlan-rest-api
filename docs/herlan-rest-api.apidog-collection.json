@@ -1,0 +1,2333 @@
+{
+  "info": {
+    "_postman_id": "b6f2a2d0-4e1a-4a3a-9b0c-herlan-rest-api",
+    "name": "Herlan REST API",
+    "description": "Postman/Apidog collection for the Herlan WordPress REST API plugin (namespace herlan/v1). Every request requires Woo-Consumer-Key / Woo-Consumer-Secret headers (set automatically by the collection's pre-request script from collection variables). Authenticated endpoints additionally require `Authorization: Bearer {{access_token}}`, captured automatically from /auth/login or /auth/register. Cart endpoints use a rotating Cart-Token header, handled by the Cart folder's own pre-request/test scripts.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Site-wide gate: every herlan/v1 request must carry Woo-Consumer-Key / Woo-Consumer-Secret.",
+          "pm.request.headers.upsert({",
+          "    key: 'Woo-Consumer-Key',",
+          "    value: pm.collectionVariables.get('woo_consumer_key') || ''",
+          "});",
+          "pm.request.headers.upsert({",
+          "    key: 'Woo-Consumer-Secret',",
+          "    value: pm.collectionVariables.get('woo_consumer_secret') || ''",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost/herlan6/wp-json/herlan/v1",
+      "type": "string"
+    },
+    {
+      "key": "woo_consumer_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "woo_consumer_secret",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cart_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "product_id",
+      "value": "49045",
+      "type": "string"
+    },
+    {
+      "key": "order_id",
+      "value": "12345",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "App / Misc",
+      "description": "Site-wide config endpoints used by the app shell: version/status, promo bar, header theming, and the promotional image popup. All public.",
+      "item": [
+        {
+          "name": "Get API Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "status"
+              ]
+            },
+            "description": "Returns basic API/site info (version, site name, timezone). Public, no auth beyond the Woo consumer key gate."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Promo Bar",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/promo-bar",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "promo-bar"
+              ]
+            },
+            "description": "Returns the top promo bar configuration (enabled flag, background color, text) from theme settings."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Header Config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/header-config",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "header-config"
+              ]
+            },
+            "description": "Returns header/nav bar color settings, mini-cart badge color, and header ornament configuration."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Image Popup",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/image-popup",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "image-popup"
+              ]
+            },
+            "description": "Returns the configured promotional image popup (desktop/mobile image, display location, re-show interval, CTA URL)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Login, registration, and logout for the mobile app's own bearer-token auth (independent of any JWT plugin). Login/Register issue an access_token used as `Authorization: Bearer {{access_token}}` on every authenticated endpoint below.",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticates a user with username/password and issues a bearer access token (format base64(user_id).secret) valid 30 days.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\",\n  \"device_name\": \"iPhone 15\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData && jsonData.data && jsonData.data.access_token) {",
+                  "        pm.collectionVariables.set('access_token', jsonData.data.access_token);",
+                  "    }",
+                  "} catch (e) {",
+                  "    // Non-JSON or error response — nothing to capture.",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Creates a new WordPress/WooCommerce customer account (if registration is enabled) and issues a bearer access token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"testuser@example.com\",\n  \"password\": \"password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData && jsonData.data && jsonData.data.access_token) {",
+                  "        pm.collectionVariables.set('access_token', jsonData.data.access_token);",
+                  "    }",
+                  "} catch (e) {",
+                  "    // Non-JSON or error response — nothing to capture.",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Revokes the bearer token used on this request (removes it from the user's stored token list). Requires authentication."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Home",
+      "description": "The home-screen content bundle (hero slider, promo blocks, product groups, campaigns, brands, etc.), served as one cached payload.",
+      "item": [
+        {
+          "name": "Get Home Bundle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/home",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "home"
+              ]
+            },
+            "description": "Returns the full home-screen bundle: hero slider, promotional block, campaign shortcuts, product groups, campaigns, categories block, custom tags, product sliders, home video, brands, and shop-by-category. Cached 15 minutes and cron-warmed every 10 minutes."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Taxonomies",
+      "description": "Product taxonomy browsing endpoints (categories, brands, and all filterable taxonomies) used to power navigation drawers and category pickers.",
+      "item": [
+        {
+          "name": "Get Drawer Brands & Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/drawer-brands-categories?hide_empty=true&categories_flat=false&order=asc&order_by=name",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "drawer-brands-categories"
+              ],
+              "query": [
+                {
+                  "key": "hide_empty",
+                  "value": "true",
+                  "disabled": false,
+                  "description": "Only return terms with products. Default true."
+                },
+                {
+                  "key": "categories_flat",
+                  "value": "false",
+                  "disabled": false,
+                  "description": "Return categories as a flat list instead of a nested tree. Default false."
+                },
+                {
+                  "key": "order",
+                  "value": "asc",
+                  "disabled": false,
+                  "description": "asc|desc. Default asc."
+                },
+                {
+                  "key": "order_by",
+                  "value": "name",
+                  "disabled": false,
+                  "description": "name|count|id|slug. Default name."
+                }
+              ]
+            },
+            "description": "Returns product categories (optionally as a flat list or nested tree) and brands, for the app's navigation drawer."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Taxonomies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/taxonomies?hide_empty=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "taxonomies"
+              ],
+              "query": [
+                {
+                  "key": "hide_empty",
+                  "value": "true",
+                  "disabled": false,
+                  "description": "Only return terms with products. Default true."
+                }
+              ]
+            },
+            "description": "Returns every filterable product taxonomy (category, brand, tag, keywords, skin-type, age-range, and any public pa_ attribute) with their terms. Cached 15 minutes."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Product Listing & Filters",
+      "description": "The main product listing/search endpoint (/group/products) plus the supporting filter-config, filter-terms, and filter-forms endpoints used to build filter UIs.",
+      "item": [
+        {
+          "name": "Group Products (Listing)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/group/products?context_taxonomy=product_cat&context_term=skincare&page=1&per_page=12&orderby=menu_order&order=ASC&include_products=true&include_filters=false&include_pagination=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "group",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "context_taxonomy",
+                  "value": "product_cat",
+                  "disabled": false,
+                  "description": "Taxonomy to scope the listing to, e.g. product_cat, product_tag, brand."
+                },
+                {
+                  "key": "context_term",
+                  "value": "skincare",
+                  "disabled": false,
+                  "description": "Term slug within context_taxonomy."
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "per_page",
+                  "value": "12",
+                  "disabled": false,
+                  "description": "Max 50."
+                },
+                {
+                  "key": "orderby",
+                  "value": "menu_order",
+                  "disabled": false,
+                  "description": "menu_order|popularity|rating|date|price|price-desc|title."
+                },
+                {
+                  "key": "order",
+                  "value": "ASC",
+                  "disabled": false,
+                  "description": "ASC|DESC."
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "min_price",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "max_price",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "stock_status",
+                  "value": "",
+                  "disabled": true,
+                  "description": "instock|outofstock|onbackorder."
+                },
+                {
+                  "key": "on_sale",
+                  "value": "false",
+                  "disabled": true
+                },
+                {
+                  "key": "include_products",
+                  "value": "true",
+                  "disabled": false
+                },
+                {
+                  "key": "include_filters",
+                  "value": "false",
+                  "disabled": false
+                },
+                {
+                  "key": "include_pagination",
+                  "value": "true",
+                  "disabled": false
+                },
+                {
+                  "key": "filter_brand",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Comma-separated term slugs, e.g. filter_brand=nivea,dove."
+                }
+              ]
+            },
+            "description": "Main product listing/search endpoint used for category/tag/brand archives and filtered search. Supports context taxonomy scoping, multi-facet filter_* params, price range, sorting, and pagination."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Filter Config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/filter-config?page=1&per_page=50",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "filter-config"
+              ],
+              "query": [
+                {
+                  "key": "context_taxonomy",
+                  "value": "product_cat",
+                  "disabled": true
+                },
+                {
+                  "key": "context_term",
+                  "value": "skincare",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "per_page",
+                  "value": "50",
+                  "disabled": false,
+                  "description": "Max 100."
+                }
+              ]
+            },
+            "description": "Returns the list of available filter definitions (taxonomy filters, price, sort-by) for building a filter UI, scoped to an optional context taxonomy/term."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Filter Terms",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/filter-terms?taxonomy=brand&page=1&per_page=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "filter-terms"
+              ],
+              "query": [
+                {
+                  "key": "taxonomy",
+                  "value": "brand",
+                  "disabled": false,
+                  "description": "Required. Taxonomy to list terms for."
+                },
+                {
+                  "key": "context_taxonomy",
+                  "value": "product_cat",
+                  "disabled": true
+                },
+                {
+                  "key": "context_term",
+                  "value": "skincare",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "per_page",
+                  "value": "20",
+                  "disabled": false,
+                  "description": "Max 100."
+                }
+              ]
+            },
+            "description": "Returns the terms (with product counts within the current context/pool) for a single filter taxonomy, e.g. for populating a brand filter's checkbox list."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Filter Form",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/filter-forms/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "filter-forms",
+                ":id"
+              ],
+              "query": [
+                {
+                  "key": "context_taxonomy",
+                  "value": "product_cat",
+                  "disabled": true
+                },
+                {
+                  "key": "context_term",
+                  "value": "skincare",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Filter form post ID (wcapf-form)."
+                }
+              ]
+            },
+            "description": "Returns a WooCommerce Advanced Product Filters (wcapf) form definition, resolved into the api_param keys /group/products understands, scoped to an optional context taxonomy/term."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "description": "Single product detail, legacy filter metadata, reviews, Q&A, and bundle slot selection.",
+      "item": [
+        {
+          "name": "Get Product Filters (legacy)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/filters?include_counts=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "filters"
+              ],
+              "query": [
+                {
+                  "key": "taxonomy",
+                  "value": "product_cat",
+                  "disabled": true
+                },
+                {
+                  "key": "term",
+                  "value": "skincare",
+                  "disabled": true
+                },
+                {
+                  "key": "include_counts",
+                  "value": "true",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Returns sort options, price range, and available taxonomy filters (with counts) for a product context. Cached 10 minutes."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{product_id}}",
+                  "description": "Product ID."
+                }
+              ]
+            },
+            "description": "Returns full product detail: pricing, images, attributes/variations, linked products, bundle slots (if a bundle product), and related data."
+          },
+          "response": []
+        },
+        {
+          "name": "List Product Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/:id/reviews?page=1&per_page=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                ":id",
+                "reviews"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "per_page",
+                  "value": "10",
+                  "disabled": false,
+                  "description": "Max 50."
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{product_id}}",
+                  "description": "Product ID."
+                }
+              ]
+            },
+            "description": "Returns paginated approved reviews for a product."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Product Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/:id/reviews",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                ":id",
+                "reviews"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{product_id}}",
+                  "description": "Product ID."
+                }
+              ]
+            },
+            "description": "Submits a new review (rating + content) for a product. Requires authentication.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"content\": \"Great product, exactly as described and fast delivery.\",\n  \"name\": \"Jane Doe\",\n  \"headline\": \"Excellent quality\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Product Questions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/:id/questions?page=1&per_page=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                ":id",
+                "questions"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "per_page",
+                  "value": "10",
+                  "disabled": false,
+                  "description": "Max 50."
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{product_id}}",
+                  "description": "Product ID."
+                }
+              ]
+            },
+            "description": "Returns paginated Q&A entries for a product."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Product Question",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/:id/questions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                ":id",
+                "questions"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{product_id}}",
+                  "description": "Product ID."
+                }
+              ]
+            },
+            "description": "Submits a new question about a product. Optional authentication: send a bearer token if available to attribute the question to a logged-in user, otherwise it's submitted as a guest.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Is this product suitable for sensitive skin?\",\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Bundle Items",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/:id/bundle-items?index=0&page=1&per_page=12",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                ":id",
+                "bundle-items"
+              ],
+              "query": [
+                {
+                  "key": "index",
+                  "value": "0",
+                  "disabled": false,
+                  "description": "Required. Bundle slot index (0-based)."
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "per_page",
+                  "value": "12",
+                  "disabled": false,
+                  "description": "Max 50."
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{product_id}}",
+                  "description": "Bundle product ID."
+                }
+              ]
+            },
+            "description": "Returns the paginated, searchable list of selectable child products for one slot (index) of an Easy Product Bundle."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Search",
+      "description": "Product search with an optional per-user search history and site-wide popular searches.",
+      "item": [
+        {
+          "name": "Search Products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/search?s=serum&per_page=10&page=1&remember=false",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "s",
+                  "value": "serum",
+                  "disabled": false,
+                  "description": "Required. Search phrase."
+                },
+                {
+                  "key": "per_page",
+                  "value": "10",
+                  "disabled": false,
+                  "description": "Max 50."
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "remember",
+                  "value": "false",
+                  "disabled": false,
+                  "description": "When true and authenticated, saves this phrase to the user's search history."
+                }
+              ]
+            },
+            "description": "Full-text product search (via FiboSearch/Ajax Search for WooCommerce when available, else a native WP_Query fallback). Optional authentication: send a bearer token so remember=true can save the phrase to the user's history."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Popular & History Searches",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/search/popular-history?limit=10&days=30",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "search",
+                "popular-history"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": false,
+                  "description": "Max 30."
+                },
+                {
+                  "key": "days",
+                  "value": "30",
+                  "disabled": false,
+                  "description": "Lookback window in days. Max 90."
+                }
+              ]
+            },
+            "description": "Returns site-wide popular search phrases plus the current user's own recent search history (empty for guests). Optional authentication."
+          },
+          "response": []
+        },
+        {
+          "name": "Clear Search History",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/search/popular-history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "search",
+                "popular-history"
+              ]
+            },
+            "description": "Clears the authenticated user's own saved search history. Does not affect site-wide popular searches. Requires authentication."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "description": "Guest/authenticated cart management. Uses a rotating Cart-Token header instead of cookies — see the folder's pre-request/test scripts.",
+      "item": [
+        {
+          "name": "Get Cart",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart"
+              ]
+            },
+            "description": "Returns the current cart contents, totals, applied coupons, BOGO/free-shipping/Herlan Cash info. Uses the Cart-Token header instead of cookies; optional bearer auth links the cart session to a logged-in user."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Item to Cart",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cart/add-to-cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "add-to-cart"
+              ]
+            },
+            "description": "Adds a product (simple, variation, or bundle) to the cart.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{product_id}}\",\n  \"quantity\": 1,\n  \"variation_id\": 0,\n  \"variation\": {},\n  \"bundle_items\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Cart Item",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cart/update-item",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "update-item"
+              ]
+            },
+            "description": "Updates the quantity of an existing cart item; setting quantity to 0 removes it.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cart_item_key\": \"a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4\",\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Cart Item",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cart/remove-item/:cart_item_key",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "remove-item",
+                ":cart_item_key"
+              ],
+              "variable": [
+                {
+                  "key": "cart_item_key",
+                  "value": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+                  "description": "32-char hex cart item key."
+                }
+              ]
+            },
+            "description": "Removes a single item from the cart by its cart item key."
+          },
+          "response": []
+        },
+        {
+          "name": "Clear Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cart/clear",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "clear"
+              ]
+            },
+            "description": "Empties the entire cart."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Cart Item Editor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cart/item-editor/:cart_item_key",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "item-editor",
+                ":cart_item_key"
+              ],
+              "variable": [
+                {
+                  "key": "cart_item_key",
+                  "value": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+                  "description": "32-char hex cart item key."
+                }
+              ]
+            },
+            "description": "Returns editable detail for a single cart item (product images, linked products, attributes, variations) for building an in-cart edit sheet. Response has no cart object."
+          },
+          "response": []
+        },
+        {
+          "name": "Replace Cart Item",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cart/replace-item",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "replace-item"
+              ]
+            },
+            "description": "Swaps an existing cart item for a different product/variation (used by the cart item editor), preserving or overriding quantity.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cart_item_key\": \"a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4\",\n  \"product_id\": \"{{product_id}}\",\n  \"variation_id\": 0,\n  \"quantity\": 1,\n  \"variation\": {}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Apply Coupon",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cart/apply-coupon",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "apply-coupon"
+              ]
+            },
+            "description": "Applies a coupon code to the cart.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"coupon_code\": \"SAVE10\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Coupon",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cart/remove-coupon/:code",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "remove-coupon",
+                ":code"
+              ],
+              "variable": [
+                {
+                  "key": "code",
+                  "value": "SAVE10",
+                  "description": "Coupon code."
+                }
+              ]
+            },
+            "description": "Removes a previously applied coupon from the cart."
+          },
+          "response": []
+        },
+        {
+          "name": "Toggle Herlan Cash",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cart/herlan-cash/toggle",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "herlan-cash",
+                "toggle"
+              ]
+            },
+            "description": "Enables or disables applying the user's Herlan Cash loyalty balance to the cart. Requires authentication.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Herlan Cash Amount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cart/herlan-cash/set-amount",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "herlan-cash",
+                "set-amount"
+              ]
+            },
+            "description": "Sets a specific Herlan Cash amount to redeem against the cart (clamped to the nearest 10 and to the max redeemable). Requires authentication.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Cart endpoints use a rotating Cart-Token header instead of cookies.",
+              "var cartToken = pm.collectionVariables.get('cart_token');",
+              "if (cartToken) {",
+              "    pm.request.headers.upsert({ key: 'Cart-Token', value: cartToken });",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Every cart response returns a fresh cart_token that must be sent back on the next request.",
+              "try {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData && jsonData.data && jsonData.data.cart && jsonData.data.cart.cart_token) {",
+              "        pm.collectionVariables.set('cart_token', jsonData.data.cart.cart_token);",
+              "    }",
+              "} catch (e) {",
+              "    // GET /cart/item-editor/{key} has no cart object in its response — nothing to capture.",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Checkout",
+      "description": "Checkout summary, shipping/payment method selection, order placement, post-payment completion, and order cancellation.",
+      "item": [
+        {
+          "name": "Get Checkout Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/checkout?country=BD",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout"
+              ],
+              "query": [
+                {
+                  "key": "district",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "country",
+                  "value": "BD",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Returns available payment methods, shipping methods, and Herlan Cash info for the current cart/address context, before placing the order."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment Methods",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/checkout/payment-methods",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout",
+                "payment-methods"
+              ]
+            },
+            "description": "Returns the list of enabled WooCommerce payment gateways. Requires authentication."
+          },
+          "response": []
+        },
+        {
+          "name": "Set Shipping Method",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/checkout/shipping-method",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout",
+                "shipping-method"
+              ]
+            },
+            "description": "Selects a shipping rate for the current cart's shipping package and recalculates totals.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rate_id\": \"flat_rate:1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Place Order (Checkout)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/checkout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout"
+              ]
+            },
+            "description": "Creates a WooCommerce order from the current cart and billing/shipping details, then initiates payment via the selected gateway. Rate-limited to 10 attempts/hour per user or IP.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_method\": \"cod\",\n  \"billing_first_name\": \"Jane\",\n  \"billing_last_name\": \"Doe\",\n  \"billing_email\": \"jane@example.com\",\n  \"billing_phone\": \"+8801700000000\",\n  \"billing_address_1\": \"123 Gulshan Avenue\",\n  \"billing_city\": \"Dhaka\",\n  \"billing_address_2\": \"\",\n  \"billing_state\": \"Dhaka\",\n  \"billing_postcode\": \"1212\",\n  \"billing_country\": \"BD\",\n  \"billing_company\": \"\",\n  \"ship_to_different_address\": false,\n  \"shipping_first_name\": \"\",\n  \"shipping_last_name\": \"\",\n  \"shipping_address_1\": \"\",\n  \"shipping_address_2\": \"\",\n  \"shipping_city\": \"\",\n  \"shipping_state\": \"\",\n  \"shipping_postcode\": \"\",\n  \"shipping_country\": \"\",\n  \"shipping_company\": \"\",\n  \"customer_note\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/checkout/order-complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout",
+                "order-complete"
+              ]
+            },
+            "description": "Clears the cart once the client confirms the customer returned from the payment flow — only if the order is actually paid — and returns recommended products for the thank-you page.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{order_id}}\",\n  \"order_key\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/checkout/order/:id/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout",
+                "order",
+                ":id",
+                "cancel"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{order_id}}",
+                  "description": "Order ID."
+                }
+              ]
+            },
+            "description": "Cancels an unpaid order (pending/on-hold/failed) on the customer's behalf.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_key\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "description": "Payment status polling and SSLCommerz verification fallback for orders placed via /checkout.",
+      "item": [
+        {
+          "name": "Get Payment Methods (Mobile)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments/methods",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payments",
+                "methods"
+              ]
+            },
+            "description": "Placeholder endpoint: currently always returns an empty methods list. Requires authentication."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Payment (Placeholder)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments/create",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payments",
+                "create"
+              ]
+            },
+            "description": "Placeholder endpoint: mobile payment gateway integration is pending; returns null payment with a 202 status. Requires authentication.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payments/status/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payments",
+                "status",
+                ":id"
+              ],
+              "query": [
+                {
+                  "key": "order_key",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Required for guest orders instead of authentication."
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{order_id}}",
+                  "description": "Order ID."
+                }
+              ]
+            },
+            "description": "Returns the authoritative payment/order status for an order, for the app to poll after a WebView payment flow ends. Guests must supply order_key."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify SSLCommerz Payment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payments/verify/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payments",
+                "verify",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{order_id}}",
+                  "description": "Order ID."
+                }
+              ]
+            },
+            "description": "Fallback confirmation for SSLCommerz orders whose browser return-leg never fired: asks SSLCommerz directly for the transaction status and updates the order accordingly.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_key\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "description": "Authenticated order history/detail, public guest order tracking, and invoice download.",
+      "item": [
+        {
+          "name": "List Orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orders?page=1&per_page=10&status=any",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "per_page",
+                  "value": "10",
+                  "disabled": false,
+                  "description": "Max 50."
+                },
+                {
+                  "key": "status",
+                  "value": "any",
+                  "disabled": false,
+                  "description": "Order status slug, or 'any'."
+                }
+              ]
+            },
+            "description": "Returns the authenticated customer's paginated order history. Requires authentication."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Order",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orders/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{order_id}}",
+                  "description": "Order ID."
+                }
+              ]
+            },
+            "description": "Returns full detail for a single order owned by the authenticated customer. Requires authentication."
+          },
+          "response": []
+        },
+        {
+          "name": "Track Order (Guest)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders/track",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "track"
+              ]
+            },
+            "description": "Public order lookup by order number + billing email/phone, used by the Track Order page for both guests and logged-in users.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_number\": \"{{order_id}}\",\n  \"billing_contact\": \"jane@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Download Invoice",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orders/:id/invoice",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                ":id",
+                "invoice"
+              ],
+              "query": [
+                {
+                  "key": "order_key",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Required for guest orders instead of authentication."
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{order_id}}",
+                  "description": "Order ID."
+                }
+              ]
+            },
+            "description": "Streams a PDF (via WooCommerce PDF Invoices & Packing Slips if active, else an HTML fallback) for a confirmed order. Logged-in users must own the order; guests must supply order_key."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Account & User",
+      "description": "Authenticated user profile, avatar, loyalty summary, and coupon endpoints.",
+      "item": [
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "user",
+                "me"
+              ]
+            },
+            "description": "Returns the authenticated user's profile plus total_orders, wishlist_count, and address_count. Requires authentication."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Account",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/account",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "user",
+                "account"
+              ]
+            },
+            "description": "Updates the authenticated user's profile fields, email, and/or password. current_password is required when changing email or password. Requires authentication.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Jane\",\n  \"last_name\": \"Doe\",\n  \"display_name\": \"Jane Doe\",\n  \"email\": \"jane.doe@example.com\",\n  \"current_password\": \"password123\",\n  \"new_password\": \"newPassword456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Avatar",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/avatar",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "user",
+                "avatar"
+              ]
+            },
+            "description": "Uploads a profile photo (multipart form field 'avatar', max 3 MB, JPEG/PNG/GIF/WebP). Requires authentication.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "avatar",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Loyalty Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/loyalty",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "user",
+                "loyalty"
+              ]
+            },
+            "description": "Returns the authenticated user's Herlan Loyalty summary (points, available cash, level/tier progress, recent transactions) proxied from the external loyalty API. Cached 5 minutes. Requires authentication."
+          },
+          "response": []
+        },
+        {
+          "name": "List My Coupons",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/coupons?type=available&page=1&per_page=10&orderby=created_date:asc",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "user",
+                "coupons"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "available",
+                  "disabled": false,
+                  "description": "available|expired|used."
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "per_page",
+                  "value": "10",
+                  "disabled": false,
+                  "description": "Max 50."
+                },
+                {
+                  "key": "orderby",
+                  "value": "created_date:asc",
+                  "disabled": false,
+                  "description": "created_date:asc|created_date:desc|amount:asc|amount:desc."
+                }
+              ]
+            },
+            "description": "Returns the authenticated user's available, expired, or used Smart Coupons. Requires authentication."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Wishlist",
+      "description": "Authenticated wishlist management.",
+      "item": [
+        {
+          "name": "List Wishlist",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/wishlist?page=1&per_page=10&order=desc&order_by=date",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "wishlist"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "per_page",
+                  "value": "10",
+                  "disabled": false,
+                  "description": "Max 50."
+                },
+                {
+                  "key": "order",
+                  "value": "desc",
+                  "disabled": false,
+                  "description": "asc|desc."
+                },
+                {
+                  "key": "order_by",
+                  "value": "date",
+                  "disabled": false,
+                  "description": "date|price|product_id|quantity|id."
+                }
+              ]
+            },
+            "description": "Returns the authenticated user's paginated wishlist items with product summaries. Requires authentication."
+          },
+          "response": []
+        },
+        {
+          "name": "Add to Wishlist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/wishlist",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "wishlist"
+              ]
+            },
+            "description": "Adds a product (or a specific variation) to the authenticated user's wishlist. Requires authentication.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{product_id}}\",\n  \"variation_id\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove from Wishlist",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/wishlist/:product_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "wishlist",
+                ":product_id"
+              ],
+              "query": [
+                {
+                  "key": "variation_id",
+                  "value": "0",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "product_id",
+                  "value": "{{product_id}}",
+                  "description": "Product ID."
+                }
+              ]
+            },
+            "description": "Removes a product (or a specific variation) from the authenticated user's wishlist. Requires authentication."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Store Locator",
+      "description": "Public physical store directory and location list.",
+      "item": [
+        {
+          "name": "List Stores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/stores?limit=50&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stores"
+              ],
+              "query": [
+                {
+                  "key": "district",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "area",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": false,
+                  "description": "Max 200."
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Returns a paginated, filterable (district/area/search) list of physical store locations."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Store",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/stores/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stores",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Store ID."
+                }
+              ]
+            },
+            "description": "Returns detail for a single published store location."
+          },
+          "response": []
+        },
+        {
+          "name": "List Store Locations (Districts)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/store-locations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "store-locations"
+              ]
+            },
+            "description": "Returns the distinct list of districts and their areas across all published stores, for building a location picker."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Blog",
+      "description": "Public blog post listing and detail endpoints.",
+      "item": [
+        {
+          "name": "List Posts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/posts?page=1&per_page=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "posts"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Category term ID."
+                },
+                {
+                  "key": "tag",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Tag term ID."
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "per_page",
+                  "value": "10",
+                  "disabled": false,
+                  "description": "Max 50."
+                }
+              ]
+            },
+            "description": "Returns a paginated list of published blog posts, optionally filtered by category or tag term ID."
+          },
+          "response": []
+        },
+        {
+          "name": "List Post Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/posts/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "posts",
+                "categories"
+              ]
+            },
+            "description": "Returns all blog post categories that have at least one published post."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Post",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/posts/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "posts",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Post ID."
+                }
+              ]
+            },
+            "description": "Returns a single published post by ID, including full content, custom fields, and relevant products."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Post by Slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/posts/slug/:slug",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "posts",
+                "slug",
+                ":slug"
+              ],
+              "variable": [
+                {
+                  "key": "slug",
+                  "value": "sample-post",
+                  "description": "Post slug."
+                }
+              ]
+            },
+            "description": "Returns a single published post by its slug."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

@@ -21,7 +21,9 @@ use HerlanRestApi\Controllers\SearchController;
 use HerlanRestApi\Controllers\StoreController;
 use HerlanRestApi\Controllers\WishlistController;
 use HerlanRestApi\Controllers\BlogController;
+use HerlanRestApi\Support\Cache;
 use HerlanRestApi\Support\PaymentReturnRedirect;
+use HerlanRestApi\Support\RequestLogger;
 
 if (! defined('ABSPATH')) {
     exit;
@@ -52,14 +54,20 @@ final class Plugin
         add_filter('rest_pre_dispatch', [$this, 'validate_woo_consumer_key'], PHP_INT_MAX, 3);
         add_filter('rest_authentication_errors', [$this, 'bypass_auth_errors_for_herlan_routes'], PHP_INT_MAX);
         add_action('rest_api_init', [$this, 'register_routes']);
+        Cache::boot();
+        RequestLogger::boot();
+        $this->boot_home_cache_warmer();
         (new PaymentReturnRedirect())->boot();
     }
 
     /**
-     * Requires a valid WooCommerce REST API key pair (Woo-Consumer-Key /
-     * Woo-Consumer-Secret headers) on every herlan/v1 request, validated
-     * against wp_woocommerce_api_keys — the same credentials generated under
-     * WooCommerce → Settings → Advanced → REST API.
+     * Requires a valid WooCommerce REST API key pair on every herlan/v1
+     * request, validated against wp_woocommerce_api_keys — the same
+     * credentials generated under WooCommerce → Settings → Advanced → REST
+     * API. Accepts either the plugin's own Woo-Consumer-Key /
+     * Woo-Consumer-Secret headers, or standard HTTP Basic Auth
+     * (Authorization: Basic base64(consumer_key:consumer_secret)) — the same
+     * convention WooCommerce's own REST API uses.
      */
     public function validate_woo_consumer_key($result, $server, $request)
     {
@@ -78,6 +86,10 @@ final class Plugin
 
         $consumer_key    = trim((string) $request->get_header('woo-consumer-key'));
         $consumer_secret = trim((string) $request->get_header('woo-consumer-secret'));
+
+        if ($consumer_key === '' || $consumer_secret === '') {
+            [$consumer_key, $consumer_secret] = $this->parse_basic_auth_credentials($request);
+        }
 
         if ($consumer_key === '' || $consumer_secret === '') {
             return new \WP_Error(
@@ -104,6 +116,43 @@ final class Plugin
         }
 
         return $result;
+    }
+
+    /**
+     * Extracts [consumer_key, consumer_secret] from HTTP Basic Auth credentials,
+     * if present. PHP_AUTH_USER/PHP_AUTH_PW is populated by mod_php/most SAPIs;
+     * php-fpm setups that don't forward it still expose the raw Authorization
+     * header, so that's parsed as a fallback.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function parse_basic_auth_credentials(\WP_REST_Request $request): array
+    {
+        if (isset($_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW'])) {
+            return [
+                trim((string) wp_unslash($_SERVER['PHP_AUTH_USER'])),
+                trim((string) wp_unslash($_SERVER['PHP_AUTH_PW'])),
+            ];
+        }
+
+        $header = (string) $request->get_header('authorization');
+        if ($header === '' && isset($_SERVER['HTTP_AUTHORIZATION'])) {
+            $header = (string) wp_unslash($_SERVER['HTTP_AUTHORIZATION']);
+        }
+
+        if (! str_starts_with($header, 'Basic ')) {
+            return ['', ''];
+        }
+
+        $decoded = base64_decode(trim(substr($header, 6)), true);
+
+        if ($decoded === false || ! str_contains($decoded, ':')) {
+            return ['', ''];
+        }
+
+        [$user, $pass] = explode(':', $decoded, 2);
+
+        return [trim($user), trim($pass)];
     }
 
     public function bypass_jwt_auth_for_herlan_routes($user)
@@ -156,6 +205,35 @@ final class Plugin
         (new SearchController($auth))->register_routes();
         (new StoreController())->register_routes();
         (new BlogController())->register_routes();
+    }
+
+    /**
+     * Keeps the /home transient permanently warm. The home bundle is expensive
+     * to rebuild (~40 product-tag groups, each running its own WP_Query +
+     * wc_get_product() calls), so instead of a real visitor's request ever
+     * paying for a cold-cache rebuild, a cron event refreshes it every 10
+     * minutes — inside the 15-minute cache TTL.
+     */
+    private function boot_home_cache_warmer(): void
+    {
+        add_filter('cron_schedules', static function (array $schedules): array {
+            if (! isset($schedules['herlan_ra_ten_minutes'])) {
+                $schedules['herlan_ra_ten_minutes'] = [
+                    'interval' => 10 * MINUTE_IN_SECONDS,
+                    'display'  => __('Every 10 Minutes (Herlan REST API)', 'herlan-rest-api'),
+                ];
+            }
+
+            return $schedules;
+        });
+
+        add_action('init', static function (): void {
+            if (! wp_next_scheduled('herlan_ra_warm_home_cache')) {
+                wp_schedule_event(time(), 'herlan_ra_ten_minutes', 'herlan_ra_warm_home_cache');
+            }
+        });
+
+        add_action('herlan_ra_warm_home_cache', [HomeController::class, 'warm_cache']);
     }
 
     private function is_herlan_rest_request(): bool

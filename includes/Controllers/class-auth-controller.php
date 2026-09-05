@@ -3,6 +3,7 @@
 namespace HerlanRestApi\Controllers;
 
 use HerlanRestApi\Controller;
+use HerlanRestApi\Support\CartMerge;
 use HerlanRestApi\Support\Response;
 use WP_Error;
 use WP_REST_Request;
@@ -160,6 +161,7 @@ final class AuthController extends Controller
                 foreach ($this->tokens_for($user->ID) as $token) {
                     if (($token['hash'] ?? '') === $hash && (int) ($token['expires_at'] ?? 0) > $now) {
                         $request->set_param('herlan_token_hash', $hash);
+                        wp_set_current_user($user->ID);
 
                         return $user;
                     }
@@ -186,6 +188,8 @@ final class AuthController extends Controller
 
     private function issue_token_response(WP_User $user, string $device_name)
     {
+        CartMerge::reconcile_for_authenticated_user((int) $user->ID);
+
         $secret = bin2hex(random_bytes(32));
         $expires_at = time() + self::TOKEN_TTL;
         $tokens = $this->tokens_for($user->ID);

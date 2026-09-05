@@ -102,6 +102,7 @@
 <a class="level-3" href="#post-wishlist">POST /wishlist</a>
 <a class="level-3" href="#delete-wishlist-product-id">DELETE /wishlist/{product_id}</a>
 <a href="#cart-endpoints">Cart endpoints</a>
+<a class="level-3" href="#guest-cart-merge-on-login">Guest cart merge on login</a>
 <a class="level-3" href="#get-cart">GET /cart</a>
 <a class="level-3" href="#post-cart-add-to-cart">POST /cart/add-to-cart</a>
 <a class="level-3" href="#post-cart-update-item">POST /cart/update-item</a>
@@ -166,6 +167,9 @@
 Woo-Consumer-Secret: cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</code></pre>
 <p>Generate a key pair from <strong>WordPress Admin &rarr; WooCommerce &rarr; Settings &rarr; Advanced &rarr; REST API &rarr; Add key</strong>. These are WooCommerce's own credentials &mdash; validated directly against <code>wp_woocommerce_api_keys</code> &mdash; not something generated or stored by this plugin.</p>
 <p>Missing or invalid key/secret returns <code>403 herlan_forbidden_woo_key</code>.</p>
+<p><strong>Alternative: HTTP Basic Auth.</strong> Instead of the two headers above, you can send the same credentials as standard HTTP Basic Auth &mdash; the same convention WooCommerce's own REST API uses:</p>
+<pre><code class="language-http">Authorization: Basic base64(consumer_key:consumer_secret)</code></pre>
+<p><strong>Important:</strong> Basic Auth and Bearer auth both use the <code>Authorization</code> header, and a request can only carry one value for it. If you use Basic Auth for the WooCommerce key/secret, you <strong>cannot</strong> also send <code>Authorization: Bearer TOKEN</code> on the same request &mdash; there's no header left for it. For any endpoint that also needs a Bearer token (i.e. most protected endpoints), use the <code>Woo-Consumer-Key</code> / <code>Woo-Consumer-Secret</code> headers instead, keeping <code>Authorization</code> free for the Bearer token.</p>
 <p><strong>Example (protected endpoint):</strong></p>
 <pre><code class="language-http">GET /wp-json/herlan/v1/user/me
 Woo-Consumer-Key: ck_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -487,7 +491,7 @@ Woo-Consumer-Secret: cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</code></pre>
 </tr>
 <tr>
 <td><code>date</code></td>
-<td>Newest first</td>
+<td>&quot;New Arrivals&quot; &mdash; when the site's New Arrivals algorithm is enabled (Settings &rarr; New Arrivals Algorithm), this isn't a plain newest-first sort. It applies the same configurable ranking as the website: a min/max age-in-days window, and a strategy of <code>newest</code> (plain date), <code>random</code> (shuffle within the window), or <code>weighted</code> (scores a candidate pool by recency + sales popularity + randomness, returns the top 20). Also excludes the <code>home-care</code> category and out-of-stock products. When the algorithm is disabled, falls back to a plain newest-first sort.</td>
 </tr>
 <tr>
 <td><code>price</code></td>
@@ -915,6 +919,7 @@ Woo-Consumer-Secret: cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</code></pre>
 <h3 id="get-filter-config"><code>GET /filter-config</code></h3>
 <p>Returns the list of available filter types that the mobile app should render in the filter drawer. Also includes sorting options and per-page controls.</p>
 <p>This endpoint is designed to be fetched once when the filter drawer opens, then cached locally by the app.</p>
+<p><strong>Filterable taxonomies now mirror the website exactly.</strong> This list is sourced from the site's actual <a href="https://wordpress.org/plugins/woo-ajax-product-filter/">WCAPF &ndash; Ajax Product Filter for WooCommerce</a> configuration &mdash; the same plugin that drives filtering on herlan.com &mdash; rather than auto-discovering every product taxonomy/attribute in the store. If a taxonomy isn't configured as a filter in WCAPF, it won't appear here, even if it technically exists on products. This also means the set can change if the WCAPF filter form is edited in wp-admin, and changes take effect immediately (no caching delay). Falls back to auto-discovering common taxonomies only if WCAPF isn't installed/configured.</p>
 <h4>Request parameters</h4>
 <table>
 <thead>
@@ -1728,6 +1733,7 @@ GET /group/products
 </table>
 <h3 id="post-auth-login"><code>POST /auth/login</code></h3>
 <p>Logs a user in with WordPress username/email and password.</p>
+<p>If the request also carries a guest <code>Cart-Token</code> header, that guest cart is merged into the account &mdash; see <a href="#guest-cart-merge-on-login">Guest cart merge on login</a>.</p>
 <p>Request body:</p>
 <pre><code class="language-json">{
   "username": "customer@example.com",
@@ -2539,6 +2545,7 @@ GET /group/products
 <hr />
 <h3 id="get-taxonomies"><code>GET /taxonomies</code></h3>
 <p>Returns all filterable product taxonomies and their terms in a single call. Use this to populate filter UI (dropdowns, checkboxes, chips) and to know which <code>filter_*</code> parameter to send to <code>GET /group/products</code> when the user picks a term.</p>
+<p>Sourced from the site's actual WCAPF filter configuration &mdash; see the note under <a href="#get-filter-config">GET /filter-config</a>.</p>
 <p>Query parameters:</p>
 <table>
 <thead>
@@ -4233,7 +4240,22 @@ SHA256(BODY)</code></pre>
 <tr>
 <td><code>status</code></td>
 <td>string</td>
-<td>Order status</td>
+<td>Order status slug</td>
+</tr>
+<tr>
+<td><code>status_label</code></td>
+<td>string</td>
+<td>Human-readable status (e.g. <code>completed</code> &rarr; &quot;Delivered&quot;)</td>
+</tr>
+<tr>
+<td><code>status_color</code> / <code>status_bg</code></td>
+<td>string</td>
+<td>Suggested badge colors for <code>status_label</code></td>
+</tr>
+<tr>
+<td><code>order_status</code></td>
+<td>array</td>
+<td>4-step tracking stepper &mdash; see below</td>
 </tr>
 <tr>
 <td><code>date_created</code></td>
@@ -4259,6 +4281,40 @@ SHA256(BODY)</code></pre>
 <td><code>payment_method_title</code></td>
 <td>string</td>
 <td>Payment method label</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>order_status</code></strong> &mdash; a fixed 4-step progress stepper (Order Placed &rarr; Confirmed &rarr; Processing &rarr; Delivered), matching the website's own order-tracking stepper exactly. This is <em>not</em> a list of every WooCommerce order status &mdash; statuses like <code>on-hold</code>, <code>cancelled</code>, <code>refunded</code>, <code>failed</code>, or <code>ordernotreachable</code> aren't separate steps; they land on step 4 with <code>state: "terminal"</code> and that step's <code>label</code> replaced with the actual outcome (e.g. &quot;Cancelled&quot;) instead of &quot;Delivered&quot;.</p>
+<pre><code class="language-json">"order_status": [
+  { "index": 0, "label": "Order Placed", "state": "done" },
+  { "index": 1, "label": "Confirmed",    "state": "done" },
+  { "index": 2, "label": "Processing",   "state": "active" },
+  { "index": 3, "label": "Delivered",    "state": "upcoming" }
+]</code></pre>
+<p><code>state</code> is one of:</p>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>done</code></td>
+<td>This step is complete (already passed, or the order is fully delivered)</td>
+</tr>
+<tr>
+<td><code>active</code></td>
+<td>The order is currently at this step</td>
+</tr>
+<tr>
+<td><code>terminal</code></td>
+<td>Step 4 only &mdash; the order ended here in a non-delivery outcome (cancelled/refunded/failed/not reachable); <code>label</code> reflects the actual status instead of &quot;Delivered&quot;</td>
+</tr>
+<tr>
+<td><code>upcoming</code></td>
+<td>Not reached yet</td>
 </tr>
 </tbody>
 </table>
@@ -4526,6 +4582,12 @@ Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
     "status_label": "Processing",
     "status_color": "#2563eb",
     "status_bg": "#eff6ff",
+    "order_status": [
+      { "index": 0, "label": "Order Placed", "state": "done" },
+      { "index": 1, "label": "Confirmed",    "state": "done" },
+      { "index": 2, "label": "Processing",   "state": "active" },
+      { "index": 3, "label": "Delivered",    "state": "upcoming" }
+    ],
     "date_created": "2026-07-10T09:12:00+06:00",
     "currency": "BDT",
     "subtotal": "1450.00",
@@ -4574,6 +4636,11 @@ Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
 <td><code>status_color</code> / <code>status_bg</code></td>
 <td>string</td>
 <td>Suggested badge colors</td>
+</tr>
+<tr>
+<td><code>order_status</code></td>
+<td>array</td>
+<td>4-step tracking stepper &mdash; same shape as documented under <a href="#get-orders">GET /orders</a></td>
 </tr>
 <tr>
 <td><code>date_created</code></td>
@@ -4836,6 +4903,20 @@ Content-Disposition: attachment; filename="invoice-order-123.pdf"</code></pre>
 <li>Each response includes a (possibly refreshed) <code>cart_token</code> &mdash; always overwrite your stored value with the latest one.</li>
 </ol>
 <p>If the <code>Cart-Token</code> header is omitted or invalid, the API simply starts a brand-new empty cart for that request &mdash; this is why a coupon applied in one request can appear "not applied" in a later request if the token wasn't sent back. Always round-trip the token.</p>
+<h3 id="guest-cart-merge-on-login">Guest cart merge on login</h3>
+<p>WooCommerce does <strong>not</strong> automatically merge a guest's cart into their account on login for this token-based flow (its built-in guest&rarr;account cart migration only works with browser cookies, which this API doesn't use). Instead, the merge is handled explicitly:</p>
+<p><strong>To carry a guest cart into a newly-logged-in session, send the guest <code>Cart-Token</code> header on the login request itself</strong> &mdash; alongside <code>Woo-Consumer-Key</code>/<code>Woo-Consumer-Secret</code>, not instead of the login body:</p>
+<pre><code class="language-http">POST /wp-json/herlan/v1/auth/login
+Woo-Consumer-Key: ck_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Woo-Consumer-Secret: cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Cart-Token: eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoidF9hYmMxMjMiLCJleHAiOjE3NTAwMDAwMDAsImlzcyI6InN0b3JlLWFwaSJ9.xxxxx
+Content-Type: application/json
+
+{"username": "customer", "password": "secret"}</code></pre>
+<p>On a successful login, the server reads the guest cart's line items directly and merges any the account doesn't already have. <strong>After login, stop sending that old <code>Cart-Token</code></strong> &mdash; call <code>GET /cart</code> with only <code>Authorization: Bearer TOKEN</code>, and the response will already include the merged items under a fresh, account-bound <code>cart_token</code>.</p>
+<p>This also works if you forget to attach the guest <code>Cart-Token</code> at login time, or if the user logs in through a different flow this plugin doesn't control (e.g. Google/Facebook/OTP sign-in via the site's separate <code>auth-popup</code> plugin) &mdash; the merge check runs again on the first authenticated <code>/cart/*</code> request that still carries the old guest <code>Cart-Token</code> alongside a valid Bearer token. Either way, once merged, drop the old token and rely on the Bearer token alone.</p>
+<p><strong>Common mistake:</strong> if the cart is empty right after login, the most likely cause is that the guest <code>Cart-Token</code> wasn't attached to the <code>/auth/login</code> request (many HTTP client setups only wire custom headers onto cart-specific calls). Double-check it's present on that specific request.</p>
+<p>Only cart line items are merged &mdash; applied coupons and cached totals from the guest session are not carried over; totals recalculate fresh on the next cart read regardless.</p>
 <p>Every cart response includes the full <code>cart</code> object in <code>data</code>:</p>
 <pre><code class="language-json">{
   "success": true,

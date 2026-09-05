@@ -3,7 +3,10 @@
 namespace HerlanRestApi\Controllers;
 
 use HerlanRestApi\Controller;
+use HerlanRestApi\Support\Cache;
+use HerlanRestApi\Support\NewArrivals;
 use HerlanRestApi\Support\Response;
+use HerlanRestApi\Support\WcapfFilters;
 use WC_Product;
 use WP_Error;
 use WP_REST_Request;
@@ -145,7 +148,7 @@ final class ProductListingController extends Controller
         $page             = max(1, (int) ($request->get_param('page') ?? 1));
         $per_page         = min(100, max(1, (int) ($request->get_param('per_page') ?? 50)));
 
-        $taxonomies  = $this->filterable_taxonomies();
+        $taxonomies  = WcapfFilters::taxonomies();
         $filter_defs = [];
 
         foreach ($taxonomies as $taxonomy => $tax_object) {
@@ -605,6 +608,10 @@ final class ProductListingController extends Controller
             case 'date':
                 $args['orderby'] = 'date';
                 $args['order']   = 'DESC';
+                // "New Arrivals" — reorders/filters using the same configurable
+                // algorithm as the theme's New Arrivals sections when enabled
+                // in Settings, instead of a plain newest-first sort.
+                $args = NewArrivals::apply($args);
                 break;
 
             case 'price':
@@ -675,12 +682,14 @@ final class ProductListingController extends Controller
         }
 
         $args = [
-            'post_type'      => 'product',
-            'post_status'    => 'publish',
-            'posts_per_page' => -1,
-            'fields'         => 'ids',
-            'no_found_rows'  => true,
-            'tax_query'      => $tax_query,
+            'post_type'               => 'product',
+            'post_status'             => 'publish',
+            'posts_per_page'          => -1,
+            'fields'                  => 'ids',
+            'no_found_rows'           => true,
+            'update_post_meta_cache'  => false,
+            'update_post_term_cache'  => false,
+            'tax_query'               => $tax_query,
         ];
 
         if ($meta_query) {
@@ -696,7 +705,8 @@ final class ProductListingController extends Controller
             $args['post__in'] = ! empty($sale_ids) ? $sale_ids : [0];
         }
 
-        return (new \WP_Query($args))->posts;
+        return Cache::remember('pool_ids', $args, 5 * MINUTE_IN_SECONDS,
+            fn () => (new \WP_Query($args))->posts);
     }
 
     /**
@@ -705,14 +715,19 @@ final class ProductListingController extends Controller
      */
     private function pool_product_ids_raw(array $context_tax_query): array
     {
-        return (new \WP_Query([
-            'post_type'      => 'product',
-            'post_status'    => 'publish',
-            'posts_per_page' => -1,
-            'fields'         => 'ids',
-            'no_found_rows'  => true,
-            'tax_query'      => $context_tax_query,
-        ]))->posts;
+        $args = [
+            'post_type'              => 'product',
+            'post_status'            => 'publish',
+            'posts_per_page'         => -1,
+            'fields'                 => 'ids',
+            'no_found_rows'          => true,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+            'tax_query'              => $context_tax_query,
+        ];
+
+        return Cache::remember('pool_ids_raw', $args, 5 * MINUTE_IN_SECONDS,
+            fn () => (new \WP_Query($args))->posts);
     }
 
     // ─── Counting queries (wpdb GROUP BY — one query per taxonomy) ─────────
@@ -945,7 +960,7 @@ final class ProductListingController extends Controller
 
     private function format_filters_block(array $params, array $context_tax_query): array
     {
-        $taxonomies = $this->filterable_taxonomies();
+        $taxonomies = WcapfFilters::taxonomies();
 
         // Full pool: context + all active filters (used for price range and availability).
         // Reused for taxonomies that have no active filter — no extra query needed.
@@ -1112,32 +1127,6 @@ final class ProductListingController extends Controller
     }
 
     // ─── Shared utilities ──────────────────────────────────────────────────
-
-    private function filterable_taxonomies(): array
-    {
-        $excluded  = ['product_type', 'product_visibility', 'product_shipping_class', 'pos_product_visibility'];
-        $preferred = ['product_cat', 'brand', 'product_tag', 'keywords', 'skin-type', 'age-range'];
-        $all       = get_object_taxonomies('product', 'objects');
-        $result    = [];
-
-        foreach ($preferred as $taxonomy) {
-            if (isset($all[$taxonomy]) && ! in_array($taxonomy, $excluded, true)) {
-                $result[$taxonomy] = $all[$taxonomy];
-            }
-        }
-
-        foreach ($all as $taxonomy => $object) {
-            if (isset($result[$taxonomy]) || in_array($taxonomy, $excluded, true)) {
-                continue;
-            }
-
-            if ($object->public || str_starts_with($taxonomy, 'pa_')) {
-                $result[$taxonomy] = $object;
-            }
-        }
-
-        return apply_filters('herlan_rest_api_filterable_taxonomies', $result);
-    }
 
     private function image(int $image_id): array
     {

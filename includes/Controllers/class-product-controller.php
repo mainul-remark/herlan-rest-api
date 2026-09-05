@@ -3,7 +3,10 @@
 namespace HerlanRestApi\Controllers;
 
 use HerlanRestApi\Controller;
+use HerlanRestApi\Support\Cache;
+use HerlanRestApi\Support\NewArrivals;
 use HerlanRestApi\Support\Response;
+use HerlanRestApi\Support\WcapfFilters;
 use WC_Product;
 use WP_Comment;
 use WP_Error;
@@ -218,13 +221,23 @@ final class ProductController extends Controller
             return new WP_Error('herlan_woocommerce_unavailable', __('WooCommerce is not available.', 'herlan-rest-api'), ['status' => 500]);
         }
 
-        $product = wc_get_product(absint($request->get_param('id')));
+        $id = absint($request->get_param('id'));
 
-        if (! $product instanceof WC_Product || $product->get_status() !== 'publish') {
+        $data = Cache::remember('product_show', ['id' => $id], 10 * MINUTE_IN_SECONDS, function () use ($id) {
+            $product = wc_get_product($id);
+
+            if (! $product instanceof WC_Product || $product->get_status() !== 'publish') {
+                return null;
+            }
+
+            return $this->format_product($product);
+        });
+
+        if ($data === null) {
             return new WP_Error('herlan_product_not_found', __('Product not found.', 'herlan-rest-api'), ['status' => 404]);
         }
 
-        return Response::success($this->format_product($product));
+        return Response::success($data);
     }
 
     public function bundle_items(WP_REST_Request $request)
@@ -883,7 +896,7 @@ final class ProductController extends Controller
             'new_arrivals' => array_merge([
                 'title' => 'New Arrivals',
                 'url' => $new_arrivals_url,
-                'products' => $this->recommendation_products([
+                'products' => $this->recommendation_products(NewArrivals::apply([
                     'post__not_in' => [$product_id],
                     'orderby' => 'date',
                     'order' => 'DESC',
@@ -897,7 +910,7 @@ final class ProductController extends Controller
                             'include_children' => true,
                         ],
                     ]),
-                ], $limit),
+                ]), $limit),
             ], $this->resolve_shortcut_filters($new_arrivals_url, 'section')),
         ];
     }
@@ -1214,7 +1227,7 @@ final class ProductController extends Controller
     {
         $filters = [];
 
-        foreach ($this->filterable_taxonomies() as $taxonomy => $object) {
+        foreach (WcapfFilters::taxonomies() as $taxonomy => $object) {
             $terms = get_terms([
                 'taxonomy' => $taxonomy,
                 'hide_empty' => true,
@@ -1266,41 +1279,6 @@ final class ProductController extends Controller
         return $filters;
     }
 
-    private function filterable_taxonomies(): array
-    {
-        $excluded = [
-            'product_type',
-            'product_visibility',
-            'product_shipping_class',
-            'pos_product_visibility',
-        ];
-        $preferred = [
-            'product_cat',
-            'brand',
-            'product_tag',
-            'keywords',
-        ];
-        $taxonomies = get_object_taxonomies('product', 'objects');
-        $filterable = [];
-
-        foreach ($preferred as $taxonomy) {
-            if (isset($taxonomies[$taxonomy]) && ! in_array($taxonomy, $excluded, true)) {
-                $filterable[$taxonomy] = $taxonomies[$taxonomy];
-            }
-        }
-
-        foreach ($taxonomies as $taxonomy => $object) {
-            if (isset($filterable[$taxonomy]) || in_array($taxonomy, $excluded, true)) {
-                continue;
-            }
-
-            if ($object->public || str_starts_with($taxonomy, 'pa_')) {
-                $filterable[$taxonomy] = $object;
-            }
-        }
-
-        return apply_filters('herlan_rest_api_filterable_taxonomies', $filterable);
-    }
 
     private function filter_base_tax_query(string $taxonomy, string $term): array
     {

@@ -5,6 +5,7 @@ namespace HerlanRestApi\Controllers;
 use Automattic\WooCommerce\StoreApi\SessionHandler as StoreApiSessionHandler;
 use Automattic\WooCommerce\StoreApi\Utilities\CartTokenUtils;
 use HerlanRestApi\Controller;
+use HerlanRestApi\Support\CartMerge;
 use HerlanRestApi\Support\Response;
 use WC_Product;
 use WC_Shipping_Zone;
@@ -664,6 +665,17 @@ final class CartController extends Controller
     {
         if (! function_exists('WC') || ! WC()) {
             return new WP_Error('herlan_woocommerce_unavailable', __('WooCommerce is not available.', 'herlan-rest-api'), ['status' => 500]);
+        }
+
+        // Catches a guest cart that never got merged at login time — e.g. the
+        // client kept sending the pre-login Cart-Token, or logged in via a
+        // flow this plugin doesn't control (auth-popup's Google/Facebook/OTP
+        // endpoints). Any logged-in request still carrying a Cart-Token that
+        // belongs to someone else's (anonymous) session gets merged here and
+        // the stale header dropped, so the session resolution below falls
+        // back to the authenticated user's own identity instead of it.
+        if (is_user_logged_in() && CartMerge::reconcile_for_authenticated_user(get_current_user_id())) {
+            unset($_SERVER['HTTP_CART_TOKEN']);
         }
 
         if (WC()->session === null && $this->incoming_cart_token() !== '') {

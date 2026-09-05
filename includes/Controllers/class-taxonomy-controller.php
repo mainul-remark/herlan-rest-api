@@ -3,7 +3,9 @@
 namespace HerlanRestApi\Controllers;
 
 use HerlanRestApi\Controller;
+use HerlanRestApi\Support\Cache;
 use HerlanRestApi\Support\Response;
+use HerlanRestApi\Support\WcapfFilters;
 use WP_REST_Request;
 use WP_REST_Server;
 use WP_Term;
@@ -48,7 +50,16 @@ final class TaxonomyController extends Controller
     public function all_taxonomies(WP_REST_Request $request)
     {
         $hide_empty = rest_sanitize_boolean($request->get_param('hide_empty'));
-        $taxonomies = $this->get_filterable_taxonomies();
+
+        $result = Cache::remember('taxonomies_all', ['hide_empty' => $hide_empty], 15 * MINUTE_IN_SECONDS,
+            fn () => $this->build_all_taxonomies($hide_empty));
+
+        return Response::success(['taxonomies' => $result]);
+    }
+
+    private function build_all_taxonomies(bool $hide_empty): array
+    {
+        $taxonomies = WcapfFilters::taxonomies();
         $result     = [];
 
         foreach ($taxonomies as $taxonomy => $tax_object) {
@@ -98,7 +109,7 @@ final class TaxonomyController extends Controller
             ];
         }
 
-        return Response::success(['taxonomies' => $result]);
+        return $result;
     }
 
     public function index(WP_REST_Request $request)
@@ -128,18 +139,21 @@ final class TaxonomyController extends Controller
 
     private function get_categories(array $args, bool $flat): array
     {
-        $terms = get_terms(array_merge($args, ['taxonomy' => 'product_cat']));
+        return Cache::remember('taxonomy_categories', array_merge($args, ['flat' => $flat]), 15 * MINUTE_IN_SECONDS,
+            function () use ($args, $flat) {
+                $terms = get_terms(array_merge($args, ['taxonomy' => 'product_cat']));
 
-        if (is_wp_error($terms) || empty($terms)) {
-            return ['items' => [], 'total' => 0];
-        }
+                if (is_wp_error($terms) || empty($terms)) {
+                    return ['items' => [], 'total' => 0];
+                }
 
-        $formatted = array_map([$this, 'format_category'], $terms);
+                $formatted = array_map([$this, 'format_category'], $terms);
 
-        return [
-            'items' => $flat ? $formatted : $this->build_tree($formatted),
-            'total' => count($formatted),
-        ];
+                return [
+                    'items' => $flat ? $formatted : $this->build_tree($formatted),
+                    'total' => count($formatted),
+                ];
+            });
     }
 
     private function get_brands(array $args): array
@@ -148,15 +162,18 @@ final class TaxonomyController extends Controller
             return ['items' => [], 'total' => 0];
         }
 
-        $terms = get_terms(array_merge($args, ['taxonomy' => 'brand']));
+        return Cache::remember('taxonomy_brands', $args, 15 * MINUTE_IN_SECONDS,
+            function () use ($args) {
+                $terms = get_terms(array_merge($args, ['taxonomy' => 'brand']));
 
-        if (is_wp_error($terms) || empty($terms)) {
-            return ['items' => [], 'total' => 0];
-        }
+                if (is_wp_error($terms) || empty($terms)) {
+                    return ['items' => [], 'total' => 0];
+                }
 
-        $formatted = array_map([$this, 'format_brand'], $terms);
+                $formatted = array_map([$this, 'format_brand'], $terms);
 
-        return ['items' => $formatted, 'total' => count($formatted)];
+                return ['items' => $formatted, 'total' => count($formatted)];
+            });
     }
 
     private function format_category(WP_Term $term): array
@@ -203,32 +220,6 @@ final class TaxonomyController extends Controller
         }
 
         return $tree;
-    }
-
-    private function get_filterable_taxonomies(): array
-    {
-        $excluded  = ['product_type', 'product_visibility', 'product_shipping_class', 'pos_product_visibility'];
-        $preferred = ['product_cat', 'brand', 'product_tag', 'keywords', 'skin-type', 'age-range'];
-        $all       = get_object_taxonomies('product', 'objects');
-        $result    = [];
-
-        foreach ($preferred as $taxonomy) {
-            if (isset($all[$taxonomy]) && ! in_array($taxonomy, $excluded, true)) {
-                $result[$taxonomy] = $all[$taxonomy];
-            }
-        }
-
-        foreach ($all as $taxonomy => $object) {
-            if (isset($result[$taxonomy]) || in_array($taxonomy, $excluded, true)) {
-                continue;
-            }
-
-            if ($object->public || str_starts_with($taxonomy, 'pa_')) {
-                $result[$taxonomy] = $object;
-            }
-        }
-
-        return apply_filters('herlan_rest_api_filterable_taxonomies', $result);
     }
 
     private function term_image(int $term_id, string $meta_key): ?array
